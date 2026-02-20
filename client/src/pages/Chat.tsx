@@ -102,17 +102,12 @@ export default function Chat() {
   return (
     <div className={`chat-page${roomId ? ' has-room' : ''}`}>
       <div className="chat-rooms">
-        <div style={{ padding: '0.75rem', fontWeight: 600 }}>Комнаты</div>
+        <div className="chat-rooms-header">🏠 Комнаты</div>
         {roomList.map((r) => (
           <Link
             key={r.id}
             to={`/chat/${r.id}`}
-            style={{
-              display: 'block',
-              padding: '0.75rem 1rem',
-              color: roomId === r.id ? 'var(--accent)' : 'var(--text)',
-              textDecoration: 'none',
-            }}
+            className={`chat-room-link${roomId === r.id ? ' active' : ''}`}
           >
             {r.name}
           </Link>
@@ -133,11 +128,12 @@ export default function Chat() {
                   <div style={{ color: 'var(--text-muted)' }}>Загрузка…</div>
                 ) : (
                   messages.map((m) => (
-                    <div key={m.id}>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                        {m.login} · {new Date(m.created_at).toLocaleString()}
-                      </span>
-                      <div>{m.body}</div>
+                    <div key={m.id} className="chat-message">
+                      <div className="chat-message-header">
+                        <span className="chat-message-author">{m.login}</span>
+                        <span className="chat-message-time">{new Date(m.created_at).toLocaleString()}</span>
+                      </div>
+                      <div className="chat-message-body">{m.body}</div>
                     </div>
                   ))
                 )}

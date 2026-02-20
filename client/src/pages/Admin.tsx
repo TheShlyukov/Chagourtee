@@ -125,113 +125,191 @@ export default function Admin() {
   }
 
   return (
-    <div className="page-content" style={{ maxWidth: 900 }}>
-      <h2 style={{ marginBottom: '1.5rem' }}>Админка</h2>
-      {error && <p className="error" style={{ marginBottom: '1rem' }}>{error}</p>}
-      {message && <p style={{ color: 'var(--success)', marginBottom: '1rem' }}>{message}</p>}
+    <div className="page-content" style={{ maxWidth: 1400 }}>
+      <h2 style={{ marginBottom: '0.5rem', fontSize: '1.75rem' }}>⚙️ Админка</h2>
+      <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Управление комнатами, инвайтами и верификацией</p>
+      
+      {error && (
+        <div style={{ 
+          padding: '1rem 1.25rem', 
+          marginBottom: '1.5rem', 
+          background: 'rgba(239, 68, 68, 0.1)', 
+          border: '1px solid var(--danger)',
+          borderRadius: '8px',
+          color: 'var(--danger)'
+        }}>
+          {error}
+        </div>
+      )}
+      {message && (
+        <div style={{ 
+          padding: '1rem 1.25rem', 
+          marginBottom: '1.5rem', 
+          background: 'rgba(16, 185, 129, 0.1)', 
+          border: '1px solid var(--success)',
+          borderRadius: '8px',
+          color: 'var(--success)'
+        }}>
+          ✓ {message}
+        </div>
+      )}
 
-      <section style={{ marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '0.75rem' }}>Комнаты</h3>
-        <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          <input
-            value={newRoomName}
-            onChange={(e) => setNewRoomName(e.target.value)}
-            placeholder="Название комнаты"
-            style={{ maxWidth: 280 }}
-          />
-          <button type="submit">Создать</button>
-        </form>
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {rooms.map((r) => (
-            <li key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <span>{r.name}</span>
-              <button type="button" className="secondary" onClick={() => deleteRoom(r.id)}>
-                Удалить
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🏠 Комнаты</h3>
+          <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <input
+              value={newRoomName}
+              onChange={(e) => setNewRoomName(e.target.value)}
+              placeholder="Название комнаты"
+              style={{ flex: 1 }}
+            />
+            <button type="submit">➕ Создать</button>
+          </form>
+          {rooms.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет комнат</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {rooms.map((r) => (
+                <div key={r.id} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.75rem',
+                  padding: '0.875rem 1rem',
+                  background: 'var(--bg-hover)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)'
+                }}>
+                  <span style={{ flex: 1, fontWeight: 500 }}>{r.name}</span>
+                  <button type="button" className="danger" onClick={() => deleteRoom(r.id)} style={{ fontSize: '0.875rem' }}>
+                    🗑️ Удалить
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-      <section style={{ marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '0.75rem' }}>Инвайты</h3>
-        <form onSubmit={createInvite} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          <input
-            type="number"
-            min={1}
-            value={inviteOpts.maxUses}
-            onChange={(e) => setInviteOpts((o) => ({ ...o, maxUses: e.target.value }))}
-            placeholder="Макс. использований"
-            style={{ width: 160 }}
-          />
-          <input
-            type="number"
-            min={1}
-            value={inviteOpts.expiresInHours}
-            onChange={(e) => setInviteOpts((o) => ({ ...o, expiresInHours: e.target.value }))}
-            placeholder="Срок (часы)"
-            style={{ width: 120 }}
-          />
-          <button type="submit">Создать инвайт</button>
-        </form>
-        {lastInviteUrl && (
-          <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
-            Ссылка для приглашения: <a href={lastInviteUrl} target="_blank" rel="noreferrer">{lastInviteUrl}</a>
-            {import.meta.env.VITE_APP_PUBLIC_URL && ' (по настройке VITE_APP_PUBLIC_URL)'}
-          </p>
-        )}
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {invites.map((inv) => (
-            <li key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
-              <code style={{ background: 'var(--bg-hover)', padding: '0.2rem 0.4rem' }}>{inv.id}</code>
-              <span style={{ color: 'var(--text-muted)' }}>
-                {inv.uses_count}{inv.max_uses != null ? `/${inv.max_uses}` : ''} · {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : 'без срока'}
-              </span>
-              <button type="button" className="secondary" onClick={() => deleteInvite(inv.id)}>
-                Удалить
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🎫 Инвайты</h3>
+          <form onSubmit={createInvite} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <input
+              type="number"
+              min={1}
+              value={inviteOpts.maxUses}
+              onChange={(e) => setInviteOpts((o) => ({ ...o, maxUses: e.target.value }))}
+              placeholder="Макс. использований"
+              style={{ flex: 1 }}
+            />
+            <input
+              type="number"
+              min={1}
+              value={inviteOpts.expiresInHours}
+              onChange={(e) => setInviteOpts((o) => ({ ...o, expiresInHours: e.target.value }))}
+              placeholder="Срок (часы)"
+              style={{ flex: 1 }}
+            />
+            <button type="submit">➕ Создать</button>
+          </form>
+          {lastInviteUrl && (
+            <div style={{ 
+              marginBottom: '1.5rem', 
+              padding: '1rem',
+              background: 'var(--accent-light)',
+              borderRadius: '8px',
+              border: '1px solid var(--accent)'
+            }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Ссылка для приглашения:</div>
+              <a href={lastInviteUrl} target="_blank" rel="noreferrer" style={{ 
+                wordBreak: 'break-all',
+                color: 'var(--accent)',
+                fontWeight: 500
+              }}>{lastInviteUrl}</a>
+              {import.meta.env.VITE_APP_PUBLIC_URL && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                  ℹ️ По настройке VITE_APP_PUBLIC_URL
+                </div>
+              )}
+            </div>
+          )}
+          {invites.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет активных инвайтов</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {invites.map((inv) => (
+                <div key={inv.id} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.75rem',
+                  padding: '0.875rem 1rem',
+                  background: 'var(--bg-hover)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  fontSize: '0.9rem'
+                }}>
+                  <code style={{ 
+                    background: 'var(--bg)', 
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    fontWeight: 600,
+                    color: 'var(--accent)'
+                  }}>{inv.id}</code>
+                  <span style={{ color: 'var(--text-muted)', flex: 1 }}>
+                    {inv.uses_count}{inv.max_uses != null ? `/${inv.max_uses}` : ''} · {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : 'без срока'}
+                  </span>
+                  <button type="button" className="danger" onClick={() => deleteInvite(inv.id)} style={{ fontSize: '0.875rem' }}>
+                    🗑️ Удалить
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
-      <section>
-        <h3 style={{ marginBottom: '0.75rem' }}>Верификация (ожидают)</h3>
+      <div className="card">
+        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>✅ Верификация (ожидают)</h3>
         {pending.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>Нет пользователей на верификации.</p>
+          <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет пользователей на верификации</p>
         ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1rem' }}>
             {pending.map((u) => (
-              <li
+              <div
                 key={u.id}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  marginBottom: '0.5rem',
-                  flexWrap: 'wrap',
+                  padding: '1.25rem',
+                  background: 'var(--bg-hover)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
                 }}
               >
-                <span>{u.login}</span>
-                <input
-                  type="text"
-                  value={codewordCheck[u.id] ?? ''}
-                  onChange={(e) => setCodewordCheck((c) => ({ ...c, [u.id]: e.target.value }))}
-                  placeholder="Кодовое слово для проверки"
-                  style={{ width: 200 }}
-                />
-                <button type="button" className="secondary" onClick={() => checkCodeword(u.id)}>
-                  Проверить
-                </button>
-                <button type="button" onClick={() => approve(u.id)}>Подтвердить</button>
-                <button type="button" className="danger" onClick={() => reject(u.id)}>
-                  Отклонить
-                </button>
-              </li>
+                <div style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>
+                  👤 {u.login}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <input
+                    type="text"
+                    value={codewordCheck[u.id] ?? ''}
+                    onChange={(e) => setCodewordCheck((c) => ({ ...c, [u.id]: e.target.value }))}
+                    placeholder="Кодовое слово для проверки"
+                  />
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button type="button" className="secondary" onClick={() => checkCodeword(u.id)} style={{ flex: 1, fontSize: '0.875rem' }}>
+                      🔍 Проверить
+                    </button>
+                    <button type="button" onClick={() => approve(u.id)} style={{ flex: 1, fontSize: '0.875rem' }}>
+                      ✓ Подтвердить
+                    </button>
+                    <button type="button" className="danger" onClick={() => reject(u.id)} style={{ flex: 1, fontSize: '0.875rem' }}>
+                      ✕ Отклонить
+                    </button>
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
-      </section>
+      </div>
     </div>
   );
 }

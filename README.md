@@ -37,7 +37,7 @@ npm run dev
 
 **Доступ с телефона или другого устройства в той же Wi‑Fi:** откройте в браузере `http://ИМЯ_ИЛИ_IP_ВАШЕГО_КОМПЬЮТЕРА:5173` (например, `http://macbook-air-dana.local:5173`). Чтобы ссылки-инвайты вели на этот адрес (а не на localhost), создайте в корне проекта или в `client/` файл `.env` и добавьте строку:
 ```bash
-VITE_APP_PUBLIC_URL=http://macbook-air-dana.local:5173
+VITE_APP_PUBLIC_URL=http://<ВАШ_IP_АДРЕСС>:5173
 ```
 После изменения перезапустите клиент (`npm run dev:client`).
 

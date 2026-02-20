@@ -1,0 +1,47 @@
+import { Route, Navigate, Routes } from 'react-router-dom';
+import { AuthProvider, useAuth } from './AuthContext';
+import Layout from './Layout';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Chat from './pages/Chat';
+import Profile from './pages/Profile';
+import Admin from './pages/Admin';
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Загрузка…</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <Layout />
+          </PrivateRoute>
+        }
+      >
+        <Route index element={<Navigate to="/chat" replace />} />
+        <Route path="chat" element={<Chat />} />
+        <Route path="chat/:roomId" element={<Chat />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="admin" element={<Admin />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  );
+}

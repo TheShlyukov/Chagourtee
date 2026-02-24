@@ -12,9 +12,6 @@ export default function Profile() {
   const [loginNew, setLoginNew] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginOk, setLoginOk] = useState(false);
-  const [codeword, setCodeword] = useState('');
-  const [codewordError, setCodewordError] = useState<string | null>(null);
-  const [codewordOk, setCodewordOk] = useState(false);
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -43,22 +40,8 @@ export default function Profile() {
     }
   }
 
-  async function handleCodeword(e: React.FormEvent) {
-    e.preventDefault();
-    if (!codeword.trim()) return;
-    setCodewordError(null);
-    try {
-      await profile.submitCodeword(codeword);
-      setCodewordOk(true);
-      setCodeword('');
-      await refresh();
-    } catch (err) {
-      setCodewordError(err instanceof Error ? err.message : 'Ошибка');
-    }
-  }
-
   return (
-    <div className="page-content" style={{ maxWidth: 1200 }}>
+    <div className="page-content" style={{ maxWidth: 800 }}>
       <h2 style={{ marginBottom: '0.5rem', fontSize: '1.75rem' }}>👤 Профиль</h2>
       {user && (
         <div style={{ 
@@ -99,28 +82,16 @@ export default function Profile() {
       )}
 
       <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+        display: 'flex',
+        flexDirection: 'column',
         gap: '1.5rem'
       }}>
         {!user?.verified && (
           <div className="card" style={{ borderLeft: '4px solid var(--danger)', gridColumn: '1 / -1' }}>
-            <h3 style={{ marginBottom: '0.75rem', fontSize: '1.2rem' }}>⏳ Кодовое слово</h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
-              Введите кодовое слово для верификации. Владелец сервера проверит его вручную.
+            <h3 style={{ marginBottom: '0.75rem', fontSize: '1.2rem' }}>⏳ Ожидание верификации</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Ваш аккаунт ожидает подтверждения от владельца сервера. Кодовое слово устанавливается в админ-панели.
             </p>
-            <form onSubmit={handleCodeword} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 400 }}>
-              <input
-                value={codeword}
-                onChange={(e) => setCodeword(e.target.value)}
-                placeholder="Кодовое слово"
-              />
-              {codewordError && <p className="error" style={{ margin: 0 }}>{codewordError}</p>}
-              {codewordOk && <p style={{ color: 'var(--success)', margin: 0 }}>✓ Отправлено. Ожидайте подтверждения.</p>}
-              <button type="submit" disabled={!codeword.trim()} style={{ alignSelf: 'flex-start' }}>
-                Отправить
-              </button>
-            </form>
           </div>
         )}
 

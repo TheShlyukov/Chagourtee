@@ -43,6 +43,7 @@ async function run() {
   require('./invites')(fastify);
   require('./profile')(fastify);
   require('./verification')(fastify);
+  require('./users')(fastify);
   fastify.decorate('broadcastRoom', () => {});
 
   fastify.post('/api/auth/register', async (request, reply) => {

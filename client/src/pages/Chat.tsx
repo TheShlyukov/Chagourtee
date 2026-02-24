@@ -103,15 +103,17 @@ export default function Chat() {
     <div className={`chat-page${roomId ? ' has-room' : ''}`}>
       <div className="chat-rooms">
         <div className="chat-rooms-header">🏠 Комнаты</div>
-        {roomList.map((r) => (
-          <Link
-            key={r.id}
-            to={`/chat/${r.id}`}
-            className={`chat-room-link${roomId === r.id ? ' active' : ''}`}
-          >
-            {r.name}
-          </Link>
-        ))}
+        <div className="chat-rooms-list">
+          {roomList.map((r) => (
+            <Link
+              key={r.id}
+              to={`/chat/${r.id}`}
+              className={`chat-room-link${roomId === r.id ? ' active' : ''}`}
+            >
+              {r.name}
+            </Link>
+          ))}
+        </div>
       </div>
       <div className="chat-main">
         <div className="chat-main-content">

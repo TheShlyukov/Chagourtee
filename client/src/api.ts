@@ -165,3 +165,24 @@ export const profile = {
       body: JSON.stringify({ codeword }),
     }),
 };
+
+export const users = {
+  list: () =>
+    api<{ users: (User & { created_at: string })[] }>('/api/users'),
+  changeRole: (userId: number, role: 'owner' | 'moderator' | 'member') =>
+    api<{ ok: boolean }>(`/api/users/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
+  delete: (userId: number) =>
+    api<{ ok: boolean }>(`/api/users/${userId}`, { method: 'DELETE' }),
+  setCodeword: (userId: number, codeword: string) =>
+    api<{ ok: boolean }>(`/api/users/${userId}/codeword`, {
+      method: 'PATCH',
+      body: JSON.stringify({ codeword }),
+    }),
+  disableCodewordCheck: (userId: number) =>
+    api<{ ok: boolean }>(`/api/users/${userId}/disable-codeword-check`, {
+      method: 'POST',
+    }),
+};

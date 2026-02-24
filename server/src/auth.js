@@ -26,6 +26,11 @@ function requireAuth(fastify, _opts, done) {
     if (!request.session?.userId) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
+    const user = fastify.getUser(request.session.userId);
+    if (!user) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+    request.user = user;
   });
   fastify.decorate('requireOwnerOrModerator', async function (request, reply) {
     if (!request.session?.userId) {
@@ -35,6 +40,7 @@ function requireAuth(fastify, _opts, done) {
     if (!user || !isOwnerOrModerator(user.role)) {
       return reply.code(403).send({ error: 'Forbidden' });
     }
+    request.user = user;
   });
   fastify.decorate('requireOwner', async function (request, reply) {
     if (!request.session?.userId) {
@@ -44,6 +50,7 @@ function requireAuth(fastify, _opts, done) {
     if (!user || user.role !== 'owner') {
       return reply.code(403).send({ error: 'Forbidden' });
     }
+    request.user = user;
   });
   done();
 }

@@ -42,45 +42,6 @@ export default function Profile() {
 
   return (
     <div className="page-content" style={{ maxWidth: 800 }}>
-      <h2 style={{ marginBottom: '0.5rem', fontSize: '1.75rem' }}>👤 Профиль</h2>
-      {user && (
-        <div style={{ 
-          color: 'var(--text-muted)', 
-          marginBottom: '2rem',
-          padding: '1.25rem 1.5rem',
-          background: 'var(--accent-light)',
-          borderRadius: '12px',
-          border: '1px solid var(--border)',
-          display: 'flex',
-          gap: '2rem',
-          flexWrap: 'wrap'
-        }}>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Логин</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{user.login}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Роль</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{user.role}</div>
-          </div>
-          {!user.verified && (
-            <div style={{ marginLeft: 'auto' }}>
-              <div style={{ 
-                padding: '0.5rem 1rem',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid var(--danger)',
-                borderRadius: '6px',
-                color: 'var(--danger)',
-                fontSize: '0.9rem',
-                fontWeight: 500
-              }}>
-                ⏳ Ожидает верификации
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       <div style={{ 
         display: 'flex',
         flexDirection: 'column',

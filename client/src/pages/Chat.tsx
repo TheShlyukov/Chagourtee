@@ -102,7 +102,6 @@ export default function Chat() {
   return (
     <div className={`chat-page${roomId ? ' has-room' : ''}`}>
       <div className="chat-rooms">
-        <div className="chat-rooms-header">🏠 Комнаты</div>
         <div className="chat-rooms-list">
           {roomList.map((r) => (
             <Link
@@ -119,11 +118,8 @@ export default function Chat() {
         <div className="chat-main-content">
           {roomId ? (
             <>
-              <div className="chat-header">
-                <Link to="/chat" className="chat-back touch-target" style={{ color: 'var(--accent)', textDecoration: 'none', marginRight: '0.5rem', fontSize: '1.25rem' }}>
-                  ←
-                </Link>
-                <span style={{ flex: 1 }}>{roomList.find((r) => r.id === roomId)?.name ?? 'Чат'}</span>
+              <div className="chat-header-desktop">
+                {roomList.find((r) => r.id === roomId)?.name ?? 'Чат'}
               </div>
               <div className="chat-messages-wrap">
                 {loading ? (
@@ -153,8 +149,9 @@ export default function Chat() {
                   onInput={handleTyping}
                   placeholder="Сообщение…"
                 />
-                <button type="submit" disabled={!sendText.trim()}>
-                  Отправить
+                <button type="submit" disabled={!sendText.trim()} aria-label="Отправить">
+                  <span style={{ display: 'inline-block', fontSize: '1.1rem' }}>📤</span>
+                  <span style={{ marginLeft: '0.5rem' }} className="send-text">Отправить</span>
                 </button>
               </form>
             </>

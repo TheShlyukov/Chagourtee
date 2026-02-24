@@ -179,9 +179,6 @@ export default function Admin() {
 
   return (
     <div className="page-content" style={{ maxWidth: 800 }}>
-      <h2 style={{ marginBottom: '0.5rem', fontSize: '1.75rem' }}>⚙️ Админка</h2>
-      <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Управление комнатами, инвайтами и верификацией</p>
-      
       {error && (
         <div style={{ 
           padding: '1rem 1.25rem', 
@@ -210,14 +207,14 @@ export default function Admin() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <div className="card">
           <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🏠 Комнаты</h3>
-          <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             <input
               value={newRoomName}
               onChange={(e) => setNewRoomName(e.target.value)}
               placeholder="Название комнаты"
-              style={{ flex: 1 }}
+              style={{ flex: '1 1 200px', minWidth: 0 }}
             />
-            <button type="submit">➕ Создать</button>
+            <button type="submit" style={{ flex: '0 0 auto' }}>➕ Создать</button>
           </form>
           {rooms.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет комнат</p>
@@ -231,10 +228,11 @@ export default function Admin() {
                   padding: '0.875rem 1rem',
                   background: 'var(--bg-hover)',
                   borderRadius: '8px',
-                  border: '1px solid var(--border)'
+                  border: '1px solid var(--border)',
+                  flexWrap: 'wrap'
                 }}>
-                  <span style={{ flex: 1, fontWeight: 500 }}>{r.name}</span>
-                  <button type="button" className="danger" onClick={() => deleteRoom(r.id)} style={{ fontSize: '0.875rem' }}>
+                  <span style={{ flex: '1 1 150px', fontWeight: 500, wordBreak: 'break-word' }}>{r.name}</span>
+                  <button type="button" className="danger" onClick={() => deleteRoom(r.id)} style={{ fontSize: '0.875rem', flex: '0 0 auto' }}>
                     🗑️ Удалить
                   </button>
                 </div>
@@ -251,16 +249,16 @@ export default function Admin() {
               min={1}
               value={inviteOpts.maxUses}
               onChange={(e) => setInviteOpts((o) => ({ ...o, maxUses: e.target.value }))}
-              placeholder="Макс. использований"
+              placeholder="Макс. использований (необязательно)"
             />
             <input
               type="number"
               min={1}
               value={inviteOpts.expiresInHours}
               onChange={(e) => setInviteOpts((o) => ({ ...o, expiresInHours: e.target.value }))}
-              placeholder="Срок (часы)"
+              placeholder="Срок в часах (необязательно)"
             />
-            <button type="submit" style={{ width: '100%' }}>➕ Создать</button>
+            <button type="submit" style={{ width: '100%' }}>➕ Создать инвайт</button>
           </form>
           {lastInviteUrl && (
             <div style={{ 
@@ -272,9 +270,11 @@ export default function Admin() {
             }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Ссылка для приглашения:</div>
               <a href={lastInviteUrl} target="_blank" rel="noreferrer" style={{ 
-                wordBreak: 'break-all',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
                 color: 'var(--accent)',
-                fontWeight: 500
+                fontWeight: 500,
+                fontSize: '0.9rem'
               }}>{lastInviteUrl}</a>
               {import.meta.env.VITE_APP_PUBLIC_URL && (
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
@@ -296,7 +296,8 @@ export default function Admin() {
                   background: 'var(--bg-hover)',
                   borderRadius: '8px',
                   border: '1px solid var(--border)',
-                  fontSize: '0.9rem'
+                  fontSize: '0.9rem',
+                  flexWrap: 'wrap'
                 }}>
                   <code style={{ 
                     background: 'var(--bg)', 
@@ -305,11 +306,11 @@ export default function Admin() {
                     fontWeight: 600,
                     color: 'var(--accent)'
                   }}>{inv.id}</code>
-                  <span style={{ color: 'var(--text-muted)', flex: 1 }}>
+                  <span style={{ color: 'var(--text-muted)', flex: '1 1 150px', fontSize: '0.85rem' }}>
                     {inv.uses_count}{inv.max_uses != null ? `/${inv.max_uses}` : ''} · {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : 'без срока'}
                   </span>
-                  <button type="button" className="danger" onClick={() => deleteInvite(inv.id)} style={{ fontSize: '0.875rem' }}>
-                    🗑️ Удалить
+                  <button type="button" className="danger" onClick={() => deleteInvite(inv.id)} style={{ fontSize: '0.875rem', flex: '0 0 auto' }}>
+                    🗑️
                   </button>
                 </div>
               ))}
@@ -344,14 +345,14 @@ export default function Admin() {
                     onChange={(e) => setCodewordCheck((c) => ({ ...c, [u.id]: e.target.value }))}
                     placeholder="Кодовое слово для проверки"
                   />
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <button type="button" className="secondary" onClick={() => checkCodeword(u.id)} style={{ flex: 1, fontSize: '0.875rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
+                    <button type="button" className="secondary" onClick={() => checkCodeword(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
                       🔍 Проверить
                     </button>
-                    <button type="button" onClick={() => approve(u.id)} style={{ flex: 1, fontSize: '0.875rem' }}>
+                    <button type="button" onClick={() => approve(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
                       ✓ Подтвердить
                     </button>
-                    <button type="button" className="danger" onClick={() => reject(u.id)} style={{ flex: 1, fontSize: '0.875rem' }}>
+                    <button type="button" className="danger" onClick={() => reject(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
                       ✕ Отклонить
                     </button>
                   </div>
@@ -379,7 +380,7 @@ export default function Admin() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 150 }}>
+                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
                       {u.login}
                     </div>
@@ -398,6 +399,7 @@ export default function Admin() {
                       border: '1px solid var(--border)',
                       color: 'var(--text)',
                       fontSize: '0.9rem',
+                      minWidth: '120px'
                     }}
                   >
                     <option value="owner">Владелец</option>
@@ -416,7 +418,7 @@ export default function Admin() {
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       🔑 Кодовое слово
                     </label>

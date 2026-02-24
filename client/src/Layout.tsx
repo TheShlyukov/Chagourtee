@@ -1,11 +1,50 @@
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useParams, Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { useState, useEffect } from 'react';
+import { rooms as roomsApi } from './api';
 
 export default function Layout() {
   const { user } = useAuth();
+  const location = useLocation();
+  const params = useParams();
+  const [roomName, setRoomName] = useState<string | null>(null);
+
+  // Загрузка названия комнаты для заголовка
+  useEffect(() => {
+    const roomId = params.roomId ? Number(params.roomId) : null;
+    if (roomId) {
+      roomsApi.list().then(({ rooms }) => {
+        const room = rooms.find(r => r.id === roomId);
+        setRoomName(room?.name || null);
+      }).catch(() => setRoomName(null));
+    } else {
+      setRoomName(null);
+    }
+  }, [params.roomId]);
+
+  // Определяем заголовок для текущей страницы
+  const getPageTitle = () => {
+    if (location.pathname.startsWith('/chat')) {
+      if (params.roomId && roomName) return roomName;
+      return '🏠 Комнаты';
+    }
+    if (location.pathname === '/profile') return '👤 Профиль';
+    if (location.pathname === '/admin') return '⚙️ Админка';
+    return 'Chagourtee';
+  };
+
+  const showBackButton = location.pathname.startsWith('/chat/') && params.roomId;
 
   return (
     <div className="layout-root">
+      <nav className="layout-header-top">
+        {showBackButton && (
+          <Link to="/chat" className="chat-back touch-target" style={{ color: 'var(--accent)', textDecoration: 'none', marginRight: '0.5rem', fontSize: '1.25rem' }}>
+            ←
+          </Link>
+        )}
+        <span style={{ flex: 1 }}>{getPageTitle()}</span>
+      </nav>
       <aside className="layout-sidebar">
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 0.75rem' }}>
           <NavLink

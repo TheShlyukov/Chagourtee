@@ -30,6 +30,7 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
 }
 
 #root {
@@ -62,6 +63,7 @@ button {
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
+  touch-action: manipulation;
 }
 button::before {
   content: '';
@@ -74,6 +76,11 @@ button::before {
 button:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
+}
+@media (hover: none) {
+  button:hover {
+    transform: none;
+  }
 }
 button:hover::before {
   opacity: 1;
@@ -128,10 +135,34 @@ input:focus, textarea:focus {
 }
 
 @media (max-width: 768px) {
+  body {
+    font-size: 16px;
+  }
   button, .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
+  h2 {
+    font-size: 1.5rem;
+  }
+  h3 {
+    font-size: 1.2rem;
+  }
+}
+
+/* Единый заголовок страницы */
+.page-header {
+  flex-shrink: 0;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(26, 27, 35, 0.98);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+  font-size: 1.05rem;
 }
 
 /* Layout: десктоп — боковая панель, мобильные — нижняя навигация (breakpoint 768px) */
@@ -140,6 +171,9 @@ input:focus, textarea:focus {
   flex-direction: row;
   min-height: 100vh;
   width: 100%;
+}
+.layout-header-top {
+  display: none;
 }
 .layout-sidebar {
   flex-shrink: 0;
@@ -164,7 +198,28 @@ input:focus, textarea:focus {
 @media (max-width: 768px) {
   .layout-root {
     flex-direction: column;
-    padding-bottom: 60px;
+    padding-top: 52px;
+    padding-bottom: calc(52px + env(safe-area-inset-bottom));
+  }
+  .layout-header-top {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: rgba(26, 27, 35, 0.98);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    padding-top: calc(1rem + env(safe-area-inset-top));
+    padding-left: calc(1.25rem + env(safe-area-inset-left));
+    padding-right: calc(1.25rem + env(safe-area-inset-right));
+    align-items: center;
+    min-height: 52px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    font-weight: 600;
+    font-size: 1.05rem;
   }
   .layout-sidebar {
     display: none;
@@ -180,11 +235,13 @@ input:focus, textarea:focus {
     left: 0;
     right: 0;
     z-index: 1000;
-    background: rgba(26, 27, 35, 0.95);
-    backdrop-filter: blur(12px);
+    background: rgba(26, 27, 35, 0.98);
+    backdrop-filter: blur(8px);
     border-top: 1px solid var(--border);
     padding: 0.5rem 0;
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
     justify-content: space-around;
     align-items: stretch;
     min-height: 52px;
@@ -233,12 +290,18 @@ input:focus, textarea:focus {
   background: var(--bg-elevated);
   box-shadow: var(--shadow-sm);
 }
-.chat-rooms-header {
+.chat-rooms::before {
+  content: '🏠 Комнаты';
+  display: block;
   padding: 1rem 1.25rem;
   font-weight: 700;
   font-size: 1.1rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+}
+.chat-rooms-list {
+  display: flex;
+  flex-direction: column;
 }
 .chat-room-link {
   display: block;
@@ -273,21 +336,30 @@ input:focus, textarea:focus {
   min-height: 0;
   min-width: 0;
 }
-.chat-header {
+.chat-header-desktop {
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 10;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(26, 27, 35, 0.95);
-  backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  background: rgba(26, 27, 35, 0.98);
+  backdrop-filter: blur(8px);
   box-shadow: var(--shadow-sm);
   font-weight: 600;
   font-size: 1.05rem;
+}
+
+@media (min-width: 769px) {
+  .chat-rooms::before {
+    display: block;
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-rooms::before {
+    display: none;
+  }
+  .chat-header-desktop {
+    display: none;
+  }
 }
 .chat-messages-wrap {
   flex: 1;
@@ -297,7 +369,7 @@ input:focus, textarea:focus {
   flex-direction: column;
   gap: 1rem;
   min-height: 0;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .chat-message {
   background: var(--bg-elevated);
@@ -328,13 +400,15 @@ input:focus, textarea:focus {
 .chat-message-body {
   line-height: 1.5;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 .chat-form {
   flex-shrink: 0;
   padding: 1.25rem;
   border-top: 1px solid var(--border);
-  background: rgba(26, 27, 35, 0.95);
-  backdrop-filter: blur(12px);
+  background: rgba(26, 27, 35, 0.98);
+  backdrop-filter: blur(8px);
   display: flex;
   gap: 0.75rem;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
@@ -342,21 +416,33 @@ input:focus, textarea:focus {
 .chat-form input {
   flex: 1;
   min-width: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
+}
+.chat-form button {
+  padding: 0.625rem 1rem;
 }
 .chat-back {
   display: none;
 }
+
 @media (max-width: 768px) {
   .chat-form {
     position: fixed;
-    bottom: 60px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
     left: 0;
     right: 0;
     z-index: 10;
-    padding-bottom: 1rem;
+    padding: 1rem;
+    padding-left: calc(1rem + env(safe-area-inset-left));
+    padding-right: calc(1rem + env(safe-area-inset-right));
   }
-@media (max-width: 768px) {
+  .chat-form button {
+    padding: 0.625rem 0.875rem;
+    min-width: 44px;
+  }
+  .chat-form .send-text {
+    display: none;
+  }
   .chat-page .chat-rooms {
     width: 100%;
   }
@@ -370,7 +456,8 @@ input:focus, textarea:focus {
     display: none;
   }
   .chat-messages-wrap {
-    padding-bottom: calc(80px + 1rem);
+    padding: 1rem;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
   }
   .chat-back {
     display: inline-block;
@@ -398,6 +485,9 @@ input:focus, textarea:focus {
 @media (max-width: 768px) {
   .page-content {
     padding: 1rem;
+    padding-left: calc(1rem + env(safe-area-inset-left));
+    padding-right: calc(1rem + env(safe-area-inset-right));
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
     max-width: 100%;
   }
 }
@@ -427,6 +517,7 @@ input:focus, textarea:focus {
 @media (max-width: 768px) {
   .card {
     padding: 1rem;
+    overflow-wrap: break-word;
   }
 }
 
@@ -452,5 +543,4 @@ a:hover {
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
 }

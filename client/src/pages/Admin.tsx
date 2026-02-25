@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../AuthContext';
 import type { Room, Invite, User } from '../api';
 import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi } from '../api';
@@ -14,7 +14,6 @@ export default function Admin() {
   const [users, setUsers] = useState<UserWithDate[]>([]);
   const [newRoomName, setNewRoomName] = useState('');
   const [inviteOpts, setInviteOpts] = useState({ maxUses: '', expiresInHours: '' });
-  const [codewordCheck, setCodewordCheck] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
@@ -170,16 +169,6 @@ export default function Admin() {
     }
   }
 
-  async function checkCodeword(userId: number) {
-    const word = codewordCheck[userId];
-    if (word === undefined || word === '') return;
-    try {
-      const res = await verificationApi.check(userId, word);
-      setMessage(res.match ? 'Кодовое слово совпало' : 'Не совпало');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
-    }
-  }
 
   async function approve(userId: number) {
     setError(null);
@@ -227,16 +216,6 @@ export default function Admin() {
     }
   };
 
-  const verifyCodeword = async (userId: number, codeword: string) => {
-    try {
-      const response = await verificationApi.check(userId, codeword);
-      setMessage(response.match ? 'Кодовое слово совпало' : 'Кодовое слово не совпало');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      console.error('Failed to verify codeword:', error);
-      alert('Ошибка при проверке кодового слова');
-    }
-  };
 
   const approveUser = async (userId: number) => {
     try {
@@ -342,7 +321,6 @@ export default function Admin() {
     }
   };
 
-  const codewordInputRef = useRef<HTMLInputElement>(null);
 
   // Add a new state for tracking the reason for deletion
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
@@ -546,16 +524,7 @@ export default function Admin() {
                   👤 {u.login}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <input
-                    type="text"
-                    value={codewordCheck[u.id] ?? ''}
-                    onChange={(e) => setCodewordCheck((c) => ({ ...c, [u.id]: e.target.value }))}
-                    placeholder="Кодовое слово для проверки"
-                  />
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
-                    <button type="button" className="secondary" onClick={() => checkCodeword(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                      🔍 Проверить
-                    </button>
                     <button type="button" onClick={() => approve(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
                       ✓ Подтвердить
                     </button>
@@ -739,42 +708,11 @@ export default function Admin() {
                 {/* Verification controls only for unverified members */}
                 {!u.verified && u.role === 'member' && verificationEnabled && (
                   <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <input
-                      type="text"
-                      ref={codewordInputRef}
-                      placeholder="Введите кодовое слово"
-                      style={{ flex: '1 1 200px', fontSize: '0.9rem' }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          codewordInputRef.current?.value && verifyCodeword(u.id, codewordInputRef.current.value);
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (codewordInputRef.current?.value) {
-                          verifyCodeword(u.id, codewordInputRef.current.value);
-                        }
-                      }}
-                      style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                    >
-                      ✅ Проверить
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => approveUser(u.id)}
-                      style={{ fontSize: '0.875rem', padding: '0.5rem 1rem', backgroundColor: 'var(--success)' }}
-                    >
+                    <button type="button" onClick={() => approveUser(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
                       ✓ Подтвердить
                     </button>
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={() => rejectUser(u.id)}
-                      style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                    >
-                      ❌ Отклонить
+                    <button type="button" className="danger" onClick={() => rejectUser(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
+                      ✕ Отклонить
                     </button>
                   </div>
                 )}

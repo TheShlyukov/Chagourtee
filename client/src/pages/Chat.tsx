@@ -18,6 +18,7 @@ export default function Chat() {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const maxReconnectAttempts = 5;
 
   const loadRooms = useCallback(async () => {
@@ -59,6 +60,17 @@ export default function Chat() {
       ws.onopen = () => {
         console.log('WebSocket connected');
         reconnectAttemptsRef.current = 0; // Reset attempts on successful connection
+        
+        // Start heartbeat interval to keep connection alive
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+        }
+        heartbeatIntervalRef.current = setInterval(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 30000); // Send ping every 30 seconds
+        
         ws.send(JSON.stringify({ type: 'join', roomId }));
       };
       
@@ -99,6 +111,10 @@ export default function Chat() {
                 }
                 break;
                 
+              case 'pong': // Response to our ping
+                // Connection is alive, do nothing
+                break;
+                
               default:
                 // Handle any other message types
                 break;
@@ -118,6 +134,12 @@ export default function Chat() {
       ws.onclose = (event) => {
         console.log('WebSocket closed:', event.code, event.reason);
         
+        // Clear heartbeat interval
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+          heartbeatIntervalRef.current = null;
+        }
+        
         // Attempt to reconnect unless closed intentionally
         if (event.code !== 4001 && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
@@ -128,7 +150,10 @@ export default function Chat() {
           
           // Exponential backoff for reconnection
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 30000);
+          console.log(`Attempting to reconnect in ${delay} ms`);
           reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay);
+        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          console.error('Max reconnection attempts reached. Giving up.');
         }
       };
     };
@@ -144,6 +169,10 @@ export default function Chat() {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
+      }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
       }
     };
   }, [roomId, loadRooms]); // Added loadRooms to dependency array to trigger reload when needed

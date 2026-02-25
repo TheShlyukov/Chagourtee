@@ -27,6 +27,30 @@ module.exports = function (fastify) {
       ws.close(4001, 'Unauthorized');
       return;
     }
+    
+    // Set up heartbeat mechanism
+    let heartbeatInterval = setInterval(() => {
+      if (ws.isAlive === false) {
+        // Client did not respond to ping, close connection
+        ws.terminate();
+        return;
+      }
+      
+      ws.isAlive = false;
+      // Send ping to client
+      try {
+        ws.ping();
+      } catch (e) {
+        // Connection might be dead, terminate it
+        ws.terminate();
+      }
+    }, 35000); // Ping every 35 seconds (slightly more than client ping interval)
+    
+    // Mark connection as alive when pong is received
+    ws.on('pong', () => {
+      ws.isAlive = true;
+    });
+    
     if (!clientsByUser.has(userId)) clientsByUser.set(userId, new Set());
     clientsByUser.get(userId).add(ws);
     userByClient.set(ws, userId);
@@ -45,10 +69,16 @@ module.exports = function (fastify) {
         if (msg.type === 'join' && msg.roomId != null) {
           ws.currentRoomId = Number(msg.roomId);
         }
+        // Handle ping messages from client
+        if (msg.type === 'ping') {
+          // Respond with pong
+          ws.send(JSON.stringify({ type: 'pong' }));
+        }
       } catch (_) {}
     });
 
     ws.on('close', () => {
+      clearInterval(heartbeatInterval);
       userByClient.delete(ws);
       const set = clientsByUser.get(userId);
       if (set) {
@@ -59,7 +89,21 @@ module.exports = function (fastify) {
         }
       }
     });
+    
+    // Mark connection as alive initially
+    ws.isAlive = true;
   });
+
+  // Periodically remove dead connections
+  setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (ws.isAlive === false) {
+        return ws.terminate();
+      }
+      // Ensure all connections are marked as not alive until next heartbeat
+      ws.isAlive = false;
+    });
+  }, 40000); // Slightly more than ping interval
 
   function broadcast(payload) {
     const data = JSON.stringify(payload);

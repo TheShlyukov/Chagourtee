@@ -40,26 +40,6 @@ export default function Profile() {
     }
   }
 
-  const [codewordValue, setCodewordValue] = useState('');
-  const [codewordError, setCodewordError] = useState<string | null>(null);
-  const [codewordSuccess, setCodewordSuccess] = useState<string | null>(null);
-  const [codewordSubmitting, setCodewordSubmitting] = useState(false);
-
-  async function handleCodewordSubmit() {
-    setCodewordError(null);
-    setCodewordSuccess(null);
-    setCodewordSubmitting(true);
-    try {
-      await profile.submitCodeword(codewordValue);
-      setCodewordSuccess('Кодовое слово отправлено! Ожидайте верификации от владельца.');
-      setCodewordValue('');
-    } catch (err) {
-      setCodewordError(err instanceof Error ? err.message : 'Ошибка');
-    } finally {
-      setCodewordSubmitting(false);
-    }
-  }
-
   const handleLogout = async () => {
     if (window.confirm('Вы уверены, что хотите выйти?')) {
       try {
@@ -109,32 +89,10 @@ export default function Profile() {
             <h3 style={{ marginBottom: '0.75rem', fontSize: '1.2rem'}}>⏳ Ожидание верификации</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
               Ваш аккаунт ожидает подтверждения от владельца сервера. 
+              Как только администратор подтвердит вашу учетную запись, вы получите доступ ко всем функциям.
             </p>
-            
-            <div style={{ marginTop: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                Кодовое слово для верификации
-              </label>
-              <input
-                type="text"
-                value={codewordValue}
-                onChange={(e) => setCodewordValue(e.target.value)}
-                placeholder="Введите кодовое слово"
-                style={{ width: '100%', marginBottom: '0.5rem' }}
-              />
-              {codewordError && <p className="error" style={{ margin: 0 }}>{codewordError}</p>}
-              {codewordSuccess && <p style={{ color: 'var(--success)', margin: 0 }}>{codewordSuccess}</p>}
-              <button 
-                onClick={handleCodewordSubmit}
-                style={{ marginTop: '0.5rem' }}
-                disabled={codewordSubmitting}
-              >
-                {codewordSubmitting ? 'Отправка...' : 'Отправить кодовое слово'}
-              </button>
-            </div>
           </div>
         )}
-
         <div className="card">
           <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>🔒 Сменить пароль</h3>
           <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { auth } from '../api';
+import { auth, verification } from '../api';
 import { useAuth } from '../AuthContext';
 
 export default function Register() {
@@ -11,10 +11,16 @@ export default function Register() {
   const [codeword, setCodeword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [verificationEnabled, setVerificationEnabled] = useState(false);
   const { setUser, refresh } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Load verification settings
+    verification.settings()
+      .then(data => setVerificationEnabled(!!data.enabled))
+      .catch(err => console.error('Failed to load verification settings:', err));
+
     if (!inviteId) setError('Укажите инвайт в ссылке (например: /register?invite=xxx)');
   }, [inviteId]);
 
@@ -28,11 +34,16 @@ export default function Register() {
         inviteId,
         login: login.trim(),
         password,
-        codeword: codeword.trim() || undefined,
+        codeword: codeword.trim() || undefined, // Still send undefined if not required
       });
       setUser(user);
       await refresh();
-      navigate('/', { replace: true });
+      // If verification is enabled and user has to wait, show a different message
+      if (verificationEnabled && !user.verified) {
+        navigate('/profile', { replace: true }); // Go to profile where user can see verification status
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка регистрации');
     } finally {
@@ -101,20 +112,23 @@ export default function Register() {
                 required
               />
             </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                Кодовое слово <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(опционально)</span>
-              </label>
-              <input
-                type="text"
-                value={codeword}
-                onChange={(e) => setCodeword(e.target.value)}
-                placeholder="Для верификации владельцем"
-              />
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0 }}>
-                Оставьте пустым, если не требуется. Если заполнено, аккаунт будет ждать верификации.
-              </p>
-            </div>
+            {verificationEnabled && (
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
+                  Кодовое слово <span style={{ color: 'var(--text-danger)', fontWeight: 400 }}>(обязательно)</span>
+                </label>
+                <input
+                  type="text"
+                  value={codeword}
+                  onChange={(e) => setCodeword(e.target.value)}
+                  placeholder="Для верификации владельцем"
+                  required={verificationEnabled}
+                />
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0 }}>
+                  Это кодовое слово будет использовано для вашей верификации. Убедитесь, что знаете его.
+                </p>
+              </div>
+            )}
             {error && <p className="error" style={{ margin: 0 }}>{error}</p>}
             <button type="submit" disabled={loading || !inviteId} style={{ marginTop: '0.5rem', padding: '0.75rem' }}>
               {loading ? 'Регистрация…' : 'Зарегистрироваться'}

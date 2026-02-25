@@ -33,7 +33,8 @@ module.exports = function (fastify) {
     preHandler: [fastify.requireAuth, fastify.requireOwner],
   }, async (request, reply) => {
     const userId = Number(request.params.id);
-    const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(userId);
+    const reason = request.body?.reason || 'Account removed by administrator';
+    const target = db.prepare('SELECT id, role, login FROM users WHERE id = ?').get(userId);
     if (!target) return reply.code(404).send({ error: 'User not found' });
     if (target.role === 'owner') {
       return reply.code(403).send({ error: 'Cannot delete owner' });
@@ -41,6 +42,25 @@ module.exports = function (fastify) {
     if (userId === request.user.id) {
       return reply.code(403).send({ error: 'Cannot delete yourself' });
     }
+    
+    // Broadcast user deletion to all connected clients for this user
+    const wsServer = fastify.ws.wss;
+    if (wsServer) {
+      const payload = {
+        type: 'user_deleted',
+        userId: userId,
+        reason: reason
+      };
+      
+      wsServer.clients.forEach((client) => {
+        // Get the user ID associated with this WebSocket connection
+        const clientId = fastify.ws.userByClient.get(client);
+        if (client.readyState === 1 /* WebSocket.OPEN */ && clientId === userId) {
+          client.send(JSON.stringify(payload));
+        }
+      });
+    }
+    
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM messages WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM invites WHERE created_by = ?').run(userId);
@@ -69,6 +89,23 @@ module.exports = function (fastify) {
     const target = db.prepare('SELECT id, verified FROM users WHERE id = ?').get(userId);
     if (!target) return reply.code(404).send({ error: 'User not found' });
     db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(userId);
+    
+    // Broadcast verification status update
+    const wsServer = fastify.ws.wss;
+    if (wsServer) {
+      const payload = {
+        type: 'user_verified',
+        userId: userId
+      };
+      
+      wsServer.clients.forEach((client) => {
+        const clientId = fastify.ws.userByClient.get(client);
+        if (client.readyState === 1 /* WebSocket.OPEN */ && clientId === userId) {
+          client.send(JSON.stringify(payload));
+        }
+      });
+    }
+    
     return { ok: true };
   });
 };

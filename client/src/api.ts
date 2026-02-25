@@ -209,8 +209,11 @@ export const users = {
       method: 'PATCH',
       body: JSON.stringify({ role }),
     }),
-  delete: (userId: number) =>
-    api<{ ok: boolean }>(`/api/users/${userId}`, { method: 'DELETE' }),
+  delete: (userId: number, reason?: string) =>
+    api<{ ok: boolean }>(`/api/users/${userId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
   setCodeword: (userId: number, codeword: string) =>
     api<{ ok: boolean }>(`/api/users/${userId}/codeword`, {
       method: 'PATCH',

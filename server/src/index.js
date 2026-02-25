@@ -34,6 +34,39 @@ async function run() {
       return;
     }
     request.session = { userId: row.user_id, sessionId };
+    request.user = fastify.getUser(row.user_id);
+  });
+
+  // Add verification check for protected routes
+  fastify.addHook('preHandler', async function (request, reply) {
+    const setting = db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
+    const verificationEnabled = setting ? !!setting.enabled : false;
+    
+    // Only check verification for authenticated users on protected routes
+    if (request.session && request.user && verificationEnabled) {
+      const protectedPaths = [
+        '/api/rooms',
+        '/api/messages',
+        '/api/invites',
+        '/api/profile/change-password',
+        '/api/profile/change-login'
+      ];
+      
+      // Check if the current path is a protected route
+      const isProtectedRoute = protectedPaths.some(path => 
+        request.routeOptions.url.startsWith(path)
+      );
+      
+      // Also check if it's a specific message route
+      const isMessageRoute = /^\/api\/rooms\/\d+\/messages/.test(request.routeOptions.url);
+      
+      if ((isProtectedRoute || isMessageRoute) && !request.user.verified) {
+        return reply.code(403).send({ 
+          error: 'Account verification required',
+          code: 'ACCOUNT_NOT_VERIFIED'
+        });
+      }
+    }
   });
 
   await fastify.register(authRoutes);
@@ -75,10 +108,17 @@ async function run() {
       if (invite.max_uses != null && invite.uses_count >= invite.max_uses) {
         return reply.code(400).send({ error: 'Invite limit reached' });
       }
+      // Check if verification is enabled globally
+      const verificationSetting = fastify.db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
+      const isVerificationEnabled = verificationSetting ? !!verificationSetting.enabled : false;
+      
       const codewordHash = codeword ? hashPassword(codeword) : null;
+      // If verification is enabled, set user as unverified (0), otherwise auto-verify (1)
+      const shouldBeVerified = isVerificationEnabled ? 0 : (codeword ? 0 : 1);
+      
       fastify.db.prepare(
         'INSERT INTO users (login, password_hash, role, verified, codeword_hash) VALUES (?, ?, ?, ?, ?)'
-      ).run(loginTrim, hashPassword(password), 'member', codeword ? 0 : 1, codewordHash);
+      ).run(loginTrim, hashPassword(password), 'member', shouldBeVerified, codewordHash);
       fastify.db.prepare('UPDATE invites SET uses_count = uses_count + 1 WHERE id = ?').run(inviteId);
     }
 

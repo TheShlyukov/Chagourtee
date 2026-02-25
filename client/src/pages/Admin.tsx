@@ -215,18 +215,6 @@ export default function Admin() {
     }
   }
 
-  async function deleteUser(userId: number) {
-    if (!confirm('Удалить пользователя?')) return;
-    setError(null);
-    try {
-      await usersApi.delete(userId);
-      setMessage('Пользователь удалён');
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
-    }
-  }
-
   const toggleVerification = async () => {
     try {
       const response = await verificationApi.updateSettings(!verificationEnabled);
@@ -355,6 +343,46 @@ export default function Admin() {
   };
 
   const codewordInputRef = useRef<HTMLInputElement>(null);
+
+  // Add a new state for tracking the reason for deletion
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
+  const [deletionReason, setDeletionReason] = useState<string>('Account removed by administrator');
+
+  // Add a new function to handle user deletion with reason
+  const handleDeleteUserWithReason = async (userId: number) => {
+    setDeletingUserId(userId);
+    setDeletionReason('Account removed by administrator'); // Reset to default reason
+  };
+
+  // Add a new function to confirm user deletion with reason
+  const confirmDeleteUser = async () => {
+    if (deletingUserId !== null) {
+      if (!window.confirm(`Вы уверены, что хотите удалить пользователя? Причина: ${deletionReason}`)) {
+        setDeletingUserId(null);
+        return;
+      }
+      
+      try {
+        await usersApi.delete(deletingUserId, deletionReason);
+        await refreshUsers();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Ошибка при удалении пользователя');
+      } finally {
+        setDeletingUserId(null);
+        setDeletionReason('');
+      }
+    }
+  };
+
+  // Add a new function to refresh users list
+  const refreshUsers = async () => {
+    try {
+      const uRes = await usersApi.list();
+      setUsers(uRes.users);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки');
+    }
+  };
 
   return (
     <div className="page-content" style={{ maxWidth: 800 }}>
@@ -700,7 +728,7 @@ export default function Admin() {
                     <button
                       type="button"
                       className="danger"
-                      onClick={() => deleteUser(u.id)}
+                      onClick={() => handleDeleteUserWithReason(u.id)}
                       style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
                     >
                       🗑️ Удалить
@@ -756,6 +784,70 @@ export default function Admin() {
         )}
       </div>
       
+      {/* Add the modal for deletion reason if needed */}
+      {deletingUserId !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'var(--bg-elevated)',
+            padding: '1.5rem',
+            borderRadius: '8px',
+            width: '90%',
+            maxWidth: '500px',
+            boxShadow: 'var(--shadow-lg)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Причина удаления</h3>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                Укажите причину удаления:
+              </label>
+              <textarea
+                value={deletionReason}
+                onChange={(e) => setDeletionReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-input)',
+                  minHeight: '80px'
+                }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setDeletingUserId(null)}
+                style={{ padding: '0.5rem 1rem' }}
+              >
+                Отмена
+              </button>
+              <button 
+                onClick={confirmDeleteUser}
+                className="danger"
+                style={{ 
+                  padding: '0.5rem 1rem',
+                  backgroundColor: 'var(--danger)',
+                  color: 'white'
+                }}
+              >
+                Подтвердить удаление
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

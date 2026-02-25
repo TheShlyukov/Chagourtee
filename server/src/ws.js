@@ -127,5 +127,22 @@ module.exports = function (fastify) {
     broadcast({ type: 'room_deleted', roomId });
   };
   
-  fastify.ws = wss;
+  fastify.broadcastToUser = function (userId, payload) {
+    const userClients = clientsByUser.get(userId);
+    if (userClients) {
+      const data = JSON.stringify(payload);
+      userClients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
+      });
+    }
+  };
+  
+  // Export the userByClient map so other modules can access it
+  fastify.ws = {
+    wss,
+    clientsByUser,
+    userByClient
+  };
 };

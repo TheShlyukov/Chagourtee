@@ -26,6 +26,18 @@ module.exports = function (fastify) {
     // Создаем новую запись
     db.prepare('INSERT INTO verification_settings (enabled) VALUES (?)').run(enabled ? 1 : 0);
 
+    // Broadcast the settings change to all authenticated users
+    const payload = {
+      type: 'verification_settings_updated',
+      enabled: enabled
+    };
+    
+    fastify.ws.wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(payload));
+      }
+    });
+
     return { ok: true, enabled };
   });
 
@@ -83,6 +95,13 @@ module.exports = function (fastify) {
     if (!userId) return reply.code(400).send({ error: 'userId required' });
     const r = db.prepare('UPDATE users SET verified = 1 WHERE id = ? AND verified = 0').run(Number(userId));
     if (r.changes === 0) return reply.code(404).send({ error: 'User not found or already verified' });
+    
+    // Broadcast user verification to all connected clients for this user
+    fastify.broadcastToUser(Number(userId), {
+      type: 'user_verified',
+      userId: Number(userId)
+    });
+    
     return { ok: true };
   });
 
@@ -100,6 +119,14 @@ module.exports = function (fastify) {
     const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(Number(userId));
     if (!target) return reply.code(404).send({ error: 'User not found' });
     if (target.role === 'owner') return reply.code(403).send({ error: 'Cannot reject owner' });
+    
+    // Broadcast user rejection to all connected clients for this user
+    fastify.broadcastToUser(Number(userId), {
+      type: 'user_rejected',
+      userId: Number(userId),
+      message: 'Your account has been rejected by an administrator.'
+    });
+    
     db.prepare('DELETE FROM users WHERE id = ?').run(Number(userId));
     return { ok: true };
   });
@@ -155,7 +182,7 @@ module.exports = function (fastify) {
     }
 
     const rows = db.prepare(`
-      SELECT vc.id, u.login as created_by_login, vc.used, vc.created_at, vc.expires_at, vc.code_hash
+      SELECT vc.id, u.login as created_by_login, vc.used, vc.created_at, vc.expires_at
       FROM verification_codes vc
       JOIN users u ON vc.created_by = u.id
       ORDER BY vc.created_at DESC

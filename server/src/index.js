@@ -5,9 +5,9 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const fastify = require('fastify')({ logger: true });
 const cookie = require('@fastify/cookie');
 const { getDb } = require('./db');
-const { createSessionId, hashPassword, verifyPassword, SESSION_TTL_MS } = require('./auth');
+const { hashPassword, verifyPassword, SESSION_TTL_MS, createSessionId } = require('./auth');
 const authPlugin = require('./auth').plugin;
-const { authRoutes } = require('./auth');
+const { authRoutes, addAuthUtils } = require('./auth');
 
 const SESSION_COOKIE = 'chagourtee_sid';
 
@@ -24,6 +24,7 @@ async function run() {
     secret: process.env.CHAGOURTEE_SESSION_SECRET || 'change-me-in-production',
   });
   await fastify.register(authPlugin);
+  await fastify.register(addAuthUtils); // Register the auth utility functions
 
   fastify.addHook('preHandler', async function (request, reply) {
     const sessionId = request.cookies[SESSION_COOKIE];
@@ -77,14 +78,15 @@ async function run() {
   require('./profile')(fastify);
   require('./verification')(fastify);
   require('./users')(fastify);
+  
+  // Initialize WebSocket server
+  require('./ws')(fastify);
 
   // Create the 'main' room if it doesn't exist
   const existingMainRoom = db.prepare('SELECT id FROM rooms WHERE name = ?').get('main');
   if (!existingMainRoom) {
-    const result = db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', 1); // Using 1 as default creator ID
-    console.log("Created 'main' room on first startup with ID:", result.lastInsertRowid);
-  } else {
-    console.log("Found existing 'main' room with ID:", existingMainRoom.id);
+    db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', 1); // Using 1 as default creator ID
+    console.log("Created 'main' room on first startup");
   }
 
   fastify.post('/api/auth/register', async (request, reply) => {
@@ -131,53 +133,42 @@ async function run() {
       fastify.db.prepare('UPDATE invites SET uses_count = uses_count + 1 WHERE id = ?').run(inviteId);
     }
 
-    const user = fastify.db.prepare('SELECT id, login, role, verified FROM users WHERE login = ?').get(loginTrim);
-    if (!user) return reply.code(500).send({ error: 'Registration failed' });
+    const userId = fastify.db.prepare('SELECT id FROM users WHERE login = ?').get(loginTrim).id;
+    const sessionId = createSessionId();
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+    
+    // Store session in DB
+    fastify.db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(
+      sessionId,
+      userId,
+      expiresAt
+    );
+    
+    // Set session cookie
+    reply.setCookie(SESSION_COOKIE, sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: Math.floor(SESSION_TTL_MS / 1000), // in seconds
+      path: '/',
+      sameSite: 'strict',
+    });
 
-    if (!bootstrapOk) {
-      const sessionId = createSessionId();
-      const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-      fastify.db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(sessionId, user.id, expiresAt);
-      reply.setCookie('chagourtee_sid', sessionId, {
-        httpOnly: true,
-        path: '/',
-        maxAge: SESSION_TTL_MS / 1000,
-        sameSite: 'lax',
-      });
-    } else {
-      const sessionId = createSessionId();
-      const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-      fastify.db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(sessionId, user.id, expiresAt);
-      reply.setCookie('chagourtee_sid', sessionId, {
-        httpOnly: true,
-        path: '/',
-        maxAge: SESSION_TTL_MS / 1000,
-        sameSite: 'lax',
-      });
+    const user = fastify.getUser(userId);
+    return { user };
+  });
+
+  try {
+    await fastify.listen({ port: 3000, host: '0.0.0.0' });
+    console.log(`Server listening on http://0.0.0.0:3000`);
+    
+    // Check if debug mode is enabled
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log("Debug endpoints enabled");
     }
-    return {
-      user: {
-        id: user.id,
-        login: user.login,
-        role: user.role,
-        verified: Boolean(user.verified),
-      },
-    };
-  });
-
-  const port = Number(process.env.PORT) || 3000;
-  const host = process.env.HOST || '0.0.0.0';
-
-  fastify.setErrorHandler((err, request, reply) => {
+  } catch (err) {
     fastify.log.error(err);
-    reply.code(err.statusCode || 500).send({ error: err.message || 'Internal error' });
-  });
-
-  await fastify.listen({ port, host });
-  require('./ws')(fastify);
+    process.exit(1);
+  }
 }
 
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+run();

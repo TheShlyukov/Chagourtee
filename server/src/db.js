@@ -49,7 +49,8 @@ function createDb(dbPath) {
       room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id),
       body TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS invites (
@@ -81,6 +82,7 @@ function createDb(dbPath) {
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages(room_id);
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(room_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_updated_at ON messages(updated_at);
   `);
 
   return db;

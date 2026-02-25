@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import type { Room, Message } from '../api';
-import { rooms as roomsApi, messages as messagesApi } from '../api';
+import type { Room, Message, User } from '../api';
+import { rooms as roomsApi, messages as messagesApi, auth as authApi } from '../api';
 import { 
   getWebSocket, 
   addMessageHandler, 
-  removeMessageHandler 
+  removeMessageHandler,
+  initializeWebSocket 
 } from '../websocket'; // Import WebSocket manager
 
 export default function Chat() {
@@ -16,8 +17,45 @@ export default function Chat() {
   const [loading, setLoading] = useState(true);
   const [sendText, setSendText] = useState('');
   const [typing, setTyping] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    message: Message | null;
+  }>({ visible: false, x: 0, y: 0, message: null });
+  const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
+  const [editingMessage, setEditingMessage] = useState<{id: number, body: string} | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicks outside the context menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
+        setContextMenu({ visible: false, x: 0, y: 0, message: null });
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Load current user info
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const userData = await authApi.me();
+        setUser(userData);
+      } catch (error) {
+        console.error('Failed to load user info:', error);
+      }
+    };
+    loadUser();
+  }, []);
 
   const loadRooms = useCallback(async () => {
     const { rooms } = await roomsApi.list();
@@ -47,18 +85,53 @@ export default function Chat() {
   useEffect(() => {
     if (!roomId) return;
 
+    console.log(`Chat component mounted for room ${roomId}`); // Debug log
+
     const handleMessage = (data: any) => {
+      console.log('Received WebSocket message:', data); // Debug log
+      
       switch(data.type) {
         case 'message':
           if (data.message?.room_id === roomId) {
+            console.log('Processing new message:', data.message); // Debug log
             setMessages(prev => {
               // Check if message already exists
               if (prev.some(m => m.id === data.message.id)) {
+                console.log('Message already exists, skipping'); // Debug log
                 return prev;
               }
+              console.log('Adding new message to state'); // Debug log
               // Add the new message
               return [...prev, data.message];
             });
+          }
+          break;
+          
+        case 'message_updated':
+          // Update the message in the list if it exists
+          console.log('Processing message update:', data.message); // Debug log
+          setMessages(prev => 
+            prev.map(msg => 
+              msg.id === data.message.id ? data.message : msg
+            )
+          );
+          break;
+          
+        case 'message_deleted':
+          // Remove the message from the list
+          console.log('Processing message deletion:', data.messageId); // Debug log
+          setMessages(prev => 
+            prev.filter(msg => msg.id !== data.messageId)
+          );
+          break;
+          
+        case 'messages_deleted':
+          // Remove multiple messages from the list
+          if (Array.isArray(data.messageIds)) {
+            console.log('Processing multiple message deletion:', data.messageIds); // Debug log
+            setMessages(prev => 
+              prev.filter(msg => !data.messageIds.includes(msg.id))
+            );
           }
           break;
           
@@ -92,16 +165,81 @@ export default function Chat() {
     // Add message handler when component mounts
     addMessageHandler(handleMessage);
 
-    // Join the room if WebSocket is available
+    // Function to join room with retry logic
+    const joinRoomWithRetry = (attempts = 0) => {
+      const ws = getWebSocket();
+      console.log(`Attempting to join room ${roomId}. WebSocket readyState: ${ws?.readyState}, connecting: ${ws?.readyState === WebSocket.CONNECTING}`); // Debug log
+      
+      if (!ws) {
+        console.log('WebSocket not available, attempting to initialize');
+        // Initialize WebSocket if not available
+        initializeWebSocket();
+        // Retry after a short delay
+        setTimeout(() => joinRoomWithRetry(attempts + 1), 100);
+        return;
+      }
+
+      if (ws.readyState === WebSocket.OPEN && roomId) {
+        ws.send(JSON.stringify({ type: 'join', roomId }));
+        console.log(`Sent join message for room ${roomId}`);
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        // Wait for connection to open before joining
+        const onOpenHandler = () => {
+          console.log(`WebSocket opened, joining room ${roomId}`); // Debug log
+          if (roomId) {
+            ws.send(JSON.stringify({ type: 'join', roomId }));
+            console.log(`Sent join message for room ${roomId}`);
+          }
+          // Clean up this temporary handler
+          ws.removeEventListener('open', onOpenHandler);
+        };
+        ws.addEventListener('open', onOpenHandler);
+      } else {
+        // If WebSocket is closed or closing, try to reinitialize
+        if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+          console.log('WebSocket is closed, reinitializing...');
+          initializeWebSocket();
+        }
+        
+        // Retry after a delay if we haven't exceeded max attempts
+        if (attempts < 5) {
+          setTimeout(() => joinRoomWithRetry(attempts + 1), 500);
+        } else {
+          console.log('Max attempts reached trying to join room');
+        }
+      }
+    };
+
+    // Try to join room immediately
+    joinRoomWithRetry();
+
+    // Retry joining the room if connection becomes ready
+    const handleOpen = () => {
+      console.log('WebSocket open event triggered'); // Debug log
+      if (roomId) {
+        const ws = getWebSocket();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'join', roomId }));
+          console.log(`Sent join message for room ${roomId} after connection opened`);
+        }
+      }
+    };
+
+    // Add event listener to handle connection opening after mount
     const ws = getWebSocket();
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'join', roomId }));
+    if (ws) {
+      ws.addEventListener('open', handleOpen);
     }
 
     // Cleanup function
     return () => {
+      console.log(`Chat component unmounting for room ${roomId}`); // Debug log
       // Remove message handler when component unmounts
       removeMessageHandler(handleMessage);
+      // Remove event listeners
+      if (ws) {
+        ws.removeEventListener('open', handleOpen);
+      }
       // Clear typing timeout
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
@@ -130,6 +268,121 @@ export default function Chat() {
       alert(err instanceof Error ? err.message : 'Не удалось отправить');
     }
   }
+
+  // Check if user can edit/delete a message
+  const canEditDeleteMessage = (message: Message) => {
+    if (!user) return false;
+    // Owner or moderator can edit/delete any message
+    if (user.role === 'owner' || user.role === 'moderator') return true;
+    // Author can edit/delete their own message
+    return message.user_id === user.id;
+  };
+
+  // Toggle message selection
+  const toggleMessageSelection = (id: number) => {
+    setSelectedMessages(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(msgId => msgId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  // Clear all selections
+  const clearSelections = () => {
+    setSelectedMessages([]);
+  };
+
+  // Determine if we're currently in selection mode
+  const isSelecting = selectedMessages.length > 0;
+
+  // Show context menu on right-click or long press
+  const showContextMenu = (e: React.MouseEvent, message: Message) => {
+    e.preventDefault();
+    if (isSelecting) return; // Don't show context menu during selection
+    
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      message
+    });
+  };
+
+  // Hide context menu
+  const hideContextMenu = () => {
+    setContextMenu({ visible: false, x: 0, y: 0, message: null });
+  };
+
+  // Select all messages
+  const selectAllMessages = () => {
+    // Select all message IDs that aren't already selected
+    const allIds = messages.map(m => m.id);
+    const unselectedIds = allIds.filter(id => !selectedMessages.includes(id));
+    
+    setSelectedMessages(prev => [...prev, ...unselectedIds]);
+  };
+
+  // Delete selected messages
+  const deleteSelectedMessages = async () => {
+    if (selectedMessages.length === 0) return;
+    
+    if (confirm(`Вы уверены, что хотите удалить ${selectedMessages.length} сообщений?`)) {
+      try {
+        await messagesApi.deleteMultiple(roomId!, selectedMessages);
+        clearSelections(); // This will clear selections in the parent
+      } catch (error) {
+        console.error('Error deleting messages:', error);
+        alert('Ошибка при удалении сообщений');
+      }
+    }
+  };
+
+  // Create a function that only clears selected messages but doesn't exit selection mode
+  const clearSelectedMessagesOnly = () => {
+    // Since we can't directly manipulate the selectedMessages state (it's in context),
+    // we'll toggle each selected message to remove it from the selection
+    [...selectedMessages].forEach(id => toggleMessageSelection(id)); // Spread to avoid mutations
+  };
+
+  // Handle edit message
+  const startEditingMessage = (message: Message | null) => {
+    if (!message) return;
+    setEditingMessage({ id: message.id, body: message.body });
+    setContextMenu({ visible: false, x: 0, y: 0, message: null });
+  };
+
+  // Save edited message
+  const saveEditedMessage = async () => {
+    if (!editingMessage || !editingMessage.body.trim() || !roomId) return;
+    
+    try {
+      await messagesApi.edit(editingMessage.id, roomId, editingMessage.body);
+      setEditingMessage(null);
+    } catch (error) {
+      console.error('Error editing message:', error);
+      alert('Ошибка при редактировании сообщения');
+    }
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingMessage(null);
+  };
+
+  // Handle deleting a single message
+  const deleteSingleMessage = async (messageId: number) => {
+    if (confirm('Вы уверены, что хотите удалить это сообщение?')) {
+      try {
+        await messagesApi.delete(messageId, roomId!);
+        setContextMenu({ visible: false, x: 0, y: 0, message: null });
+      } catch (error) {
+        console.error('Error deleting message:', error);
+        alert('Ошибка при удалении сообщения');
+      }
+    }
+  };
 
   if (roomList.length === 0 && !loading) {
     return (
@@ -169,15 +422,58 @@ export default function Chat() {
                 {loading ? (
                   <div style={{ color: 'var(--text-muted)' }}>Загрузка…</div>
                 ) : (
-                  messages.map((m) => (
-                    <div key={m.id} className="chat-message">
-                      <div className="chat-message-header">
-                        <span className="chat-message-author">{m.login}</span>
-                        <span className="chat-message-time">{new Date(m.created_at).toLocaleString()}</span>
+                  messages.map((m) => {
+                    const isSelected = selectedMessages.includes(m.id);
+                    const isEditable = editingMessage && editingMessage.id === m.id;
+                    
+                    return (
+                      <div 
+                        key={m.id} 
+                        className={`chat-message ${isSelected ? 'selected' : ''} ${canEditDeleteMessage(m) ? 'editable' : ''}`}
+                        onContextMenu={(e) => showContextMenu(e, m)}
+                        onClick={() => isSelecting && toggleMessageSelection(m.id)}
+                      >
+                        {isEditable ? (
+                          <div className="edit-message-form">
+                            <textarea
+                              value={editingMessage.body}
+                              onChange={(e) => setEditingMessage({...editingMessage, body: e.target.value})}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  saveEditedMessage();
+                                } else if (e.key === 'Escape') {
+                                  cancelEditing();
+                                }
+                              }}
+                            />
+                            <div className="edit-message-actions">
+                              <button onClick={saveEditedMessage}>✓ Сохранить</button>
+                              <button onClick={cancelEditing}>✗ Отмена</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="chat-message-header">
+                              <span className="chat-message-author">{m.login}</span>
+                              <span className="chat-message-time">
+                                {new Date(m.created_at).toLocaleString()}
+                                {m.updated_at && m.updated_at !== m.created_at && (
+                                  <span title="Редактировалось"> ✎</span>
+                                )}
+                              </span>
+                            </div>
+                            <div className="chat-message-body">{m.body}</div>
+                            
+                            {isSelected && (
+                              <div className="message-selected-indicator">✓</div>
+                            )}
+                          </>
+                        )}
                       </div>
-                      <div className="chat-message-body">{m.body}</div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
                 {typing && (
                   <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
@@ -186,6 +482,63 @@ export default function Chat() {
                 )}
                 <div ref={bottomRef} />
               </div>
+              
+              {/* Context Menu */}
+              {contextMenu.visible && contextMenu.message && (
+                <div 
+                  ref={contextMenuRef}
+                  className="context-menu"
+                  style={{
+                    position: 'fixed',
+                    left: contextMenu.x,
+                    top: contextMenu.y,
+                    zIndex: 1000
+                  }}
+                >
+                  {canEditDeleteMessage(contextMenu.message) && (
+                    <>
+                      <button 
+                        className="context-menu-item"
+                        onClick={() => startEditingMessage(contextMenu.message)}
+                      >
+                        Редактировать
+                      </button>
+                      <button 
+                        className="context-menu-item danger-text-only"
+                        onClick={() => {
+                          deleteSingleMessage(contextMenu.message!.id);
+                          hideContextMenu();
+                        }}
+                      >
+                        Удалить
+                      </button>
+                    </>
+                  )}
+                  <button 
+                    className="context-menu-item"
+                    onClick={() => {
+                      toggleMessageSelection(contextMenu.message!.id);
+                      hideContextMenu();
+                    }}
+                  >
+                    {selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выделить'}
+                  </button>
+                </div>
+              )}
+              
+              {/* Mobile Selection Controls */}
+              {isSelecting && (
+                <div className="mobile-selection-controls">
+                  <div className="mobile-selection-actions">
+                    <button onClick={selectAllMessages}>Выделить все</button>
+                    <button onClick={clearSelectedMessagesOnly}>Снять выделение</button>
+                    <button className="danger" onClick={deleteSelectedMessages}>
+                      Удалить ({selectedMessages.length})
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <form onSubmit={handleSend} className="chat-form">
                 <input
                   value={sendText}

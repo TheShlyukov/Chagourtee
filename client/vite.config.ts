@@ -6,10 +6,18 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: true,
+    allowedHosts: true, // Use boolean true instead of string 'all'
     proxy: {
-      '/api': { target: 'http://127.0.0.1:3000', changeOrigin: true },
-      '/ws': { target: 'ws://127.0.0.1:3000', ws: true },
+      '/api': { 
+        target: 'http://127.0.0.1:3000', 
+        changeOrigin: true,
+        secure: false // Accept self-signed certificates if needed
+      },
+      '/ws': { 
+        target: 'ws://127.0.0.1:3000', 
+        ws: true,
+        changeOrigin: true
+      },
     },
   },
 });

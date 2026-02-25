@@ -20,6 +20,7 @@ export type Message = {
   user_id: number;
   body: string;
   created_at: string;
+  updated_at?: string; // Optional field for when message was last updated
   login: string;
 };
 
@@ -112,6 +113,20 @@ export const messages = {
       method: 'POST',
       body: JSON.stringify({ body }),
     }),
+  edit: (messageId: number, roomId: number, body: string) =>
+    api<Message>(`/api/rooms/${roomId}/messages/${messageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ body }),
+    }),
+  delete: (messageId: number, roomId: number) =>
+    api<{ ok: boolean }>(`/api/rooms/${roomId}/messages/${messageId}`, { 
+      method: 'DELETE' 
+    }),
+  deleteMultiple: (roomId: number, messageIds: number[]) =>
+    api<{ ok: boolean, count: number }>(`/api/rooms/${roomId}/messages/batch-delete`, {
+      method: 'DELETE',
+      body: JSON.stringify({ messageIds }),
+    }),
 };
 
 export const invites = {
@@ -200,10 +215,8 @@ export const profile = {
 
 // Export WebSocket related functions
 export { 
-  initializeWebSocket, 
-  closeWebSocket, 
+  getWebSocket, 
   addMessageHandler, 
   removeMessageHandler,
-  getWebSocket,
-  isWebSocketConnected
+  isWebSocketConnected 
 } from './websocket';

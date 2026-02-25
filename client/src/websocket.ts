@@ -2,6 +2,8 @@
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let sharedWebSocket: WebSocket | null = null;
 let messageHandlers: ((data: any) => void)[] = [];
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 5;
 
 /**
  * Initializes a WebSocket connection if one doesn't already exist
@@ -17,14 +19,18 @@ export const initializeWebSocket = (): WebSocket | null => {
     }
   }
 
+  // Use the same protocol and host as the current page for Vite proxy to work correctly
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws`;
+  // Use the same host as the current page so Vite proxy handles the WebSocket connection
+  const wsUrl = `${protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/ws`;
+  console.log(`Initializing WebSocket connection to: ${wsUrl}`);
 
   try {
     sharedWebSocket = new WebSocket(wsUrl);
 
     sharedWebSocket.onopen = () => {
       console.log('WebSocket connected');
+      reconnectAttempts = 0; // Reset attempts on successful connection
       
       // Start heartbeat interval to keep connection alive
       if (heartbeatInterval) {
@@ -68,11 +74,18 @@ export const initializeWebSocket = (): WebSocket | null => {
       
       // If the close was not initiated by us (code 1000), try to reconnect
       if (event.code !== 1000) {
-        console.log('Attempting to reconnect to WebSocket in 3 seconds...');
-        setTimeout(() => {
-          // Reinitialize the connection
-          initializeWebSocket();
-        }, 3000);
+        // Implement exponential backoff to prevent overwhelming the server
+        reconnectAttempts++;
+        if (reconnectAttempts <= maxReconnectAttempts) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30 seconds
+          console.log(`Attempting to reconnect to WebSocket in ${delay}ms... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+          setTimeout(() => {
+            // Reinitialize the connection
+            initializeWebSocket();
+          }, delay);
+        } else {
+          console.error('Max reconnection attempts reached. Please reload the page.');
+        }
       }
     };
   } catch (error) {

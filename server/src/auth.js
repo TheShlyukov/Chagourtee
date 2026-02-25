@@ -55,6 +55,12 @@ function requireAuth(fastify, _opts, done) {
   done();
 }
 
+// Add the isOwnerOrModerator function to fastify instance
+function addAuthUtils(fastify, _opts, done) {
+  fastify.decorate('isOwnerOrModerator', isOwnerOrModerator);
+  done();
+}
+
 function authRoutes(fastify, _opts, done) {
   const db = fastify.db;
 
@@ -99,38 +105,54 @@ function authRoutes(fastify, _opts, done) {
     }
     const sessionId = createSessionId();
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-    db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(sessionId, user.id, expiresAt);
-    request.session = { userId: user.id, sessionId };
-    const cookieOpts = { httpOnly: true, path: '/', maxAge: SESSION_TTL_MS / 1000, sameSite: 'lax' };
-    reply.setCookie('chagourtee_sid', sessionId, cookieOpts);
-    return {
-      user: {
-        id: user.id,
-        login: user.login,
-        role: user.role,
-        verified: Boolean(user.verified),
-      },
-    };
+    
+    // Store session in DB
+    db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(
+      sessionId,
+      user.id,
+      expiresAt
+    );
+    
+    // Set session cookie
+    reply.setCookie(SESSION_COOKIE, sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: Math.floor(SESSION_TTL_MS / 1000), // in seconds
+      path: '/',
+      sameSite: 'strict',
+    });
+    
+    return { user: { id: user.id, login: user.login, role: user.role, verified: Boolean(user.verified) } };
   });
 
-  fastify.post('/api/auth/logout', async (request, reply) => {
+  fastify.post('/api/auth/logout', {
+    preHandler: [fastify.requireAuth],
+  }, async (request, reply) => {
     if (request.session?.sessionId) {
       db.prepare('DELETE FROM sessions WHERE id = ?').run(request.session.sessionId);
     }
-    reply.clearCookie('chagourtee_sid', { path: '/' });
     request.session = null;
+    reply.clearCookie(SESSION_COOKIE, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      sameSite: 'strict',
+    });
     return { ok: true };
   });
+
+  const SESSION_COOKIE = 'chagourtee_sid';
 
   done();
 }
 
-module.exports = {
+module.exports = { 
+  plugin: fp(requireAuth), 
+  authRoutes,
+  addAuthUtils,
   hashPassword,
   verifyPassword,
   createSessionId,
   isOwnerOrModerator,
-  SESSION_TTL_MS,
+  SESSION_TTL_MS
 };
-module.exports.plugin = fp(requireAuth);
-module.exports.authRoutes = authRoutes;

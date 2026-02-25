@@ -533,3 +533,139 @@ a:hover {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Context menu styles */
+.context-menu {
+  position: fixed;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+.context-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.context-menu-item.danger-text-only {
+  color: var(--danger);
+}
+
+.context-menu-item.danger-text-only:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Message selection styles */
+.chat-message.selected {
+  background: var(--accent-light);
+  border-left: 3px solid var(--accent);
+  position: relative;
+}
+
+/* Remove the ::after pseudo-element since it's not needed */
+.chat-message.selected::after {
+  display: none;
+}
+
+/* Keep the .message-selected-indicator as a visible element when needed */
+.message-selected-indicator {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: var(--accent);
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+/* Message editing form */
+.edit-message-form {
+  padding: 0.5rem 0;
+}
+
+.edit-message-form textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.edit-message-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.edit-message-actions button {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Removed header actions for desktop since "Выбрать" button was removed */
+/* Mobile selection controls */
+.mobile-selection-controls {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  padding: 0.75rem;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.mobile-selection-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mobile-selection-actions button {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.mobile-selection-actions button.danger {
+  background: var(--danger);
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+  .message-selected-indicator {
+    top: 0.25rem;
+    right: 0.25rem;
+    width: 18px;
+    height: 18px;
+    font-size: 0.65rem;
+  }
+  
+  .edit-message-actions button {
+    padding: 0.4rem;
+    font-size: 0.8rem;
+  }
+  
+  .mobile-selection-actions button {
+    flex: 1 1 auto;
+  }
+}

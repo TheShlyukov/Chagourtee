@@ -49,17 +49,31 @@ export default function Chat() {
       ws.send(JSON.stringify({ type: 'join', roomId }));
     };
     ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'message' && data.message?.room_id === roomId) {
-          setMessages((prev) => [...prev, data.message]);
+      // Ensure message processing even in edge environments
+      Promise.resolve().then(async () => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'message' && data.message?.room_id === roomId) {
+            setMessages(prev => {
+            // Проверяем, есть ли уже такое сообщение по id
+            if (prev.some(m => m.id === data.message.id)) {
+              return prev;
+            }
+            // Добавляем новое сообщение
+            return [...prev, data.message];
+          });
+          }
+          if (data.type === 'typing' && data.roomId === roomId) {
+            setTyping(data.login || String(data.userId));
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => setTyping(null), 3000);
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse WebSocket message:', event.data, parseError);
         }
-        if (data.type === 'typing' && data.roomId === roomId) {
-          setTyping(data.login || String(data.userId));
-          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-          typingTimeoutRef.current = setTimeout(() => setTyping(null), 3000);
-        }
-      } catch {}
+      }).catch((err) => {
+        console.warn('WS message handling error (recovered):', err);
+      });
     };
     return () => {
       ws.close();

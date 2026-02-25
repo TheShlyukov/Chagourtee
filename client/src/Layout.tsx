@@ -101,19 +101,21 @@ export default function Layout() {
       <main className="layout-main">
         <Outlet />
       </main>
-      <nav className="layout-nav-bottom">
-        <NavLink to="/chat" end className={({ isActive }) => (isActive ? 'active' : '')}>
-          💬 Чаты
-        </NavLink>
-        <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
-          👤 Профиль
-        </NavLink>
-        {(user?.role === 'owner' || user?.role === 'moderator') && (
-          <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
-            ⚙️ Админка
+      {location.pathname.startsWith('/chat/') ? null : (
+        <nav className="layout-nav-bottom">
+          <NavLink to="/chat" end className={({ isActive }) => (isActive ? 'active' : '')}>
+            💬 Чаты
           </NavLink>
-        )}
-      </nav>
+          <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
+            👤 Профиль
+          </NavLink>
+          {(user?.role === 'owner' || user?.role === 'moderator') && (
+            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
+              ⚙️ Админка
+            </NavLink>
+          )}
+        </nav>
+      )}
     </div>
   );
 }

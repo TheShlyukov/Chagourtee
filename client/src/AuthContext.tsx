@@ -24,68 +24,96 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const websocket = new WebSocket(wsUrl);
+    let websocket: WebSocket | null = null;
+    
+    // Function to create WebSocket connection
+    const connectWebSocket = () => {
+      // Close any existing connection
+      if (websocket) {
+        websocket.close();
+      }
+      
+      websocket = new WebSocket(wsUrl);
+      
+      websocket.onopen = () => {
+        console.log('Connected to WebSocket');
+      };
 
-    websocket.onopen = () => {
-      console.log('Connected to WebSocket');
+      websocket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          switch (data.type) {
+            case 'user_deleted':
+              // Use a more robust comparison to handle potential type differences
+              // and check that user is not null
+              if (user && Number(data.userId) === Number(user.id)) {
+                // Navigate to account deleted page instead of showing alert
+                navigate(`/account-deleted?reason=${encodeURIComponent(data.reason || 'Администратором')}`);
+              }
+              break;
+              
+            case 'user_verified':
+              if (user && Number(data.userId) === Number(user.id)) {
+                // Refresh user data to reflect verification status
+                refresh();
+              }
+              break;
+              
+            case 'user_rejected':
+              if (user && Number(data.userId) === Number(user.id)) {
+                // Navigate to account rejected page instead of showing alert
+                navigate(`/account-rejected?message=${encodeURIComponent(data.message || 'Ваша заявка на верификацию была отклонена')}`);
+              }
+              break;
+              
+            case 'verification_settings_updated':
+              // We could handle this if needed, but typically settings changes
+              // would be noticed on subsequent page loads or API calls
+              break;
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message:', e);
+        }
+      };
+
+      websocket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      // Handle connection closing
+      websocket.onclose = (event) => {
+        console.log('WebSocket connection closed:', event.code, event.reason);
+        
+        // If the close was not initiated by us (code 1000), try to reconnect
+        if (event.code !== 1000) {
+          console.log('Attempting to reconnect to WebSocket in 3 seconds...');
+          setTimeout(connectWebSocket, 3000);
+        }
+      };
+
+      return websocket;
     };
 
-    websocket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        switch (data.type) {
-          case 'user_deleted':
-            // Use a more robust comparison to handle potential type differences
-            // and check that user is not null
-            if (user && Number(data.userId) === Number(user.id)) {
-              // Navigate to account deleted page instead of showing alert
-              navigate(`/account-deleted?reason=${encodeURIComponent(data.reason || 'Администратором')}`);
-            }
-            break;
-            
-          case 'user_verified':
-            if (user && Number(data.userId) === Number(user.id)) {
-              // Refresh user data to reflect verification status
-              refresh();
-            }
-            break;
-            
-          case 'user_rejected':
-            if (user && Number(data.userId) === Number(user.id)) {
-              // Navigate to account rejected page instead of showing alert
-              navigate(`/account-rejected?message=${encodeURIComponent(data.message || 'Ваша заявка на верификацию была отклонена')}`);
-            }
-            break;
-            
-          case 'verification_settings_updated':
-            // We could handle this if needed, but typically settings changes
-            // would be noticed on subsequent page loads or API calls
-            break;
-        }
-      } catch (e) {
-        console.error('Error parsing WebSocket message:', e);
+    // Create initial connection
+    const ws = connectWebSocket();
+
+    // Handle visibility change to manage WebSocket connection when tab is not active
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && ws?.readyState === WebSocket.CLOSED) {
+        console.log('Tab became visible, attempting to reconnect to WebSocket...');
+        connectWebSocket();
       }
     };
 
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    websocket.onclose = () => {
-      console.log('Disconnected from WebSocket');
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        if (user) {
-          // The reconnection happens automatically via the useEffect dependency
-        }
-      }, 5000);
-    };
-
-    // WebSocket setup complete
-
+    // Cleanup function
     return () => {
-      websocket.close();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (ws) {
+        ws.close(1000, "Component unmounting"); // Normal closure
+      }
     };
   }, [user, navigate]); // Make sure to reinitialize when user changes
 

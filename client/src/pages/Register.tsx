@@ -112,7 +112,7 @@ export default function Register() {
                 placeholder="Для верификации владельцем"
               />
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0 }}>
-                Оставьте пустым, если не требуется
+                Оставьте пустым, если не требуется. Если заполнено, аккаунт будет ждать верификации.
               </p>
             </div>
             {error && <p className="error" style={{ margin: 0 }}>{error}</p>}

@@ -124,6 +124,13 @@ export const invites = {
 };
 
 export const verification = {
+  settings: () => 
+    api<{ enabled: boolean }>('/api/verification/settings'),
+  updateSettings: (enabled: boolean) =>
+    api<{ ok: boolean, enabled: boolean }>('/api/verification/settings', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
   pending: () =>
     api<{ pending: { id: number; login: string; created_at: string }[] }>(
       '/api/verification/pending'
@@ -142,6 +149,28 @@ export const verification = {
     api<{ ok: boolean }>('/api/verification/reject', {
       method: 'POST',
       body: JSON.stringify({ userId }),
+    }),
+  // One-time verification codes
+  createCode: (expiresAt?: string) =>
+    api<{ id: number; code: string; created_by: number; expires_at: string }>(
+      '/api/verification/codes',
+      {
+        method: 'POST',
+        body: JSON.stringify({ expiresAt }),
+      }
+    ),
+  listCodes: () =>
+    api<{ codes: { id: number; created_by_login: string; used: number; created_at: string; expires_at: string }[] }>(
+      '/api/verification/codes'
+    ),
+  useCode: (code: string) =>
+    api<{ ok: boolean; message?: string }>('/api/verification/codes/use', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  deleteCode: (id: number) =>
+    api<{ ok: boolean }>('/api/verification/codes/' + id, {
+      method: 'DELETE',
     }),
 };
 

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../AuthContext';
 import type { Room, Invite, User } from '../api';
 import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi } from '../api';
 
@@ -6,6 +7,7 @@ type PendingUser = { id: number; login: string; created_at: string };
 type UserWithDate = User & { created_at: string };
 
 export default function Admin() {
+  const { user } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [pending, setPending] = useState<PendingUser[]>([]);
@@ -13,11 +15,12 @@ export default function Admin() {
   const [newRoomName, setNewRoomName] = useState('');
   const [inviteOpts, setInviteOpts] = useState({ maxUses: '', expiresInHours: '' });
   const [codewordCheck, setCodewordCheck] = useState<Record<number, string>>({});
-  const [userCodewords, setUserCodewords] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
-
+  const [verificationEnabled, setVerificationEnabled] = useState(false);
+  const [codes, setCodes] = useState<{id: number, created_by_login: string, used: number, created_at: string, expires_at: string}[]>([]);
+  
   const load = useCallback(async () => {
     try {
       const [rRes, iRes, pRes, uRes] = await Promise.all([
@@ -36,8 +39,30 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
+    if (user?.role !== 'owner' && user?.role !== 'moderator') return;
+    
+    // Load verification settings
+    verificationApi.settings()
+      .then(data => setVerificationEnabled(!!data.enabled))
+      .catch(console.error);
+    
+    // Load users
+    usersApi.list().then((data) => {
+      setUsers(data.users);
+    }).catch(console.error);
+    
+    // Load pending verifications
+    verificationApi.pending().then((data) => {
+      setPending(data.pending);
+    }).catch(console.error);
+    
+    // Load verification codes
+    verificationApi.listCodes().then((data) => {
+      setCodes(data.codes);
+    }).catch(console.error);
+
     load();
-  }, [load]);
+  }, [user, load]);
 
   async function createRoom(e: React.FormEvent) {
     e.preventDefault();
@@ -153,30 +178,84 @@ export default function Admin() {
     }
   }
 
-  async function setUserCodeword(userId: number) {
-    const codeword = userCodewords[userId];
-    if (!codeword?.trim()) return;
-    setError(null);
+  const toggleVerification = async () => {
     try {
-      await usersApi.setCodeword(userId, codeword.trim());
-      setMessage('Кодовое слово установлено');
-      setUserCodewords((c) => ({ ...c, [userId]: '' }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      const response = await verificationApi.updateSettings(!verificationEnabled);
+      setVerificationEnabled(response.enabled);
+      setMessage(`Система верификации ${response.enabled ? 'включена' : 'отключена'}`);
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      console.error('Failed to toggle verification:', error);
+      alert('Ошибка при изменении настроек верификации');
     }
-  }
+  };
 
-  async function disableCodewordCheck(userId: number) {
-    if (!confirm('Разрешить вход без проверки кодового слова?')) return;
-    setError(null);
+  const verifyCodeword = async (userId: number, codeword: string) => {
     try {
-      await usersApi.disableCodewordCheck(userId);
-      setMessage('Проверка кодового слова отключена');
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      const response = await verificationApi.check(userId, codeword);
+      setMessage(response.match ? 'Кодовое слово совпало' : 'Кодовое слово не совпало');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      console.error('Failed to verify codeword:', error);
+      alert('Ошибка при проверке кодового слова');
     }
-  }
+  };
+
+  const approveUser = async (userId: number) => {
+    try {
+      await verificationApi.approve(userId);
+      setMessage('Пользователь верифицирован');
+      await load();
+    } catch (error) {
+      console.error('Failed to approve user:', error);
+      alert('Ошибка при подтверждении пользователя');
+    }
+  };
+
+  const rejectUser = async (userId: number) => {
+    try {
+      await verificationApi.reject(userId);
+      setMessage('Пользователь отклонён');
+      await load();
+    } catch (error) {
+      console.error('Failed to reject user:', error);
+      alert('Ошибка при отклонении пользователя');
+    }
+  };
+
+  const createVerificationCode = async () => {
+    try {
+      const newCode = await verificationApi.createCode();
+      // Fix for the type mismatch - ensure the newCode object has all required properties
+      const fullCode = {
+        id: newCode.id,
+        created_by_login: "Вы", // Placeholder - in real app, we'd fetch this info separately
+        used: 0,
+        created_at: new Date().toISOString(),
+        expires_at: newCode.expires_at
+      };
+      setCodes([fullCode, ...codes]);
+      setMessage(`Новый код создан: ${newCode.code}. Сохраните его сейчас!`);
+      setTimeout(() => setMessage(''), 10000); // Show for 10 seconds
+    } catch (error) {
+      console.error('Failed to create verification code:', error);
+      alert('Ошибка при создании кода');
+    }
+  };
+
+  const deleteVerificationCode = async (id: number) => {
+    try {
+      await verificationApi.deleteCode(id);
+      setCodes(codes.filter(code => code.id !== id));
+      setMessage('Код удален');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      console.error('Failed to delete verification code:', error);
+      alert('Ошибка при удалении кода');
+    }
+  };
+
+  const codewordInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="page-content" style={{ maxWidth: 800 }}>
@@ -364,22 +443,108 @@ export default function Admin() {
         )}
       </div>
 
+      {/* Card for verification settings */}
       <div className="card">
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>👥 Управление пользователями</h3>
+        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔐 Настройка верификации</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+          <span style={{ flex: 1 }}>
+            {verificationEnabled 
+              ? '✅ Система верификации включена' 
+              : '❌ Система верификации отключена'}
+          </span>
+          <button 
+            type="button" 
+            onClick={toggleVerification}
+            className={verificationEnabled ? 'danger' : ''}
+            style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+          >
+            {verificationEnabled ? '❌ Отключить' : '✅ Включить'}
+          </button>
+        </div>
+        
+        {verificationEnabled && (
+          <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-hover)', borderRadius: '6px' }}>
+            <p style={{ margin: 0, marginBottom: '0.75rem' }}>
+              При включенной системе все новые пользователи будут ожидать верификации.
+            </p>
+            <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              Вы можете использовать одноразовые коды для автоматической верификации или 
+              проверять кодовые слова вручную для пользователей.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Card for verification codes if verification is enabled */}
+      {verificationEnabled && (
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔢 Одноразовые коды верификации</h3>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <button 
+              type="button" 
+              onClick={createVerificationCode}
+              style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
+            >
+              ➕ Создать одноразовый код
+            </button>
+          </div>
+          
+          {codes.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Нет активных кодов</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {codes.map((code) => (
+                <div 
+                  key={code.id} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    padding: '0.875rem 1rem',
+                    background: 'var(--bg-hover)',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ fontWeight: 500, wordBreak: 'break-all' }}>
+                      Истёкает: {new Date(code.expires_at).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      Создан: {code.created_by_login}
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="danger" 
+                    onClick={() => deleteVerificationCode(code.id)}
+                    style={{ fontSize: '0.875rem', flex: '0 0 auto' }}
+                  >
+                    🗑️ Удалить
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Card for users management */}
+      <div className="card">
+        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>👥 Пользователи</h3>
         {users.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет пользователей</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {users.map((u) => (
-              <div
-                key={u.id}
-                style={{
-                  padding: '1.25rem',
-                  background: 'var(--bg-hover)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                }}
-              >
+              <div key={u.id} style={{ 
+                padding: '1rem', 
+                background: 'var(--bg-elevated)', 
+                border: '1px solid var(--border)',
+                borderRadius: '8px'
+              }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
@@ -418,43 +583,55 @@ export default function Admin() {
                     </button>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      🔑 Кодовое слово
-                    </label>
+                
+                {/* Verification controls only for unverified members */}
+                {!u.verified && u.role === 'member' && verificationEnabled && (
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     <input
                       type="text"
-                      value={userCodewords[u.id] ?? ''}
-                      onChange={(e) => setUserCodewords((c) => ({ ...c, [u.id]: e.target.value }))}
-                      placeholder="Установить новое"
-                      style={{ fontSize: '0.9rem' }}
+                      ref={codewordInputRef}
+                      placeholder="Введите кодовое слово"
+                      style={{ flex: '1 1 200px', fontSize: '0.9rem' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          codewordInputRef.current?.value && verifyCodeword(u.id, codewordInputRef.current.value);
+                        }
+                      }}
                     />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setUserCodeword(u.id)}
-                    disabled={!userCodewords[u.id]?.trim()}
-                    style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                  >
-                    ✓ Установить
-                  </button>
-                  {!u.verified && (
                     <button
                       type="button"
-                      className="secondary"
-                      onClick={() => disableCodewordCheck(u.id)}
+                      onClick={() => {
+                        if (codewordInputRef.current?.value) {
+                          verifyCodeword(u.id, codewordInputRef.current.value);
+                        }
+                      }}
                       style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
                     >
-                      ⏭️ Пропустить
+                      ✅ Проверить
                     </button>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => approveUser(u.id)}
+                      style={{ fontSize: '0.875rem', padding: '0.5rem 1rem', backgroundColor: 'var(--success)' }}
+                    >
+                      ✓ Подтвердить
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={() => rejectUser(u.id)}
+                      style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                    >
+                      ❌ Отклонить
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+      
     </div>
   );
 }

@@ -103,4 +103,162 @@ module.exports = function (fastify) {
     db.prepare('DELETE FROM users WHERE id = ?').run(Number(userId));
     return { ok: true };
   });
+
+  // Создание одноразового кода верификации
+  fastify.post('/api/verification/codes', {
+    preHandler: [fastify.requireAuth, fastify.requireOwnerOrModerator],
+  }, async (request, reply) => {
+    const setting = db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
+    if (!setting || !setting.enabled) {
+      return reply.code(400).send({ error: 'Verification system is disabled' });
+    }
+
+    const { expiresAt, code: customCode } = request.body || {};
+    const now = new Date();
+    
+    // Генерируем код или используем предоставленный пользовательский
+    let rawCode;
+    if (customCode && typeof customCode === 'string' && customCode.trim().length > 0) {
+      rawCode = customCode.trim();
+    } else {
+      rawCode = crypto.randomBytes(8).toString('hex'); // генерируем случайный код
+    }
+    
+    // Проверяем, не существует ли уже такой код
+    const existingCode = db.prepare('SELECT id FROM verification_codes WHERE code_hash = ? AND used = 0').get(hashPassword(rawCode));
+    if (existingCode) {
+      return reply.code(409).send({ error: 'Code already exists and is unused' });
+    }
+    
+    const codeHash = hashPassword(rawCode);
+    
+    const result = db.prepare(`
+      INSERT INTO verification_codes (code_hash, created_by, expires_at)
+      VALUES (?, ?, ?)
+    `).run(codeHash, request.session.userId, expiresAt || new Date(now.getTime() + 24*60*60*1000).toISOString());
+
+    return {
+      id: result.lastInsertRowid,
+      code: rawCode, // Отправляем нехэшированный код клиенту
+      created_by: request.session.userId,
+      expires_at: expiresAt || new Date(now.getTime() + 24*60*60*1000).toISOString()
+    };
+  });
+
+  // Получение списка одноразовых кодов верификации
+  fastify.get('/api/verification/codes', {
+    preHandler: [fastify.requireAuth, fastify.requireOwnerOrModerator],
+  }, async (request, reply) => {
+    const setting = db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
+    if (!setting || !setting.enabled) {
+      return reply.code(400).send({ error: 'Verification system is disabled' });
+    }
+
+    const rows = db.prepare(`
+      SELECT vc.id, u.login as created_by_login, vc.used, vc.created_at, vc.expires_at, vc.code_hash
+      FROM verification_codes vc
+      JOIN users u ON vc.created_by = u.id
+      ORDER BY vc.created_at DESC
+    `).all();
+
+    return { codes: rows };
+  });
+
+  // Использование одноразового кода верификации
+  fastify.post('/api/verification/codes/use', async (request, reply) => {
+    const setting = db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
+    if (!setting || !setting.enabled) {
+      return reply.code(400).send({ error: 'Verification system is disabled' });
+    }
+
+    const { code } = request.body || {};
+    if (!code) {
+      return reply.code(400).send({ error: 'Code required' });
+    }
+
+    const codeRecord = db.prepare(`
+      SELECT id, code_hash, used, expires_at
+      FROM verification_codes
+      WHERE used = 0
+    `).all();
+
+    // Проверяем каждый код на совпадение
+    let matchedCode = null;
+    for (const record of codeRecord) {
+      if (verifyPassword(code, record.code_hash)) {
+        matchedCode = record;
+        break;
+      }
+    }
+
+    if (!matchedCode) {
+      return reply.code(400).send({ 
+        ok: false, 
+        message: 'Invalid or expired code' 
+      });
+    }
+
+    // Проверяем срок действия
+    if (new Date() > new Date(matchedCode.expires_at)) {
+      return reply.code(400).send({ 
+        ok: false, 
+        message: 'Code has expired' 
+      });
+    }
+
+    // Помечаем код как использованный
+    db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(matchedCode.id);
+
+    // Обновляем статус текущего пользователя на верифицированного
+    db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(request.session.userId);
+
+    return { ok: true };
+  });
+
+  // Удаление одноразового кода верификации
+  fastify.delete('/api/verification/codes/:id', {
+    preHandler: [fastify.requireAuth, fastify.requireOwnerOrModerator],
+  }, async (request, reply) => {
+    const setting = db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
+    if (!setting || !setting.enabled) {
+      return reply.code(400).send({ error: 'Verification system is disabled' });
+    }
+
+    const { id } = request.params || {};
+    if (!id) return reply.code(400).send({ error: 'id required' });
+
+    const result = db.prepare('DELETE FROM verification_codes WHERE id = ?').run(Number(id));
+    if (result.changes === 0) return reply.code(404).send({ error: 'Code not found' });
+
+    return { ok: true };
+  });
+  
+  // Обновление одноразового кода верификации (пока только продление срока действия)
+  fastify.patch('/api/verification/codes/:id', {
+    preHandler: [fastify.requireAuth, fastify.requireOwnerOrModerator],
+  }, async (request, reply) => {
+    const setting = db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
+    if (!setting || !setting.enabled) {
+      return reply.code(400).send({ error: 'Verification system is disabled' });
+    }
+
+    const { id } = request.params || {};
+    const { expiresAt } = request.body || {};
+    
+    if (!id) return reply.code(400).send({ error: 'id required' });
+    if (!expiresAt) return reply.code(400).send({ error: 'New expiration date (expiresAt) required' });
+
+    // Проверяем, существует ли код
+    const code = db.prepare('SELECT * FROM verification_codes WHERE id = ?').get(Number(id));
+    if (!code) return reply.code(404).send({ error: 'Code not found' });
+    
+    // Обновляем срок действия
+    const result = db.prepare('UPDATE verification_codes SET expires_at = ? WHERE id = ?')
+      .run(expiresAt, Number(id));
+      
+    if (result.changes === 0) return reply.code(404).send({ error: 'Failed to update code' });
+
+    return { ok: true, id: Number(id), expires_at: expiresAt };
+  });
+
 };

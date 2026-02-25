@@ -151,12 +151,12 @@ export const verification = {
       body: JSON.stringify({ userId }),
     }),
   // One-time verification codes
-  createCode: (expiresAt?: string) =>
+  createCode: (expiresAt?: string, code?: string) =>
     api<{ id: number; code: string; created_by: number; expires_at: string }>(
       '/api/verification/codes',
       {
         method: 'POST',
-        body: JSON.stringify({ expiresAt }),
+        body: JSON.stringify({ expiresAt, code }),
       }
     ),
   listCodes: () =>
@@ -171,6 +171,12 @@ export const verification = {
   deleteCode: (id: number) =>
     api<{ ok: boolean }>('/api/verification/codes/' + id, {
       method: 'DELETE',
+    }),
+  // Обновление срока действия кода
+  updateCode: (id: number, expiresAt: string) =>
+    api<{ ok: boolean; id: number; expires_at: string }>('/api/verification/codes/' + id, {
+      method: 'PATCH',
+      body: JSON.stringify({ expiresAt }),
     }),
 };
 

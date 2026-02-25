@@ -20,6 +20,7 @@ export default function Admin() {
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const [verificationEnabled, setVerificationEnabled] = useState(false);
   const [codes, setCodes] = useState<{id: number, created_by_login: string, used: number, created_at: string, expires_at: string}[]>([]);
+  const [customCode, setCustomCode] = useState<string>('');
   
   const load = useCallback(async () => {
     try {
@@ -104,11 +105,59 @@ export default function Admin() {
       const url = `${baseUrl.replace(/\/$/, '')}/register?invite=${inv.id}`;
       setLastInviteUrl(url);
       setMessage('Инвайт создан. Ссылка скопирована в буфер.');
-      await navigator.clipboard.writeText(url);
+
+      // Проверяем наличие API clipboard и безопасного контекста
+      if (navigator && navigator.clipboard && 'writeText' in navigator.clipboard && window.isSecureContext) {
+        // Попытка скопировать в буфер обмена
+        navigator.clipboard.writeText(url)
+          .then(() => {
+            setMessage('Инвайт создан. Ссылка скопирована в буфер.');
+          })
+          .catch(err => {
+            console.error('Failed to copy invite link to clipboard: ', err);
+            // Показываем пользователю инструкции по ручному копированию
+            createInviteDisplayAndCopyPrompt(url);
+          });
+      } else {
+        // Альтернативный метод копирования
+        createInviteDisplayAndCopyPrompt(url);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
     }
   }
+
+  // Вспомогательная функция для отображения ссылки инвайта и запроса на копирование
+  const createInviteDisplayAndCopyPrompt = (url: string) => {
+    // Показываем пользователю, что ссылка создана
+    setMessage('Инвайт создан. Для копирования нажмите Ctrl+C или Cmd+C.');
+    
+    // Создаем временный элемент для выделения текста
+    const textArea = document.createElement("textarea");
+    textArea.value = url;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    
+    // Выделяем и копируем текст
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        setMessage('Инвайт создан. Ссылка скопирована в буфер.');
+      } else {
+        setMessage('Инвайт создан. Для копирования нажмите Ctrl+C или Cmd+C.');
+      }
+    } catch (err) {
+      console.error('Fallback: Could not copy invite link', err);
+      setMessage('Инвайт создан. Пожалуйста, скопируйте ссылку вручную.');
+    } finally {
+      document.body.removeChild(textArea);
+    }
+  };
 
   async function deleteInvite(id: string) {
     setError(null);
@@ -225,7 +274,7 @@ export default function Admin() {
 
   const createVerificationCode = async () => {
     try {
-      const newCode = await verificationApi.createCode();
+      const newCode = await verificationApi.createCode(undefined, customCode || undefined);
       // Fix for the type mismatch - ensure the newCode object has all required properties
       const fullCode = {
         id: newCode.id,
@@ -235,11 +284,61 @@ export default function Admin() {
         expires_at: newCode.expires_at
       };
       setCodes([fullCode, ...codes]);
-      setMessage(`Новый код создан: ${newCode.code}. Сохраните его сейчас!`);
-      setTimeout(() => setMessage(''), 10000); // Show for 10 seconds
+
+      // Проверяем наличие API clipboard и безопасного контекста
+      if (navigator && navigator.clipboard && 'writeText' in navigator.clipboard && window.isSecureContext) {
+        // Попытка скопировать в буфер обмена
+        navigator.clipboard.writeText(newCode.code)
+          .then(() => {
+            setMessage(`Новый код создан: ${newCode.code} и скопирован в буфер обмена!`);
+          })
+          .catch(err => {
+            console.error('Failed to copy code to clipboard: ', err);
+            // Показываем код пользователю даже если копирование не удалось
+            createCodeDisplayAndCopyPrompt(newCode.code);
+          });
+      } else {
+        // Альтернативный метод копирования
+        createCodeDisplayAndCopyPrompt(newCode.code);
+      }
+
+      setCustomCode(''); // Очищаем поле ввода после успешного создания
+      setTimeout(() => setMessage(''), 15000); // Показываем сообщение 15 секунд
     } catch (error) {
       console.error('Failed to create verification code:', error);
-      alert('Ошибка при создании кода');
+      alert('Ошибка при создании кода: ' + (error as Error).message);
+    }
+  };
+
+  // Вспомогательная функция для отображения кода и запроса на копирование
+  const createCodeDisplayAndCopyPrompt = (code: string) => {
+    // Показываем код и инструкции пользователю
+    setMessage(`Новый код создан: ${code}. Нажмите Ctrl+C или Cmd+C для копирования.`);
+    
+    // Создаем временный элемент для выделения текста
+    const textArea = document.createElement("textarea");
+    textArea.value = code;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    
+    // Выделяем и копируем текст
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        setMessage(`Новый код создан: ${code} и скопирован в буфер обмена!`);
+      } else {
+        setMessage(`Новый код создан: ${code}. Нажмите Ctrl+C или Cmd+C для копирования.`);
+      }
+    } catch (err) {
+      console.error('Fallback: Could not copy text', err);
+      setMessage(`Новый код создан: ${code}. Пожалуйста, скопируйте его вручную.`);
+    } finally {
+      document.body.removeChild(textArea);
     }
   };
 
@@ -480,6 +579,19 @@ export default function Admin() {
         <div className="card">
           <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔢 Одноразовые коды верификации</h3>
           <div style={{ marginBottom: '1.5rem' }}>
+            <input
+              type="text"
+              placeholder="Введите свой код (необязательно)"
+              value={customCode}
+              onChange={(e) => setCustomCode(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                marginBottom: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)'
+              }}
+            />
             <button 
               type="button" 
               onClick={createVerificationCode}
@@ -499,30 +611,42 @@ export default function Admin() {
                   style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    padding: '0.875rem 1rem',
-                    background: 'var(--bg-hover)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem'
+                    justifyContent: 'space-between', 
+                    padding: '0.75rem', 
+                    backgroundColor: 'var(--bg-card)', 
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid var(--border)'
                   }}
                 >
-                  <div style={{ flex: '1 1 200px' }}>
-                    <div style={{ fontWeight: 500, wordBreak: 'break-all' }}>
-                      Истёкает: {new Date(code.expires_at).toLocaleString()}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      Создан: {code.created_by_login}
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>ID: {code.id}</div>
+                    <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
+                      Создан: {new Date(code.created_at).toLocaleString()}
                     </div>
                   </div>
-                  <button 
-                    type="button" 
-                    className="danger" 
-                    onClick={() => deleteVerificationCode(code.id)}
-                    style={{ fontSize: '0.875rem', flex: '0 0 auto' }}
+                  <div style={{ textAlign: 'right' }}>
+                    <div>Статус: {code.used ? 'Использован' : 'Доступен'}</div>
+                    <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
+                      Срок до: {new Date(code.expires_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Удалить этот код?')) {
+                        deleteVerificationCode(code.id);
+                      }
+                    }}
+                    style={{
+                      marginLeft: '0.5rem',
+                      padding: '0.25rem 0.5rem',
+                      border: 'none',
+                      backgroundColor: 'var(--danger)',
+                      color: 'white',
+                      borderRadius: 'var(--radius)',
+                      cursor: 'pointer'
+                    }}
                   >
-                    🗑️ Удалить
+                    Удалить
                   </button>
                 </div>
               ))}

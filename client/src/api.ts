@@ -93,6 +93,8 @@ export const rooms = {
     }),
   delete: (id: number) =>
     api<{ ok: boolean }>(`/api/rooms/${id}`, { method: 'DELETE' }),
+  clearMessages: (id: number) =>
+    api<{ ok: boolean, message: string }>(`/api/rooms/${id}/messages`, { method: 'DELETE' }),
 };
 
 export const messages = {

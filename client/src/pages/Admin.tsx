@@ -91,6 +91,17 @@ export default function Admin() {
     }
   }
 
+  async function clearRoomMessages(id: number) {
+    if (!confirm('Очистить все сообщения в комнате?')) return;
+    setError(null);
+    try {
+      await roomsApi.clearMessages(id);
+      setMessage('Сообщения в комнате очищены');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    }
+  }
+
   async function createInvite(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -417,9 +428,28 @@ export default function Admin() {
                   flexWrap: 'wrap'
                 }}>
                   <span style={{ flex: '1 1 150px', fontWeight: 500, wordBreak: 'break-word' }}>{r.name}</span>
-                  <button type="button" className="danger" onClick={() => deleteRoom(r.id)} style={{ fontSize: '0.875rem', flex: '0 0 auto' }}>
-                    🗑️ Удалить
-                  </button>
+                  {r.name === 'main' ? (
+                    <button 
+                      type="button" 
+                      onClick={() => clearRoomMessages(r.id)} 
+                      style={{ 
+                        fontSize: '0.875rem', 
+                        flex: '0 0 auto',
+                        backgroundColor: 'var(--warning)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '0.25rem 0.5rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🧹 Очистить
+                    </button>
+                  ) : (
+                    <button type="button" className="danger" onClick={() => deleteRoom(r.id)} style={{ fontSize: '0.875rem', flex: '0 0 auto' }}>
+                      🗑️ Удалить
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

@@ -78,6 +78,15 @@ async function run() {
   require('./verification')(fastify);
   require('./users')(fastify);
 
+  // Create the 'main' room if it doesn't exist
+  const existingMainRoom = db.prepare('SELECT id FROM rooms WHERE name = ?').get('main');
+  if (!existingMainRoom) {
+    const result = db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', 1); // Using 1 as default creator ID
+    console.log("Created 'main' room on first startup with ID:", result.lastInsertRowid);
+  } else {
+    console.log("Found existing 'main' room with ID:", existingMainRoom.id);
+  }
+
   fastify.post('/api/auth/register', async (request, reply) => {
     const { inviteId, login, password, codeword, bootstrap } = request.body || {};
     if (!login || !password) {

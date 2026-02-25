@@ -3,7 +3,7 @@ import { useAuth } from '../AuthContext';
 import { profile } from '../api';
 
 export default function Profile() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, logout } = useAuth();
   const [passCurrent, setPassCurrent] = useState('');
   const [passNew, setPassNew] = useState('');
   const [passError, setPassError] = useState<string | null>(null);
@@ -60,6 +60,17 @@ export default function Profile() {
     }
   }
 
+  const handleLogout = async () => {
+    if (window.confirm('Вы уверены, что хотите выйти?')) {
+      try {
+        await logout();
+        window.location.href = '/login'; // Redirect to login page after logout
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }
+  };
+
   return (
     <div className="page-content" style={{ maxWidth: 800 }}>
       <div style={{ 
@@ -67,6 +78,32 @@ export default function Profile() {
         flexDirection: 'column',
         gap: '1.5rem'
       }}>
+        {/* Logout section at the top */}
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>🚪 Выйти из аккаунта</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Вы вошли как <strong>{user?.login}</strong>
+            </p>
+            <button 
+              onClick={handleLogout}
+              className="danger"
+              style={{ 
+                alignSelf: 'flex-start', 
+                backgroundColor: 'var(--danger)',
+                color: 'white',
+                border: 'none',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 500
+              }}
+            >
+              Выйти
+            </button>
+          </div>
+        </div>
+
         {!user?.verified && (
           <div className="card" style={{ borderLeft: '4px solid var(--danger)', gridColumn: '1 / -1' }}>
             <h3 style={{ marginBottom: '0.75rem', fontSize: '1.2rem'}}>⏳ Ожидание верификации</h3>

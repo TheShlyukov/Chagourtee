@@ -29,6 +29,8 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null); // Для обработки долгого нажатия
+  const doubleClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // Таймер для отслеживания двойного клика
 
   // Handle clicks outside the context menu
   useEffect(() => {
@@ -298,16 +300,69 @@ export default function Chat() {
   const isSelecting = selectedMessages.length > 0;
 
   // Show context menu on right-click or long press
-  const showContextMenu = (e: React.MouseEvent, message: Message) => {
-    e.preventDefault();
+  const showContextMenu = (x: number, y: number, message: Message) => {
     if (isSelecting) return; // Don't show context menu during selection
     
     setContextMenu({
       visible: true,
-      x: e.clientX,
-      y: e.clientY,
+      x,
+      y,
       message
     });
+  };
+
+  // Handle long press for mobile devices
+  const handleTouchStart = (e: React.TouchEvent, message: Message) => {
+    // Clear any existing timeout
+    if (longPressTimeout.current) {
+      clearTimeout(longPressTimeout.current);
+    }
+    
+    // Set a new timeout for long press (500ms is standard)
+    longPressTimeout.current = setTimeout(() => {
+      const touch = e.touches[0];
+      if (touch) {
+        // Get the coordinates relative to the viewport
+        showContextMenu(touch.clientX, touch.clientY, message);
+      }
+    }, 500);
+  };
+
+  // Handle double click for desktop and mobile
+  const handleDoubleClick = (e: React.MouseEvent, message: Message) => {
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, message);
+  };
+
+  // Handle single click with debounce for double click detection
+  const handleSingleClick = (message: Message) => {
+    // If we're in selection mode, just toggle the message selection
+    if (isSelecting) {
+      toggleMessageSelection(message.id);
+      return;
+    }
+
+    // If there's already a timer (meaning this is the second click), clear it
+    if (doubleClickTimer.current) {
+      clearTimeout(doubleClickTimer.current);
+      doubleClickTimer.current = null;
+      return;
+    }
+
+    // Otherwise, set a timer to handle the single click
+    doubleClickTimer.current = setTimeout(() => {
+      // For single click outside of selection mode, we don't do anything
+      // (previously this would toggle selection, but now we have double click for context menu)
+      doubleClickTimer.current = null;
+    }, 300); // 300ms is the typical double click delay
+  };
+
+  // Clear timeout when touch ends
+  const handleTouchEnd = () => {
+    if (longPressTimeout.current) {
+      clearTimeout(longPressTimeout.current);
+      longPressTimeout.current = null;
+    }
   };
 
   // Hide context menu
@@ -427,11 +482,23 @@ export default function Chat() {
                     const isEditable = editingMessage && editingMessage.id === m.id;
                     
                     return (
-                      <div 
+                      <div
                         key={m.id} 
                         className={`chat-message ${isSelected ? 'selected' : ''} ${canEditDeleteMessage(m) ? 'editable' : ''}`}
-                        onContextMenu={(e) => showContextMenu(e, m)}
-                        onClick={() => isSelecting && toggleMessageSelection(m.id)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          showContextMenu(e.clientX, e.clientY, m);
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSingleClick(m);
+                        }}
+                        onDoubleClick={(e) => handleDoubleClick(e, m)}
+                        // Добавляем touch-события для поддержки долгого нажатия на мобильных устройствах
+                        onTouchStart={(e) => handleTouchStart(e, m)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchMove={handleTouchEnd}
+                        onMouseDown={handleTouchEnd} // Также очищаем таймер при клике мышью
                       >
                         {isEditable ? (
                           <div className="edit-message-form">

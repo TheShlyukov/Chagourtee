@@ -1,0 +1,132 @@
+// Global WebSocket instance to ensure only one connection exists
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let sharedWebSocket: WebSocket | null = null;
+let messageHandlers: ((data: any) => void)[] = [];
+
+/**
+ * Initializes a WebSocket connection if one doesn't already exist
+ */
+export const initializeWebSocket = (): WebSocket | null => {
+  if (sharedWebSocket) {
+    // If there's already a connection, return it
+    if (sharedWebSocket.readyState === WebSocket.OPEN) {
+      return sharedWebSocket;
+    } else {
+      // If the connection exists but is not open, close it before creating a new one
+      closeWebSocket();
+    }
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+  try {
+    sharedWebSocket = new WebSocket(wsUrl);
+
+    sharedWebSocket.onopen = () => {
+      console.log('WebSocket connected');
+      
+      // Start heartbeat interval to keep connection alive
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+      heartbeatInterval = setInterval(() => {
+        if (sharedWebSocket?.readyState === WebSocket.OPEN) {
+          sharedWebSocket.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000); // Send ping every 30 seconds
+    };
+
+    sharedWebSocket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        // Special handling for pong messages (keep-alive response)
+        if (data.type === 'pong') {
+          return; // Don't broadcast pong messages to handlers
+        }
+        
+        // Broadcast message to all registered handlers
+        messageHandlers.forEach(handler => handler(data));
+      } catch (e) {
+        console.error('Error parsing WebSocket message:', e);
+      }
+    };
+
+    sharedWebSocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    sharedWebSocket.onclose = (event) => {
+      console.log('WebSocket connection closed:', event.code, event.reason);
+      
+      // Clear heartbeat interval
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
+      
+      // If the close was not initiated by us (code 1000), try to reconnect
+      if (event.code !== 1000) {
+        console.log('Attempting to reconnect to WebSocket in 3 seconds...');
+        setTimeout(() => {
+          // Reinitialize the connection
+          initializeWebSocket();
+        }, 3000);
+      }
+    };
+  } catch (error) {
+    console.error('Failed to create WebSocket connection:', error);
+    return null;
+  }
+
+  return sharedWebSocket;
+};
+
+/**
+ * Closes the WebSocket connection if it exists
+ */
+export const closeWebSocket = () => {
+  if (sharedWebSocket) {
+    // Clear the heartbeat interval
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+    
+    // Close the WebSocket with a normal closure code
+    sharedWebSocket.close(1000, "Client closing WebSocket");
+    sharedWebSocket = null;
+  }
+};
+
+/**
+ * Adds a message handler to receive WebSocket messages
+ */
+export const addMessageHandler = (handler: (data: any) => void) => {
+  if (!messageHandlers.includes(handler)) {
+    messageHandlers.push(handler);
+  }
+};
+
+/**
+ * Removes a message handler
+ */
+export const removeMessageHandler = (handler: (data: any) => void) => {
+  const index = messageHandlers.indexOf(handler);
+  if (index !== -1) {
+    messageHandlers.splice(index, 1);
+  }
+};
+
+/**
+ * Gets the current WebSocket instance
+ */
+export const getWebSocket = () => sharedWebSocket;
+
+/**
+ * Checks if WebSocket is connected
+ */
+export const isWebSocketConnected = () => {
+  return sharedWebSocket && sharedWebSocket.readyState === WebSocket.OPEN;
+};

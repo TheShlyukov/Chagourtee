@@ -126,80 +126,33 @@ export const invites = {
 };
 
 export const verification = {
-  settings: () => 
-    api<{ enabled: boolean }>('/api/verification/settings'),
-  updateSettings: (enabled: boolean) =>
+  settings: () => api<{ enabled: boolean }>('/api/verification/settings'),
+  updateSettings: (enabled: boolean) => 
     api<{ ok: boolean, enabled: boolean }>('/api/verification/settings', {
       method: 'POST',
       body: JSON.stringify({ enabled }),
     }),
-  pending: () =>
-    api<{ pending: { id: number; login: string; created_at: string }[] }>(
-      '/api/verification/pending'
-    ),
-  check: (userId: number, codeword: string) =>
-    api<{ match: boolean; message?: string }>('/api/verification/check', {
+  pending: () => api<{ pending: { id: number; login: string; created_at: string }[] }>('/api/verification/pending'),
+  listCodes: () => 
+    api<{ codes: {id: number, created_by_login: string, used: number, created_at: string, expires_at: string}[] }>('/api/verification/codes'),
+  createCode: (customCode?: string) => 
+    api<{ code: string, id: number }>('/api/verification/codes', {
       method: 'POST',
-      body: JSON.stringify({ userId, codeword }),
+      body: JSON.stringify({ customCode }),
     }),
-  approve: (userId: number) =>
-    api<{ ok: boolean }>('/api/verification/approve', {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
+  updateCode: (id: number, expiration: string) => 
+    api<{ ok: boolean }>('/api/verification/codes/' + id, {
+      method: 'PATCH',
+      body: JSON.stringify({ expiration }),
     }),
-  reject: (userId: number) =>
-    api<{ ok: boolean }>('/api/verification/reject', {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    }),
-  // One-time verification codes
-  createCode: (expiresAt?: string, code?: string) =>
-    api<{ id: number; code: string; created_by: number; expires_at: string }>(
-      '/api/verification/codes',
-      {
-        method: 'POST',
-        body: JSON.stringify({ expiresAt, code }),
-      }
-    ),
-  listCodes: () =>
-    api<{ codes: { id: number; created_by_login: string; used: number; created_at: string; expires_at: string }[] }>(
-      '/api/verification/codes'
-    ),
-  useCode: (code: string) =>
-    api<{ ok: boolean; message?: string }>('/api/verification/codes/use', {
+  useCode: (code: string) => 
+    api<{ ok: boolean }>('/api/verification/codes/use', {
       method: 'POST',
       body: JSON.stringify({ code }),
     }),
-  deleteCode: (id: number) =>
+  deleteCode: (id: number) => 
     api<{ ok: boolean }>('/api/verification/codes/' + id, {
       method: 'DELETE',
-    }),
-  // Обновление срока действия кода
-  updateCode: (id: number, expiresAt: string) =>
-    api<{ ok: boolean; id: number; expires_at: string }>('/api/verification/codes/' + id, {
-      method: 'PATCH',
-      body: JSON.stringify({ expiresAt }),
-    }),
-};
-
-export const profile = {
-  changePassword: (currentPassword: string, newPassword: string) =>
-    api<{ ok: boolean }>('/api/profile/change-password', {
-      method: 'POST',
-      body: JSON.stringify({
-        currentPassword,
-        newPassword,
-      }),
-    }),
-  changeLogin: (password: string, newLogin: string) =>
-    api<{ ok: boolean; login?: string }>('/api/profile/change-login', {
-      method: 'POST',
-      body: JSON.stringify({ password, newLogin }),
-    }),
-  submitCodeword: (codeword: string) =>
-    api<{ ok: boolean; message?: string }>('/api/profile/codeword', {
-      method: 'POST',
-      body: JSON.stringify({ codeword }),
     }),
 };
 
@@ -226,3 +179,31 @@ export const users = {
       method: 'POST',
     }),
 };
+
+export const profile = {
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api<{ ok: boolean }>('/api/profile/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+  changeLogin: (password: string, newLogin: string) =>
+    api<{ ok: boolean, login: string }>('/api/profile/change-login', {
+      method: 'POST',
+      body: JSON.stringify({ password, newLogin }),
+    }),
+  setCodeword: (codeword: string) =>
+    api<{ ok: boolean, message: string }>('/api/profile/codeword', {
+      method: 'POST',
+      body: JSON.stringify({ codeword }),
+    }),
+};
+
+// Export WebSocket related functions
+export { 
+  initializeWebSocket, 
+  closeWebSocket, 
+  addMessageHandler, 
+  removeMessageHandler,
+  getWebSocket,
+  isWebSocketConnected
+} from './websocket';

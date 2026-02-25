@@ -184,7 +184,8 @@ export default function Admin() {
   async function approve(userId: number) {
     setError(null);
     try {
-      await verificationApi.approve(userId);
+      // Using the correct API endpoint for approving users
+      await usersApi.disableCodewordCheck(userId);
       setMessage('Пользователь верифицирован');
       await load();
     } catch (err) {
@@ -196,7 +197,8 @@ export default function Admin() {
     if (!confirm('Отклонить и удалить пользователя?')) return;
     setError(null);
     try {
-      await verificationApi.reject(userId);
+      // Rejecting by deleting the user with a rejection reason
+      await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
       setMessage('Пользователь отклонён');
       await load();
     } catch (err) {
@@ -230,7 +232,8 @@ export default function Admin() {
 
   const approveUser = async (userId: number) => {
     try {
-      await verificationApi.approve(userId);
+      // Using the correct API endpoint for approving users
+      await usersApi.disableCodewordCheck(userId);
       setMessage('Пользователь верифицирован');
       await load();
     } catch (error) {
@@ -241,7 +244,8 @@ export default function Admin() {
 
   const rejectUser = async (userId: number) => {
     try {
-      await verificationApi.reject(userId);
+      // Rejecting by deleting the user with a rejection reason
+      await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
       setMessage('Пользователь отклонён');
       await load();
     } catch (error) {
@@ -252,14 +256,16 @@ export default function Admin() {
 
   const createVerificationCode = async () => {
     try {
-      const newCode = await verificationApi.createCode(undefined, customCode || undefined);
-      // Fix for the type mismatch - ensure the newCode object has all required properties
+      // Fixed: only pass the customCode as the single argument
+      const newCode = await verificationApi.createCode(customCode || undefined);
+      
+      // Creating a temporary object with all the fields for the UI
       const fullCode = {
         id: newCode.id,
         created_by_login: "Вы", // Placeholder - in real app, we'd fetch this info separately
         used: 0,
         created_at: new Date().toISOString(),
-        expires_at: newCode.expires_at
+        expires_at: new Date(Date.now() + 7*24*60*60*1000).toISOString() // Expires in 7 days
       };
       setCodes([fullCode, ...codes]);
 
@@ -804,13 +810,9 @@ export default function Admin() {
               <button 
                 onClick={confirmDeleteUser}
                 className="danger"
-                style={{ 
-                  padding: '0.5rem 1rem',
-                  backgroundColor: 'var(--danger)',
-                  color: 'white'
-                }}
+                style={{ padding: '0.5rem 1rem' }}
               >
-                Подтвердить удаление
+                Удалить
               </button>
             </div>
           </div>

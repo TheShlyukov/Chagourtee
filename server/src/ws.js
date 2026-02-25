@@ -78,5 +78,10 @@ module.exports = function (fastify) {
   fastify.broadcastRoom = function (roomId, payload) {
     broadcastToRoom(roomId, payload);
   };
+  
+  fastify.broadcastRoomDeletion = function (roomId) {
+    broadcast({ type: 'room_deleted', roomId });
+  };
+  
   fastify.ws = wss;
 };

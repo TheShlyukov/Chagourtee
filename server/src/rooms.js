@@ -43,8 +43,19 @@ module.exports = function (fastify) {
     preHandler: [fastify.requireAuth, fastify.requireOwner],
   }, async (request, reply) => {
     const id = Number(request.params.id);
+    // Get the room before deletion to broadcast the event
+    const roomToDelete = db.prepare('SELECT id, name FROM rooms WHERE id = ?').get(id);
+    
+    if (!roomToDelete) return reply.code(404).send({ error: 'Room not found' });
+    
     const r = db.prepare('DELETE FROM rooms WHERE id = ?').run(id);
     if (r.changes === 0) return reply.code(404).send({ error: 'Room not found' });
+    
+    // Broadcast room deletion to all connected clients
+    if (fastify.broadcastRoomDeletion) {
+      fastify.broadcastRoomDeletion(id);
+    }
+    
     return { ok: true };
   });
 };

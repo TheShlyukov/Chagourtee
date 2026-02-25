@@ -58,7 +58,8 @@ export default function Admin() {
     setError(null);
     try {
       await roomsApi.delete(id);
-      await load();
+      // Instead of just reloading, we'll update the state directly
+      setRooms(prev => prev.filter(room => room.id !== id));
       setMessage('Комната удалена');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');

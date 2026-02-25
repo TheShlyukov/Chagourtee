@@ -15,7 +15,10 @@ export default function Chat() {
   const [typing, setTyping] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(0);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
 
   const loadRooms = useCallback(async () => {
     const { rooms } = await roomsApi.list();
@@ -43,44 +46,107 @@ export default function Chat() {
 
   useEffect(() => {
     if (!roomId) return;
-    const ws = new WebSocket(`${WS_BASE}/ws`);
-    wsRef.current = ws;
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'join', roomId }));
-    };
-    ws.onmessage = (event) => {
-      // Ensure message processing even in edge environments
-      Promise.resolve().then(async () => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'message' && data.message?.room_id === roomId) {
-            setMessages(prev => {
-            // Проверяем, есть ли уже такое сообщение по id
-            if (prev.some(m => m.id === data.message.id)) {
-              return prev;
+    
+    // Clean up any existing connection
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    
+    const connectWebSocket = () => {
+      const ws = new WebSocket(`${WS_BASE}/ws`);
+      wsRef.current = ws;
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        reconnectAttemptsRef.current = 0; // Reset attempts on successful connection
+        ws.send(JSON.stringify({ type: 'join', roomId }));
+      };
+      
+      ws.onmessage = (event) => {
+        // Force the browser to process the message immediately
+        Promise.resolve().then(async () => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            switch(data.type) {
+              case 'message':
+                if (data.message?.room_id === roomId) {
+                  setMessages(prev => {
+                    // Check if message already exists
+                    if (prev.some(m => m.id === data.message.id)) {
+                      return prev;
+                    }
+                    // Add the new message
+                    return [...prev, data.message];
+                  });
+                }
+                break;
+                
+              case 'typing':
+                if (data.roomId === roomId) {
+                  setTyping(data.login || String(data.userId));
+                  if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                  typingTimeoutRef.current = setTimeout(() => setTyping(null), 3000);
+                }
+                break;
+                
+              case 'room_deleted':
+                // Handle room deletion notification
+                if (data.roomId === roomId) {
+                  // Navigate away from the deleted room
+                  window.location.hash = '#/chat';
+                  window.location.reload(); // Force refresh to update UI
+                }
+                break;
+                
+              default:
+                // Handle any other message types
+                break;
             }
-            // Добавляем новое сообщение
-            return [...prev, data.message];
-          });
+          } catch (parseError) {
+            console.warn('Failed to parse WebSocket message:', event.data, parseError);
           }
-          if (data.type === 'typing' && data.roomId === roomId) {
-            setTyping(data.login || String(data.userId));
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            typingTimeoutRef.current = setTimeout(() => setTyping(null), 3000);
+        }).catch((err) => {
+          console.warn('WS message handling error (recovered):', err);
+        });
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+      
+      ws.onclose = (event) => {
+        console.log('WebSocket closed:', event.code, event.reason);
+        
+        // Attempt to reconnect unless closed intentionally
+        if (event.code !== 4001 && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current++;
+          
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
           }
-        } catch (parseError) {
-          console.warn('Failed to parse WebSocket message:', event.data, parseError);
+          
+          // Exponential backoff for reconnection
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 30000);
+          reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay);
         }
-      }).catch((err) => {
-        console.warn('WS message handling error (recovered):', err);
-      });
+      };
     };
+    
+    connectWebSocket();
+
     return () => {
-      ws.close();
-      wsRef.current = null;
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     };
-  }, [roomId]);
+  }, [roomId, loadRooms]); // Added loadRooms to dependency array to trigger reload when needed
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -122,6 +188,10 @@ export default function Chat() {
               key={r.id}
               to={`/chat/${r.id}`}
               className={`chat-room-link${roomId === r.id ? ' active' : ''}`}
+              onClick={() => {
+                // Reload rooms when changing rooms to ensure latest state
+                loadRooms();
+              }}
             >
               {r.name}
             </Link>

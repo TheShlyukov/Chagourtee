@@ -440,6 +440,11 @@ export default function Chat() {
     }
   };
 
+  // Clear selections when room changes
+  useEffect(() => {
+    clearSelections();
+  }, [roomId]);
+
   if (roomList.length === 0 && !loading) {
     return (
       <div style={{ padding: '2rem', color: 'var(--text-muted)' }}>
@@ -607,7 +612,7 @@ export default function Chat() {
                 </div>
               )}
               
-              <form onSubmit={handleSend} className="chat-form">
+              <form onSubmit={handleSend} className="chat-form" style={{ display: isSelecting ? 'none' : 'flex' }}>
                 <input
                   value={sendText}
                   onChange={(e) => setSendText(e.target.value)}

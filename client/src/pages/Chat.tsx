@@ -281,15 +281,21 @@ export default function Chat() {
     return message.user_id === user.id;
   };
 
-  // Toggle message selection
+  // Toggle message selection - now respecting user permissions
   const toggleMessageSelection = (id: number) => {
-    setSelectedMessages(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(msgId => msgId !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
+    // Find the message by ID to check permissions
+    const message = messages.find(msg => msg.id === id);
+    
+    // Allow selection only if user can edit/delete the message
+    if (message && canEditDeleteMessage(message)) {
+      setSelectedMessages(prev => {
+        if (prev.includes(id)) {
+          return prev.filter(msgId => msgId !== id);
+        } else {
+          return [...prev, id];
+        }
+      });
+    }
   };
 
   // Clear all selections
@@ -371,11 +377,15 @@ export default function Chat() {
     setContextMenu({ visible: false, x: 0, y: 0, message: null });
   };
 
-  // Select all messages
+  // Select all messages that the user has permission to delete
   const selectAllMessages = () => {
-    // Select all message IDs that aren't already selected
-    const allIds = messages.map(m => m.id);
-    const unselectedIds = allIds.filter(id => !selectedMessages.includes(id));
+    // Filter messages to only include those the user can edit/delete
+    const selectableMessageIds = messages
+      .filter(message => canEditDeleteMessage(message))
+      .map(m => m.id);
+    
+    // Select all selectable message IDs that aren't already selected
+    const unselectedIds = selectableMessageIds.filter(id => !selectedMessages.includes(id));
     
     setSelectedMessages(prev => [...prev, ...unselectedIds]);
   };
@@ -386,7 +396,7 @@ export default function Chat() {
     
     if (confirm(`Вы уверены, что хотите удалить ${selectedMessages.length} сообщений?`)) {
       try {
-        // Delete messages one by one
+        // Delete messages one by one - all selected messages should already be ones the user has permission to delete
         const deletePromises = selectedMessages.map(msgId => {
           // Find the room_id for the message - we'll use the current roomId
           // since all selected messages are from the same room
@@ -404,9 +414,9 @@ export default function Chat() {
 
   // Create a function that only clears selected messages but doesn't exit selection mode
   const clearSelectedMessagesOnly = () => {
-    // Since we can't directly manipulate the selectedMessages state (it's in context),
-    // we'll toggle each selected message to remove it from the selection
-    [...selectedMessages].forEach(id => toggleMessageSelection(id)); // Spread to avoid mutations
+    // Since we now only select messages the user has permission to interact with,
+    // we can simply clear all selections
+    setSelectedMessages([]);
   };
 
   // Handle edit message
@@ -549,7 +559,7 @@ export default function Chat() {
                               <div className="chat-message-header">
                                 <span className="chat-message-author">{m.login}</span>
                                 <span className="chat-message-time">
-                                  {m.created_at ? new Date(m.created_at).toLocaleString() : ''}
+                                  {new Date(m.created_at).toLocaleString()}
                                   {m.updated_at && m.updated_at !== m.created_at && (
                                     <span title="Редактировалось"> ✎</span>
                                   )}
@@ -558,7 +568,7 @@ export default function Chat() {
                             )}
                             {shouldHideAuthor && (
                               <div className="chat-message-time-alone">
-                                {m.created_at ? new Date(m.created_at).toLocaleString() : ''}
+                                {new Date(m.created_at).toLocaleString()}
                                 {m.updated_at && m.updated_at !== m.created_at && (
                                   <span title="Редактировалось"> ✎</span>
                                 )}
@@ -568,6 +578,10 @@ export default function Chat() {
                             
                             {isSelected && (
                               <div className="message-selected-indicator">✓</div>
+                            )}
+                            {/* Add selection indicator for messages that can be selected */}
+                            {isSelecting && !canEditDeleteMessage(m) && (
+                              <div className="message-not-selectable-indicator">○</div>
                             )}
                           </>
                         )}
@@ -619,7 +633,7 @@ export default function Chat() {
                   <button 
                     className="context-menu-item"
                     onClick={() => {
-                      if (contextMenu.message) {
+                      if (contextMenu.message && canEditDeleteMessage(contextMenu.message)) {
                         toggleMessageSelection(contextMenu.message.id);
                       }
                       hideContextMenu();

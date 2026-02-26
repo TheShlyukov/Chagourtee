@@ -433,6 +433,47 @@ input:focus, textarea:focus {
 .chat-message .chat-message-body {
   word-break: break-word;
   line-height: 1.4;
+  position: relative; /* Add positioning context for indicators */
+}
+
+/* Позиционирование основного индикатора выделения в нижнем правом углу */
+.chat-message.selected {
+  position: relative;
+}
+
+.chat-message.selected .message-selected-indicator {
+  position: absolute;
+  bottom: 0.3rem;
+  right: 0.3rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background-color: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Индикатор для сообщений, которые нельзя выделить, в нижнем правом углу */
+.chat-message .message-not-selectable-indicator {
+  position: absolute;
+  bottom: 0.3rem;
+  right: 0.3rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background-color: rgba(255, 0, 0, 0.2);
+  color: #ff6b6b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .chat-form {
@@ -610,32 +651,6 @@ a:hover {
 }
 
 /* Message selection styles */
-.chat-message.selected {
-  background: var(--accent-light);
-  border-left: 3px solid var(--accent);
-  position: relative;
-}
-
-/* Remove the ::after pseudo-element since it's not needed */
-.chat-message.selected::after {
-  display: none;
-}
-
-/* Keep the .message-selected-indicator as a visible element when needed */
-.message-selected-indicator {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: var(--accent);
-  color: white;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-}
 
 /* Message editing form */
 .edit-message-form {

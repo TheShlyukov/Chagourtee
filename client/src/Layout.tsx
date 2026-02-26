@@ -47,18 +47,29 @@ export default function Layout() {
         )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <span>{getPageTitle()}</span>
-          <span
-            style={{
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              marginTop: '0.15rem',
-            }}
-          >
-            {useServerName().serverTagline}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {displayName}
+            </span>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                whiteSpace: 'nowrap',
+                marginLeft: '0.5rem',
+              }}
+            >
+              {serverTagline}
+            </span>
+          </div>
         </div>
       </nav>
       <aside className="layout-sidebar">
@@ -109,7 +120,7 @@ export default function Layout() {
             </NavLink>
           )}
         </nav>
-        <div style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: 'var(--text-muted', marginTop: 'auto', borderTop: '1px solid var(--border)' }}>
+        <div style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 'auto', borderTop: '1px solid var(--border)' }}>
           <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem' }}>{user?.login}</div>
           {!user?.verified && <div style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>⏳ Ожидает верификации</div>}
           <div

@@ -45,6 +45,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendText, setSendText] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -364,6 +365,27 @@ export default function Chat() {
     }
   }
 
+  // Auto-resize textarea based on content
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      // Reset height to calculate new scrollHeight properly
+      textareaRef.current.style.height = 'auto';
+      
+      // Calculate the height based on content, but limit to 5 lines
+      const lineHeight = 24; // Approximate line height in pixels
+      const maxHeight = lineHeight * 10; // 10 lines max
+      
+      // Calculate scroll height and apply the limit
+      const scrollHeight = Math.min(textareaRef.current.scrollHeight, maxHeight);
+      textareaRef.current.style.height = `${scrollHeight}px`;
+    }
+  }, []);
+
+  // Effect to adjust textarea height when sendText changes
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [sendText, adjustTextareaHeight]);
+
   // Check if user can edit a message (only own messages)
   const canEditMessage = (message: Message) => {
     if (!user) return false;
@@ -640,6 +662,7 @@ export default function Chat() {
                         {isEditable ? (
                           <div className="edit-message-form">
                             <textarea
+                  ref={textareaRef}
                               value={editingMessage.body}
                               onChange={(e) => setEditingMessage({...editingMessage, body: e.target.value})}
                               autoFocus
@@ -767,13 +790,48 @@ export default function Chat() {
               )}
               
               <form onSubmit={handleSend} className="chat-form" style={{ display: isSelecting ? 'none' : 'flex' }}>
-                <input
+                <textarea
+                  ref={textareaRef}
                   value={sendText}
-                  onChange={(e) => setSendText(e.target.value)}
-                  onInput={handleTyping}
+                  onChange={(e) => {
+                    setSendText(e.target.value);
+                    // Adjust height after state update
+                    setTimeout(adjustTextareaHeight, 0);
+                  }}
+                  onInput={() => {
+                    handleTyping();
+                    adjustTextareaHeight();
+                  }}
                   placeholder="Сообщение…"
                   autoComplete="off"
                   autoFocus
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.altKey)) {
+                      // Insert line break when Shift/Ctrl/Alt + Enter is pressed
+                      e.preventDefault();
+                      const target = e.target as HTMLTextAreaElement;
+                      const start = target.selectionStart;
+                      const end = target.selectionEnd;
+                      const newValue = sendText.substring(0, start) + '\n' + sendText.substring(end);
+                      setSendText(newValue);
+                      
+                      // Restore cursor position after newline insertion
+                      setTimeout(() => {
+                        target.selectionStart = target.selectionEnd = start + 1;
+                      }, 0);
+                    } else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+                      // Submit form when only Enter is pressed without modifiers
+                      e.preventDefault();
+                      handleSend(e);
+                    }
+                  }}
+                  style={{
+                    minHeight: '54px',
+                    maxHeight: '240px', // 5 lines * 24px per line
+                    resize: 'none',
+                    overflowY: 'auto'
+                  }}
                 />
                 <button type="submit" disabled={!roomId || !sendText.trim()}>
                   <span className="send-text">Отправить</span>

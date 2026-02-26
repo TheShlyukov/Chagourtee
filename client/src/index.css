@@ -434,6 +434,7 @@ input:focus, textarea:focus {
   word-break: break-word;
   line-height: 1.4;
   position: relative; /* Add positioning context for indicators */
+  white-space: pre-wrap; /* This ensures line breaks are preserved and displayed */
 }
 
 /* Позиционирование основного индикатора выделения в нижнем правом углу */
@@ -486,14 +487,17 @@ input:focus, textarea:focus {
   gap: 0.75rem;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
 }
-.chat-form input {
+.chat-form input, .chat-form textarea {
   flex: 1;
   min-width: 0;
   font-size: 1rem;
+  min-height: 54px;
+  max-height: 120px; /* ~5 строк по 24px */
 }
 .chat-form button {
   padding: 0.625rem 1rem;
   border-radius: var(--radius-default);
+  align-self: flex-end; /* Align button to the bottom of the container */
 }
 .chat-back {
   display: none;

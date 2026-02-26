@@ -807,8 +807,12 @@ export default function Chat() {
                   autoFocus
                   rows={1}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.altKey)) {
+                    // Detect iOS device
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    
+                    if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.altKey || isIOS)) {
                       // Insert line break when Shift/Ctrl/Alt + Enter is pressed
+                      // Also insert line break on Enter alone in iOS Safari
                       e.preventDefault();
                       const target = e.target as HTMLTextAreaElement;
                       const start = target.selectionStart;
@@ -820,8 +824,8 @@ export default function Chat() {
                       setTimeout(() => {
                         target.selectionStart = target.selectionEnd = start + 1;
                       }, 0);
-                    } else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-                      // Submit form when only Enter is pressed without modifiers
+                    } else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !isIOS) {
+                      // Submit form when only Enter is pressed without modifiers on non-iOS devices
                       e.preventDefault();
                       handleSend(e);
                     }

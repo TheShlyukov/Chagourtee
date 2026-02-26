@@ -380,26 +380,61 @@ input:focus, textarea:focus {
   background: var(--bg-hover);
   transform: translateX(2px);
 }
-.chat-message-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-}
-.chat-message-author {
-  font-weight: 600;
-  color: var(--accent);
-}
-.chat-message-time {
+
+/* Стили для компактного отображения сообщений одного пользователя */
+.chat-message .chat-message-time-alone {
+  display: block;
+  font-size: 0.75rem;
   color: var(--text-muted);
+  text-align: right;
+  margin-bottom: 0.25rem;
+  margin-top: -0.5rem; /* Поднимаем чуть ближе к предыдущему сообщению */
 }
-.chat-message-body {
-  line-height: 1.5;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
+
+/* Стили для сообщений, которые идут подряд от одного пользователя */
+.chat-message.grouped-message {
+  margin-top: 0.1rem;
+  padding-top: 0.25rem;
 }
+
+.chat-message.grouped-message:first-child {
+  margin-top: 1rem;
+}
+
+/* Убираем внутренние отступы сверху, когда нет заголовка с автором */
+.chat-message > :not(.chat-message-header) {
+  margin-top: 0.2rem;
+}
+
+/* Для сообщений с автором сохраняем нормальные отступы */
+.chat-message.has-author {
+  margin-top: 1rem;
+}
+
+.chat-message .chat-message-header {
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.chat-message .chat-message-author {
+  font-weight: bold;
+  color: var(--text-primary);
+  margin-right: 0.5rem;
+}
+
+.chat-message .chat-message-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.chat-message .chat-message-body {
+  word-break: break-word;
+  line-height: 1.4;
+}
+
 .chat-form {
   flex-shrink: 0;
   padding: 1.25rem;

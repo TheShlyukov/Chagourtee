@@ -380,14 +380,21 @@ export default function Chat() {
     setSelectedMessages(prev => [...prev, ...unselectedIds]);
   };
 
-  // Delete selected messages
+  // Delete selected messages - now delete one by one instead of batch
   const deleteSelectedMessages = async () => {
     if (selectedMessages.length === 0) return;
     
     if (confirm(`Вы уверены, что хотите удалить ${selectedMessages.length} сообщений?`)) {
       try {
-        await messagesApi.deleteMultiple(roomId!, selectedMessages);
-        clearSelections(); // This will clear selections in the parent
+        // Delete messages one by one
+        const deletePromises = selectedMessages.map(msgId => {
+          // Find the room_id for the message - we'll use the current roomId
+          // since all selected messages are from the same room
+          return messagesApi.delete(msgId, roomId!);
+        });
+        
+        await Promise.all(deletePromises);
+        clearSelections(); // Clear selections after successful deletion
       } catch (error) {
         console.error('Error deleting messages:', error);
         alert('Ошибка при удалении сообщений');
@@ -483,14 +490,24 @@ export default function Chat() {
                 {loading ? (
                   <div style={{ color: 'var(--text-muted)' }}>Загрузка…</div>
                 ) : (
-                  messages.map((m) => {
+                  messages.map((m, idx) => {
+                    // Check if the current message is from the same user as the previous one
+                    // and sent within a minute (60,000 ms)
+                    const prevMessage = messages[idx - 1];
+                    const shouldHideAuthor = idx > 0 && 
+                      prevMessage && 
+                      prevMessage.user_id === m.user_id &&
+                      prevMessage.created_at && 
+                      m.created_at &&
+                      (new Date(m.created_at).getTime() - new Date(prevMessage.created_at).getTime()) < 60000;
+                    
                     const isSelected = selectedMessages.includes(m.id);
                     const isEditable = editingMessage && editingMessage.id === m.id;
                     
                     return (
                       <div
                         key={m.id} 
-                        className={`chat-message ${isSelected ? 'selected' : ''} ${canEditDeleteMessage(m) ? 'editable' : ''}`}
+                        className={`chat-message ${shouldHideAuthor ? 'grouped-message' : 'has-author'} ${isSelected ? 'selected' : ''} ${canEditDeleteMessage(m) ? 'editable' : ''}`}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           showContextMenu(e.clientX, e.clientY, m);
@@ -528,15 +545,25 @@ export default function Chat() {
                           </div>
                         ) : (
                           <>
-                            <div className="chat-message-header">
-                              <span className="chat-message-author">{m.login}</span>
-                              <span className="chat-message-time">
-                                {new Date(m.created_at).toLocaleString()}
+                            {!shouldHideAuthor && (
+                              <div className="chat-message-header">
+                                <span className="chat-message-author">{m.login}</span>
+                                <span className="chat-message-time">
+                                  {m.created_at ? new Date(m.created_at).toLocaleString() : ''}
+                                  {m.updated_at && m.updated_at !== m.created_at && (
+                                    <span title="Редактировалось"> ✎</span>
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                            {shouldHideAuthor && (
+                              <div className="chat-message-time-alone">
+                                {m.created_at ? new Date(m.created_at).toLocaleString() : ''}
                                 {m.updated_at && m.updated_at !== m.created_at && (
                                   <span title="Редактировалось"> ✎</span>
                                 )}
-                              </span>
-                            </div>
+                              </div>
+                            )}
                             <div className="chat-message-body">{m.body}</div>
                             
                             {isSelected && (
@@ -579,7 +606,9 @@ export default function Chat() {
                       <button 
                         className="context-menu-item danger-text-only"
                         onClick={() => {
-                          deleteSingleMessage(contextMenu.message!.id);
+                          if (contextMenu.message) {
+                            deleteSingleMessage(contextMenu.message.id);
+                          }
                           hideContextMenu();
                         }}
                       >
@@ -590,11 +619,13 @@ export default function Chat() {
                   <button 
                     className="context-menu-item"
                     onClick={() => {
-                      toggleMessageSelection(contextMenu.message!.id);
+                      if (contextMenu.message) {
+                        toggleMessageSelection(contextMenu.message.id);
+                      }
                       hideContextMenu();
                     }}
                   >
-                    {selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выделить'}
+                    {contextMenu.message && selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выделить'}
                   </button>
                 </div>
               )}

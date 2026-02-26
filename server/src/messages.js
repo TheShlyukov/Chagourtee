@@ -234,12 +234,13 @@ module.exports = function (fastify) {
 
     // Fetch messages to check permissions
     const placeholders = messageIds.map(() => '?').join(',');
-    const messages = db.prepare(`
+    const messagesQuery = db.prepare(`
       SELECT m.id, m.room_id, m.user_id, u.role
       FROM messages m
       JOIN users u ON u.id = m.user_id
       WHERE m.id IN (${placeholders}) AND m.room_id = ?
-    `).all([...messageIds, roomId]);
+    `);
+    const messages = messagesQuery.all([...messageIds, roomId]);
 
     // Check permissions for each message
     const currentUser = fastify.getUser(request.session.userId);
@@ -252,15 +253,22 @@ module.exports = function (fastify) {
       }
     }
 
-    // Delete the messages
-    const result = db.prepare(`DELETE FROM messages WHERE id IN (${placeholders})`).run(messageIds);
+    // Delete the messages using proper parameter binding
+    try {
+      const deleteQuery = `DELETE FROM messages WHERE id IN (${placeholders}) AND room_id = ?`;
+      const deleteStmt = db.prepare(deleteQuery);
+      const result = deleteStmt.run([...messageIds, roomId]); // Pass array of values to bind to placeholders
+      
+      // Broadcast deletion to all room participants
+      if (fastify.broadcastRoom) {
+        fastify.broadcastRoom(roomId, { type: 'messages_deleted', messageIds });
+      }
 
-    // Broadcast deletion to all room participants
-    if (fastify.broadcastRoom) {
-      fastify.broadcastRoom(roomId, { type: 'messages_deleted', messageIds });
+      return { ok: true, count: result.changes };
+    } catch (error) {
+      fastify.log.error('Error deleting messages:', error);
+      return reply.code(500).send({ error: 'Error deleting messages' });
     }
-
-    return { ok: true, count: result.changes };
   });
 };
 

@@ -11,6 +11,8 @@ import {
   removeOpenHandler
 } from '../websocket'; // Import WebSocket manager
 import { logger } from '../utils/logger'; // Import our logger
+// Import the custom hook
+import { useMessageInputBehavior } from '../hooks/useMessageInputBehavior';
 
 type TypingUser = {
   userId: number;
@@ -365,6 +367,13 @@ export default function Chat() {
     }
   }
 
+  // Using the custom hook for message input behavior
+  const { handleKeyDown } = useMessageInputBehavior({
+    sendText,
+    setSendText,
+    handleSend
+  });
+
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -373,7 +382,7 @@ export default function Chat() {
       
       // Calculate the height based on content, but limit to 5 lines
       const lineHeight = 24; // Approximate line height in pixels
-      const maxHeight = lineHeight * 10; // 10 lines max
+      const maxHeight = lineHeight * 5; // 5 lines max
       
       // Calculate scroll height and apply the limit
       const scrollHeight = Math.min(textareaRef.current.scrollHeight, maxHeight);
@@ -806,33 +815,10 @@ export default function Chat() {
                   autoComplete="off"
                   autoFocus
                   rows={1}
-                  onKeyDown={(e) => {
-                    // Detect iOS device
-                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                    
-                    if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.altKey || isIOS)) {
-                      // Insert line break when Shift/Ctrl/Alt + Enter is pressed
-                      // Also insert line break on Enter alone in iOS Safari
-                      e.preventDefault();
-                      const target = e.target as HTMLTextAreaElement;
-                      const start = target.selectionStart;
-                      const end = target.selectionEnd;
-                      const newValue = sendText.substring(0, start) + '\n' + sendText.substring(end);
-                      setSendText(newValue);
-                      
-                      // Restore cursor position after newline insertion
-                      setTimeout(() => {
-                        target.selectionStart = target.selectionEnd = start + 1;
-                      }, 0);
-                    } else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !isIOS) {
-                      // Submit form when only Enter is pressed without modifiers on non-iOS devices
-                      e.preventDefault();
-                      handleSend(e);
-                    }
-                  }}
+                  onKeyDown={handleKeyDown}
                   style={{
                     minHeight: '54px',
-                    maxHeight: '240px', // 5 lines * 24px per line
+                    maxHeight: '120px', // 5 lines * 24px per line
                     resize: 'none',
                     overflowY: 'auto'
                   }}

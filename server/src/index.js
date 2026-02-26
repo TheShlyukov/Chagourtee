@@ -82,12 +82,27 @@ async function run() {
   // Initialize WebSocket server
   require('./ws')(fastify);
 
-  // Create the 'main' room if it doesn't exist
+  // Create the 'main' room if it doesn't exist and there is at least one user
   const existingMainRoom = db.prepare('SELECT id FROM rooms WHERE name = ?').get('main');
   if (!existingMainRoom) {
-    db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', 1); // Using 1 as default creator ID
+    // Check if there is at least one user in the database
+    const firstUser = db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get();
+    
+    if (firstUser) {
+      // If a user exists, create the main room with that user as creator
+      db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', firstUser.id);
+      if (process.env.DEBUG_MODE === 'true') {
+        console.log("Created 'main' room on first startup with user ID:", firstUser.id);
+      }
+    } else {
+      // If no users exist yet, we defer creating the main room until the first user registers
+      if (process.env.DEBUG_MODE === 'true') {
+        console.log("No users exist yet, deferring main room creation until first user registers.");
+      }
+    }
+  } else {
     if (process.env.DEBUG_MODE === 'true') {
-      console.log("Created 'main' room on first startup");
+      console.log("Main room already exists, skipping creation.");
     }
   }
 
@@ -136,6 +151,18 @@ async function run() {
     }
 
     const userId = fastify.db.prepare('SELECT id FROM users WHERE login = ?').get(loginTrim).id;
+    
+    // After registering the first user, check if main room exists, if not create it
+    if (isFirstUser) {
+      const existingMainRoom = fastify.db.prepare('SELECT id FROM rooms WHERE name = ?').get('main');
+      if (!existingMainRoom) {
+        fastify.db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', userId);
+        if (process.env.DEBUG_MODE === 'true') {
+          console.log("Created 'main' room for first user with ID:", userId);
+        }
+      }
+    }
+
     const sessionId = createSessionId();
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
     

@@ -8,6 +8,7 @@ import {
   removeMessageHandler,
   initializeWebSocket 
 } from '../websocket'; // Import WebSocket manager
+import { logger } from '../utils/logger'; // Import our logger
 
 export default function Chat() {
   const { roomId: routeRoomId } = useParams();
@@ -87,22 +88,22 @@ export default function Chat() {
   useEffect(() => {
     if (!roomId) return;
 
-    console.log(`Chat component mounted for room ${roomId}`); // Debug log
+    logger.debug(`Chat component mounted for room ${roomId}`);
 
     const handleMessage = (data: any) => {
-      console.log('Received WebSocket message:', data); // Debug log
+      logger.debug('Received WebSocket message:', data);
       
       switch(data.type) {
         case 'message':
           if (data.message?.room_id === roomId) {
-            console.log('Processing new message:', data.message); // Debug log
+            logger.debug('Processing new message:', data.message);
             setMessages(prev => {
               // Check if message already exists
               if (prev.some(m => m.id === data.message.id)) {
-                console.log('Message already exists, skipping'); // Debug log
+                logger.debug('Message already exists, skipping');
                 return prev;
               }
-              console.log('Adding new message to state'); // Debug log
+              logger.debug('Adding new message to state');
               // Add the new message
               return [...prev, data.message];
             });
@@ -111,7 +112,7 @@ export default function Chat() {
           
         case 'message_updated':
           // Update the message in the list if it exists
-          console.log('Processing message update:', data.message); // Debug log
+          logger.debug('Processing message update:', data.message);
           setMessages(prev => 
             prev.map(msg => 
               msg.id === data.message.id ? data.message : msg
@@ -121,7 +122,7 @@ export default function Chat() {
           
         case 'message_deleted':
           // Remove the message from the list
-          console.log('Processing message deletion:', data.messageId); // Debug log
+          logger.debug('Processing message deletion:', data.messageId);
           setMessages(prev => 
             prev.filter(msg => msg.id !== data.messageId)
           );
@@ -130,7 +131,7 @@ export default function Chat() {
         case 'messages_deleted':
           // Remove multiple messages from the list
           if (Array.isArray(data.messageIds)) {
-            console.log('Processing multiple message deletion:', data.messageIds); // Debug log
+            logger.debug('Processing multiple message deletion:', data.messageIds);
             setMessages(prev => 
               prev.filter(msg => !data.messageIds.includes(msg.id))
             );
@@ -170,10 +171,10 @@ export default function Chat() {
     // Function to join room with retry logic
     const joinRoomWithRetry = (attempts = 0) => {
       const ws = getWebSocket();
-      console.log(`Attempting to join room ${roomId}. WebSocket readyState: ${ws?.readyState}, connecting: ${ws?.readyState === WebSocket.CONNECTING}`); // Debug log
+      logger.debug(`Attempting to join room ${roomId}. WebSocket readyState: ${ws?.readyState}, connecting: ${ws?.readyState === WebSocket.CONNECTING}`);
       
       if (!ws) {
-        console.log('WebSocket not available, attempting to initialize');
+        logger.debug('WebSocket not available, attempting to initialize');
         // Initialize WebSocket if not available
         initializeWebSocket();
         // Retry after a short delay
@@ -183,14 +184,14 @@ export default function Chat() {
 
       if (ws.readyState === WebSocket.OPEN && roomId) {
         ws.send(JSON.stringify({ type: 'join', roomId }));
-        console.log(`Sent join message for room ${roomId}`);
+        logger.debug(`Sent join message for room ${roomId}`);
       } else if (ws.readyState === WebSocket.CONNECTING) {
         // Wait for connection to open before joining
         const onOpenHandler = () => {
-          console.log(`WebSocket opened, joining room ${roomId}`); // Debug log
+          logger.debug(`WebSocket opened, joining room ${roomId}`);
           if (roomId) {
             ws.send(JSON.stringify({ type: 'join', roomId }));
-            console.log(`Sent join message for room ${roomId}`);
+            logger.debug(`Sent join message for room ${roomId}`);
           }
           // Clean up this temporary handler
           ws.removeEventListener('open', onOpenHandler);
@@ -199,7 +200,7 @@ export default function Chat() {
       } else {
         // If WebSocket is closed or closing, try to reinitialize
         if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-          console.log('WebSocket is closed, reinitializing...');
+          logger.debug('WebSocket is closed, reinitializing...');
           initializeWebSocket();
         }
         
@@ -207,7 +208,7 @@ export default function Chat() {
         if (attempts < 5) {
           setTimeout(() => joinRoomWithRetry(attempts + 1), 500);
         } else {
-          console.log('Max attempts reached trying to join room');
+          logger.debug('Max attempts reached trying to join room');
         }
       }
     };
@@ -217,12 +218,12 @@ export default function Chat() {
 
     // Retry joining the room if connection becomes ready
     const handleOpen = () => {
-      console.log('WebSocket open event triggered'); // Debug log
+      logger.debug('WebSocket open event triggered');
       if (roomId) {
         const ws = getWebSocket();
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'join', roomId }));
-          console.log(`Sent join message for room ${roomId} after connection opened`);
+          logger.debug(`Sent join message for room ${roomId} after connection opened`);
         }
       }
     };
@@ -235,7 +236,7 @@ export default function Chat() {
 
     // Cleanup function
     return () => {
-      console.log(`Chat component unmounting for room ${roomId}`); // Debug log
+      logger.debug(`Chat component unmounting for room ${roomId}`);
       // Remove message handler when component unmounts
       removeMessageHandler(handleMessage);
       // Remove event listeners

@@ -63,14 +63,18 @@ module.exports = function (fastify) {
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
-        console.log('Received WebSocket message:', msg); // Debug log
+        if (process.env.DEBUG_MODE === 'true') {
+          fastify.log.info('Received WebSocket message:', msg);
+        }
         
         if (msg.type === 'typing' && msg.roomId != null) {
           broadcastToRoom(Number(msg.roomId), { type: 'typing', userId, login: user?.login || userId });
         }
         if (msg.type === 'join' && msg.roomId != null) {
           ws.currentRoomId = Number(msg.roomId);
-          console.log(`User ${userId} joined room ${ws.currentRoomId}`); // Debug log
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.info(`User ${userId} joined room ${ws.currentRoomId}`);
+          }
         }
         // Handle ping messages from client
         if (msg.type === 'ping') {
@@ -79,7 +83,9 @@ module.exports = function (fastify) {
         }
         // Handle message update
         if (msg.type === 'update_message' && msg.messageId && msg.content !== undefined) {
-          console.log(`Broadcasting message update: ${msg.messageId} in room ${msg.roomId}`); // Debug log
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.info(`Broadcasting message update: ${msg.messageId} in room ${msg.roomId}`);
+          }
           broadcastToRoom(Number(msg.roomId), { 
             type: 'message_updated', 
             messageId: msg.messageId, 
@@ -90,7 +96,9 @@ module.exports = function (fastify) {
         }
         // Handle message deletion
         if (msg.type === 'delete_message' && msg.messageId) {
-          console.log(`Broadcasting message deletion: ${msg.messageId} in room ${msg.roomId}`); // Debug log
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.info(`Broadcasting message deletion: ${msg.messageId} in room ${msg.roomId}`);
+          }
           broadcastToRoom(Number(msg.roomId), { 
             type: 'message_deleted', 
             messageId: msg.messageId,
@@ -171,16 +179,22 @@ module.exports = function (fastify) {
 
   function broadcastToRoom(roomId, payload) {
     const data = JSON.stringify(payload);
-    console.log(`Broadcasting to room ${roomId}:`, payload.type); // Debug log
+    if (process.env.DEBUG_MODE === 'true') {
+      fastify.log.info(`Broadcasting to room ${roomId}:`, payload.type);
+    }
     let count = 0;
     wss.clients.forEach((c) => {
       if (c.readyState === WebSocket.OPEN && c.currentRoomId === roomId) {
-        console.log(`Sending to client in room ${roomId}`); // Debug log
+        if (process.env.DEBUG_MODE === 'true') {
+          fastify.log.info(`Sending to client in room ${roomId}`);
+        }
         c.send(data);
         count++;
       }
     });
-    console.log(`Sent to ${count} clients in room ${roomId}`); // Debug log
+    if (process.env.DEBUG_MODE === 'true') {
+      fastify.log.info(`Sent to ${count} clients in room ${roomId}`);
+    }
   }
 
   fastify.broadcastRoom = function (roomId, payload) {

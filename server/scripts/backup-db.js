@@ -17,4 +17,6 @@ if (!fs.existsSync(backupDir)) {
   fs.mkdirSync(backupDir, { recursive: true });
 }
 fs.copyFileSync(dbPath, backupPath);
-console.log('Backup saved:', backupPath);
+if (process.env.DEBUG_MODE === 'true') {
+  console.log('Backup saved:', backupPath);
+}

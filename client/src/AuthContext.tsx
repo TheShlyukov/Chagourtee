@@ -8,6 +8,7 @@ import {
   removeMessageHandler,
   isWebSocketConnected 
 } from './websocket';
+import { logger } from './utils/logger'; // Import our logger
 
 type AuthContextType = {
   user: User | null;
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Handle visibility change to manage WebSocket connection when tab is not active
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && !isWebSocketConnected()) {
-        console.log('Tab became visible, attempting to reconnect to WebSocket...');
+        logger.debug('Tab became visible, attempting to reconnect to WebSocket...');
         initializeWebSocket();
       }
     };
@@ -93,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api('/api/auth/logout', { method: 'POST' });
     } catch (error) {
-      console.error('Logout API error:', error);
+      logger.error('Logout API error:', error);
     } finally {
       setUser(null);
       localStorage.removeItem('chagourtee_token'); // In case token was stored

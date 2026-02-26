@@ -1,3 +1,5 @@
+import { logger } from './utils/logger'; // Import our logger
+
 // Global WebSocket instance to ensure only one connection exists
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let sharedWebSocket: WebSocket | null = null;
@@ -23,13 +25,13 @@ export const initializeWebSocket = (): WebSocket | null => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   // Use the same host as the current page so Vite proxy handles the WebSocket connection
   const wsUrl = `${protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/ws`;
-  console.log(`Initializing WebSocket connection to: ${wsUrl}`);
+  logger.debug(`Initializing WebSocket connection to: ${wsUrl}`);
 
   try {
     sharedWebSocket = new WebSocket(wsUrl);
 
     sharedWebSocket.onopen = () => {
-      console.log('WebSocket connected');
+      logger.debug('WebSocket connected');
       reconnectAttempts = 0; // Reset attempts on successful connection
       
       // Start heartbeat interval to keep connection alive
@@ -60,11 +62,11 @@ export const initializeWebSocket = (): WebSocket | null => {
     };
 
     sharedWebSocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      logger.error('WebSocket error:', error);
     };
 
     sharedWebSocket.onclose = (event) => {
-      console.log('WebSocket connection closed:', event.code, event.reason);
+      logger.debug('WebSocket connection closed:', event.code, event.reason);
       
       // Clear heartbeat interval
       if (heartbeatInterval) {
@@ -78,18 +80,18 @@ export const initializeWebSocket = (): WebSocket | null => {
         reconnectAttempts++;
         if (reconnectAttempts <= maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30 seconds
-          console.log(`Attempting to reconnect to WebSocket in ${delay}ms... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+          logger.debug(`Attempting to reconnect to WebSocket in ${delay}ms... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
           setTimeout(() => {
             // Reinitialize the connection
             initializeWebSocket();
           }, delay);
         } else {
-          console.error('Max reconnection attempts reached. Please reload the page.');
+          logger.error('Max reconnection attempts reached. Please reload the page.');
         }
       }
     };
   } catch (error) {
-    console.error('Failed to create WebSocket connection:', error);
+    logger.error('Failed to create WebSocket connection:', error);
     return null;
   }
 

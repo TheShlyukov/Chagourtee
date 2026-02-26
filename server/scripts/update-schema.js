@@ -26,11 +26,17 @@ function updateSchema() {
   const updatedAtExists = columns.some(col => col.name === 'updated_at');
   
   if (!updatedAtExists) {
-    console.log('Adding updated_at column to messages table...');
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log('Adding updated_at column to messages table...');
+    }
     db.exec('ALTER TABLE messages ADD COLUMN updated_at TEXT;');
-    console.log('Column updated_at added successfully!');
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log('Column updated_at added successfully!');
+    }
   } else {
-    console.log('updated_at column already exists.');
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log('updated_at column already exists.');
+    }
   }
   
   // Check if updated_at index exists
@@ -38,15 +44,23 @@ function updateSchema() {
   const indexExists = indexes.some(idx => idx.name === 'idx_messages_updated_at');
   
   if (!indexExists) {
-    console.log('Adding index for updated_at column...');
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log('Adding index for updated_at column...');
+    }
     db.exec('CREATE INDEX idx_messages_updated_at ON messages(updated_at);');
-    console.log('Index idx_messages_updated_at created successfully!');
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log('Index idx_messages_updated_at created successfully!');
+    }
   } else {
-    console.log('Index for updated_at column already exists.');
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log('Index for updated_at column already exists.');
+    }
   }
   
   db.close();
-  console.log('Database schema update completed.');
+  if (process.env.DEBUG_MODE === 'true') {
+    console.log('Database schema update completed.');
+  }
 }
 
 if (require.main === module) {

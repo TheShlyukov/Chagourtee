@@ -57,13 +57,21 @@ module.exports = function (fastify) {
       WHERE m.id = ?
     `).get(result.lastInsertRowid);
 
-    console.log(`About to broadcast new message to room ${roomId}:`, msg); // Debug log
+    if (process.env.DEBUG_MODE === 'true') {
+      fastify.log.info(`About to broadcast new message to room ${roomId}:`, msg);
+    }
     if (fastify.broadcastRoom) {
-      console.log(`Calling broadcastRoom for room ${roomId}`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`Calling broadcastRoom for room ${roomId}`);
+      }
       fastify.broadcastRoom(roomId, { type: 'message', message: msg });
-      console.log(`Called broadcastRoom for room ${roomId}`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`Called broadcastRoom for room ${roomId}`);
+      }
     } else {
-      console.log(`broadcastRoom function not available on fastify instance`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`broadcastRoom function not available on fastify instance`);
+      }
     }
     return msg;
   });
@@ -123,13 +131,21 @@ module.exports = function (fastify) {
     `).get(messageId);
 
     // Broadcast update to all room participants
-    console.log(`About to broadcast message update to room ${roomId}:`, updatedMsg); // Debug log
+    if (process.env.DEBUG_MODE === 'true') {
+      fastify.log.info(`About to broadcast message update to room ${roomId}:`, updatedMsg);
+    }
     if (fastify.broadcastRoom) {
-      console.log(`Calling broadcastRoom for message update in room ${roomId}`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`Calling broadcastRoom for message update in room ${roomId}`);
+      }
       fastify.broadcastRoom(roomId, { type: 'message_updated', message: updatedMsg });
-      console.log(`Called broadcastRoom for message update in room ${roomId}`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`Called broadcastRoom for message update in room ${roomId}`);
+      }
     } else {
-      console.log(`broadcastRoom function not available on fastify instance for update`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`broadcastRoom function not available on fastify instance for update`);
+      }
     }
 
     return updatedMsg;
@@ -172,18 +188,30 @@ module.exports = function (fastify) {
     // Delete the message
     db.prepare('DELETE FROM messages WHERE id = ?').run(messageId);
 
-    console.log(`About to broadcast message deletion for message ${messageId} in room ${roomId}`); // Debug log
+    if (process.env.DEBUG_MODE === 'true') {
+      fastify.log.info(`About to broadcast message deletion for message ${messageId} in room ${roomId}`);
+    }
     // Broadcast deletion to all room participants via WebSocket
     if (fastify.broadcastMessageDeleted) {
-      console.log(`Calling broadcastMessageDeleted for message ${messageId} in room ${roomId}`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`Calling broadcastMessageDeleted for message ${messageId} in room ${roomId}`);
+      }
       fastify.broadcastMessageDeleted(roomId, messageId, request.session.userId, currentUser?.login || request.session.userId);
-      console.log(`Called broadcastMessageDeleted for message ${messageId} in room ${roomId}`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`Called broadcastMessageDeleted for message ${messageId} in room ${roomId}`);
+      }
     } else if (fastify.broadcastRoom) {
-      console.log(`Calling broadcastRoom for message deletion in room ${roomId}`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`Calling broadcastRoom for message deletion in room ${roomId}`);
+      }
       fastify.broadcastRoom(roomId, { type: 'message_deleted', messageId, userId: request.session.userId, login: currentUser?.login || request.session.userId });
-      console.log(`Called broadcastRoom for message deletion in room ${roomId}`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`Called broadcastRoom for message deletion in room ${roomId}`);
+      }
     } else {
-      console.log(`No broadcast function available for message deletion`); // Debug log
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.info(`No broadcast function available for message deletion`);
+      }
     }
 
     return { success: true };

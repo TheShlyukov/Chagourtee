@@ -86,7 +86,9 @@ async function run() {
   const existingMainRoom = db.prepare('SELECT id FROM rooms WHERE name = ?').get('main');
   if (!existingMainRoom) {
     db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', 1); // Using 1 as default creator ID
-    console.log("Created 'main' room on first startup");
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log("Created 'main' room on first startup");
+    }
   }
 
   fastify.post('/api/auth/register', async (request, reply) => {
@@ -159,7 +161,9 @@ async function run() {
 
   try {
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
-    console.log(`Server listening on http://0.0.0.0:3000`);
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log(`Server listening on http://0.0.0.0:3000`);
+    }
     
     // Check if debug mode is enabled
     if (process.env.DEBUG_MODE === 'true') {

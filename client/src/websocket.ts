@@ -4,6 +4,7 @@ import { logger } from './utils/logger'; // Import our logger
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let sharedWebSocket: WebSocket | null = null;
 let messageHandlers: ((data: any) => void)[] = [];
+let openHandlers: (() => void)[] = [];
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 
@@ -43,6 +44,15 @@ export const initializeWebSocket = (): WebSocket | null => {
           sharedWebSocket.send(JSON.stringify({ type: 'ping' }));
         }
       }, 30000); // Send ping every 30 seconds
+
+      // Notify all registered open handlers
+      openHandlers.forEach((handler) => {
+        try {
+          handler();
+        } catch (e) {
+          console.error('Error in WebSocket open handler:', e);
+        }
+      });
     };
 
     sharedWebSocket.onmessage = (event) => {
@@ -138,6 +148,26 @@ export const removeMessageHandler = (handler: (data: any) => void) => {
  * Gets the current WebSocket instance
  */
 export const getWebSocket = () => sharedWebSocket;
+
+/**
+ * Register a handler to be called whenever WebSocket connection opens.
+ * This also runs on every reconnection, so it's safe for join-логики комнат.
+ */
+export const addOpenHandler = (handler: () => void) => {
+  if (!openHandlers.includes(handler)) {
+    openHandlers.push(handler);
+  }
+};
+
+/**
+ * Remove a previously registered open handler.
+ */
+export const removeOpenHandler = (handler: () => void) => {
+  const index = openHandlers.indexOf(handler);
+  if (index !== -1) {
+    openHandlers.splice(index, 1);
+  }
+};
 
 /**
  * Checks if WebSocket is connected

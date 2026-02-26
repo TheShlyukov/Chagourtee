@@ -6,9 +6,37 @@ import {
   getWebSocket, 
   addMessageHandler, 
   removeMessageHandler,
-  initializeWebSocket 
+  initializeWebSocket,
+  addOpenHandler,
+  removeOpenHandler
 } from '../websocket'; // Import WebSocket manager
 import { logger } from '../utils/logger'; // Import our logger
+
+type TypingUser = {
+  userId: number;
+  login: string;
+};
+
+function formatTypingUsers(users: TypingUser[]): string | null {
+  if (!users.length) return null;
+
+  const names = users.map((u) => u.login);
+
+  if (names.length === 1) {
+    return names[0]!;
+  }
+
+  if (names.length === 2) {
+    return `${names[0]} и ${names[1]}`;
+  }
+
+  if (names.length === 3) {
+    return `${names[0]}, ${names[1]} и ${names[2]}`;
+  }
+
+  // 4 и более: показываем первых трёх и "и др."
+  return `${names[0]}, ${names[1]}, ${names[2]} и др.`;
+}
 
 export default function Chat() {
   const { roomId: routeRoomId } = useParams();
@@ -17,7 +45,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendText, setSendText] = useState('');
-  const [typing, setTyping] = useState<string | null>(null);
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
@@ -28,7 +56,8 @@ export default function Chat() {
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
   const [editingMessage, setEditingMessage] = useState<{id: number, body: string} | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingIndicatorRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null); // Для обработки долгого нажатия
   const doubleClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // Таймер для отслеживания двойного клика
@@ -113,6 +142,7 @@ export default function Chat() {
         case 'message_updated':
           // Update the message in the list if it exists
           logger.debug('Processing message update:', data.message);
+          // Only update if this is not from the current user (to avoid duplicate updates)
           setMessages(prev => 
             prev.map(msg => 
               msg.id === data.message.id ? data.message : msg
@@ -139,10 +169,32 @@ export default function Chat() {
           break;
           
         case 'typing':
-          if (data.roomId === roomId) {
-            setTyping(data.login || String(data.userId));
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            typingTimeoutRef.current = setTimeout(() => setTyping(null), 3000);
+          // Сообщение о наборе приходит уже только в нужную комнату,
+          // поэтому roomId в payload не обязателен
+          if (data.userId != null && user && data.userId !== user.id) { // Исключаем себя из отображения
+            const userId = Number(data.userId);
+            const login = data.login || String(data.userId);
+
+            setTypingUsers((prev) => {
+              const exists = prev.some((u) => u.userId === userId);
+              if (exists) {
+                return prev.map((u) =>
+                  u.userId === userId ? { ...u, login } : u
+                );
+              }
+              return [...prev, { userId, login }];
+            });
+
+            const timeouts = typingTimeoutsRef.current;
+            const existingTimeout = timeouts.get(userId);
+            if (existingTimeout) clearTimeout(existingTimeout);
+
+            const timeoutId = setTimeout(() => {
+              setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
+              timeouts.delete(userId);
+            }, 3000);
+
+            timeouts.set(userId, timeoutId);
           }
           break;
           
@@ -167,6 +219,9 @@ export default function Chat() {
 
     // Add message handler when component mounts
     addMessageHandler(handleMessage);
+
+    // Ensure WebSocket is initialized
+    initializeWebSocket();
 
     // Function to join room with retry logic
     const joinRoomWithRetry = (attempts = 0) => {
@@ -216,48 +271,78 @@ export default function Chat() {
     // Try to join room immediately
     joinRoomWithRetry();
 
-    // Retry joining the room if connection becomes ready
+    // Global open handler to (re)join room on every WebSocket (re)connection
     const handleOpen = () => {
-      logger.debug('WebSocket open event triggered');
-      if (roomId) {
-        const ws = getWebSocket();
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'join', roomId }));
-          logger.debug(`Sent join message for room ${roomId} after connection opened`);
-        }
+      logger.debug('Global WebSocket open handler triggered in Chat');
+      if (!roomId) return;
+      const ws = getWebSocket();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'join', roomId }));
+        logger.debug(`Sent join message for room ${roomId} from global open handler`);
       }
     };
-
-    // Add event listener to handle connection opening after mount
-    const ws = getWebSocket();
-    if (ws) {
-      ws.addEventListener('open', handleOpen);
-    }
+    addOpenHandler(handleOpen);
 
     // Cleanup function
     return () => {
       logger.debug(`Chat component unmounting for room ${roomId}`);
       // Remove message handler when component unmounts
       removeMessageHandler(handleMessage);
-      // Remove event listeners
-      if (ws) {
-        ws.removeEventListener('open', handleOpen);
-      }
-      // Clear typing timeout
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      // Remove open handler
+      removeOpenHandler(handleOpen);
+      // Clear typing timeouts
+      const timeouts = typingTimeoutsRef.current;
+      timeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      timeouts.clear();
     };
-  }, [roomId]); // Only run when roomId changes
+  }, [roomId, user]); // Re-run when room or user changes so "typing" handler sees fresh user
+
+  // Periodically re-send join for the current room to handle mobile Safari quirks
+  useEffect(() => {
+    if (!roomId) return;
+
+    const intervalId = setInterval(() => {
+      const ws = getWebSocket();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify({ type: 'join', roomId }));
+          logger.debug(`Periodic join sent for room ${roomId}`);
+        } catch (e) {
+          console.error('Error sending periodic join:', e);
+        }
+      }
+    }, 10000); // каждые 10 секунд
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [roomId]);
 
   function handleTyping() {
     const ws = getWebSocket();
     if (ws?.readyState === WebSocket.OPEN && roomId) {
+      // Проверяем, что пользователь действительно присоединен к комнате
+      // Если нет, пробуем присоединиться снова
+      if (!(ws as any).currentRoomId || (ws as any).currentRoomId !== roomId) {
+        ws.send(JSON.stringify({ type: 'join', roomId }));
+        // Update the currentRoomId on the WebSocket instance
+        (ws as any).currentRoomId = roomId;
+      }
       ws.send(JSON.stringify({ type: 'typing', roomId }));
     }
   }
 
+  // Прокручиваем к последнему сообщению при его получении
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Прокручиваем к индикатору "печатает", если он есть
+  useEffect(() => {
+    if (typingUsers.length > 0 && typingIndicatorRef.current) {
+      typingIndicatorRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [typingUsers]);
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -265,19 +350,32 @@ export default function Chat() {
     const text = sendText.trim();
     setSendText('');
     try {
-      await messagesApi.send(roomId, text);
+      const newMessage = await messagesApi.send(roomId, text);
+      // Optimistically add the new message so the author sees it immediately
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMessage.id)) {
+          return prev;
+        }
+        return [...prev, newMessage];
+      });
     } catch (err) {
       setSendText(text);
       alert(err instanceof Error ? err.message : 'Не удалось отправить');
     }
   }
 
-  // Check if user can edit/delete a message
-  const canEditDeleteMessage = (message: Message) => {
+  // Check if user can edit a message (only own messages)
+  const canEditMessage = (message: Message) => {
     if (!user) return false;
-    // Owner or moderator can edit/delete any message
+    return message.user_id === user.id;
+  };
+
+  // Check if user can delete a message (own + owner/moderator)
+  const canDeleteMessage = (message: Message) => {
+    if (!user) return false;
+    // Owner or moderator can delete any message
     if (user.role === 'owner' || user.role === 'moderator') return true;
-    // Author can edit/delete their own message
+    // Author can delete their own message
     return message.user_id === user.id;
   };
 
@@ -286,8 +384,8 @@ export default function Chat() {
     // Find the message by ID to check permissions
     const message = messages.find(msg => msg.id === id);
     
-    // Allow selection only if user can edit/delete the message
-    if (message && canEditDeleteMessage(message)) {
+    // Allow selection only if user can delete the message
+    if (message && canDeleteMessage(message)) {
       setSelectedMessages(prev => {
         if (prev.includes(id)) {
           return prev.filter(msgId => msgId !== id);
@@ -381,7 +479,7 @@ export default function Chat() {
   const selectAllMessages = () => {
     // Filter messages to only include those the user can edit/delete
     const selectableMessageIds = messages
-      .filter(message => canEditDeleteMessage(message))
+      .filter(message => canDeleteMessage(message))
       .map(m => m.id);
     
     // Select all selectable message IDs that aren't already selected
@@ -397,13 +495,13 @@ export default function Chat() {
     if (confirm(`Вы уверены, что хотите удалить ${selectedMessages.length} сообщений?`)) {
       try {
         // Delete messages one by one - all selected messages should already be ones the user has permission to delete
-        const deletePromises = selectedMessages.map(msgId => {
-          // Find the room_id for the message - we'll use the current roomId
-          // since all selected messages are from the same room
-          return messagesApi.delete(msgId, roomId!);
-        });
+        const deletePromises = selectedMessages.map(msgId =>
+          messagesApi.delete(msgId, roomId!)
+        );
         
         await Promise.all(deletePromises);
+        // Optimistically remove deleted messages locally
+        setMessages((prev) => prev.filter((msg) => !selectedMessages.includes(msg.id)));
         clearSelections(); // Clear selections after successful deletion
       } catch (error) {
         console.error('Error deleting messages:', error);
@@ -431,7 +529,11 @@ export default function Chat() {
     if (!editingMessage || !editingMessage.body.trim() || !roomId) return;
     
     try {
-      await messagesApi.edit(editingMessage.id, roomId, editingMessage.body);
+      const updated = await messagesApi.edit(editingMessage.id, roomId, editingMessage.body);
+      // Optimistically update the message locally
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === updated.id ? updated : msg))
+      );
       setEditingMessage(null);
     } catch (error) {
       console.error('Error editing message:', error);
@@ -449,6 +551,8 @@ export default function Chat() {
     if (confirm('Вы уверены, что хотите удалить это сообщение?')) {
       try {
         await messagesApi.delete(messageId, roomId!);
+        // Optimistically remove the message locally
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
         setContextMenu({ visible: false, x: 0, y: 0, message: null });
       } catch (error) {
         console.error('Error deleting message:', error);
@@ -517,7 +621,7 @@ export default function Chat() {
                     return (
                       <div
                         key={m.id} 
-                        className={`chat-message ${shouldHideAuthor ? 'grouped-message' : 'has-author'} ${isSelected ? 'selected' : ''} ${canEditDeleteMessage(m) ? 'editable' : ''}`}
+                        className={`chat-message ${shouldHideAuthor ? 'grouped-message' : 'has-author'} ${isSelected ? 'selected' : ''} ${(canEditMessage(m) || canDeleteMessage(m)) ? 'editable' : ''}`}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           showContextMenu(e.clientX, e.clientY, m);
@@ -580,7 +684,7 @@ export default function Chat() {
                               <div className="message-selected-indicator">✓</div>
                             )}
                             {/* Add selection indicator for messages that can be selected */}
-                            {isSelecting && !canEditDeleteMessage(m) && (
+                            {isSelecting && !canDeleteMessage(m) && (
                               <div className="message-not-selectable-indicator">○</div>
                             )}
                           </>
@@ -589,9 +693,12 @@ export default function Chat() {
                     );
                   })
                 )}
-                {typing && (
-                  <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    {typing} печатает…
+                {formatTypingUsers(typingUsers) && (
+                  <div 
+                    ref={typingIndicatorRef}
+                    style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}
+                  >
+                    {formatTypingUsers(typingUsers)} печатает…
                   </div>
                 )}
                 <div ref={bottomRef} />
@@ -609,31 +716,33 @@ export default function Chat() {
                     zIndex: 1000
                   }}
                 >
-                  {canEditDeleteMessage(contextMenu.message) && (
-                    <>
-                      <button 
-                        className="context-menu-item"
-                        onClick={() => startEditingMessage(contextMenu.message)}
-                      >
-                        Редактировать
-                      </button>
-                      <button 
-                        className="context-menu-item danger-text-only"
-                        onClick={() => {
-                          if (contextMenu.message) {
-                            deleteSingleMessage(contextMenu.message.id);
-                          }
-                          hideContextMenu();
-                        }}
-                      >
-                        Удалить
-                      </button>
-                    </>
+                  {/* Редактировать можно только свои сообщения */}
+                  {canEditMessage(contextMenu.message) && (
+                    <button 
+                      className="context-menu-item"
+                      onClick={() => startEditingMessage(contextMenu.message)}
+                    >
+                      Редактировать
+                    </button>
+                  )}
+                  {/* Удалять могут владелец/модератор или автор */}
+                  {canDeleteMessage(contextMenu.message) && (
+                    <button 
+                      className="context-menu-item danger-text-only"
+                      onClick={() => {
+                        if (contextMenu.message) {
+                          deleteSingleMessage(contextMenu.message.id);
+                        }
+                        hideContextMenu();
+                      }}
+                    >
+                      Удалить
+                    </button>
                   )}
                   <button 
                     className="context-menu-item"
                     onClick={() => {
-                      if (contextMenu.message && canEditDeleteMessage(contextMenu.message)) {
+                      if (contextMenu.message && canDeleteMessage(contextMenu.message)) {
                         toggleMessageSelection(contextMenu.message.id);
                       }
                       hideContextMenu();

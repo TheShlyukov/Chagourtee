@@ -1,3 +1,5 @@
+const { isOwnerOrModerator } = require('./auth');
+
 module.exports = function (fastify) {
   const db = fastify.db;
 
@@ -109,7 +111,7 @@ module.exports = function (fastify) {
     // Check permissions: user can edit own message, or if they are owner/moderator
     const isOwnMessage = message.user_id === request.session.userId;
     const currentUser = fastify.getUser(request.session.userId);
-    const isAllowed = isOwnMessage || fastify.isOwnerOrModerator(currentUser?.role);
+    const isAllowed = isOwnMessage || isOwnerOrModerator(currentUser?.role);
 
     if (!isAllowed) {
       return reply.code(403).send({ error: 'Cannot edit another user\'s message' });
@@ -179,7 +181,7 @@ module.exports = function (fastify) {
     // Check permissions: user can delete own message, or if they are owner/moderator
     const isOwnMessage = message.user_id === request.session.userId;
     const currentUser = fastify.getUser(request.session.userId);
-    const isAllowed = isOwnMessage || fastify.isOwnerOrModerator(currentUser?.role);
+    const isAllowed = isOwnMessage || isOwnerOrModerator(currentUser?.role);
 
     if (!isAllowed) {
       return reply.code(403).send({ error: 'Cannot delete another user\'s message' });
@@ -244,7 +246,7 @@ module.exports = function (fastify) {
 
     // Check permissions for each message
     const currentUser = fastify.getUser(request.session.userId);
-    const isModerator = fastify.isOwnerOrModerator(currentUser?.role);
+    const isModerator = isOwnerOrModerator(currentUser?.role);
 
     for (const msg of messages) {
       const isOwnMessage = msg.user_id === request.session.userId;

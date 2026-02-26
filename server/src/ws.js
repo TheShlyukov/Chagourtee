@@ -68,7 +68,7 @@ module.exports = function (fastify) {
         }
         
         if (msg.type === 'typing' && msg.roomId != null) {
-          broadcastToRoom(Number(msg.roomId), { type: 'typing', userId, login: user?.login || userId });
+          broadcastToRoom(Number(msg.roomId), { type: 'typing', userId, login: user?.login || userId }, ws);
         }
         if (msg.type === 'join' && msg.roomId != null) {
           ws.currentRoomId = Number(msg.roomId);
@@ -92,7 +92,7 @@ module.exports = function (fastify) {
             content: msg.content,
             userId, 
             login: user?.login || userId 
-          });
+          }, ws);
         }
         // Handle message deletion
         if (msg.type === 'delete_message' && msg.messageId) {
@@ -104,7 +104,7 @@ module.exports = function (fastify) {
             messageId: msg.messageId,
             userId, 
             login: user?.login || userId 
-          });
+          }, ws);
         }
       } catch (_) {}
     });
@@ -177,7 +177,7 @@ module.exports = function (fastify) {
     });
   }
 
-  function broadcastToRoom(roomId, payload) {
+  function broadcastToRoom(roomId, payload, senderWs = null) {
     const data = JSON.stringify(payload);
     if (process.env.DEBUG_MODE === 'true') {
       fastify.log.info(`Broadcasting to room ${roomId}:`, payload.type);
@@ -185,6 +185,10 @@ module.exports = function (fastify) {
     let count = 0;
     wss.clients.forEach((c) => {
       if (c.readyState === WebSocket.OPEN && c.currentRoomId === roomId) {
+        // Don't send the message back to the sender
+        if (c === senderWs) {
+          return; // Skip the sender
+        }
         if (process.env.DEBUG_MODE === 'true') {
           fastify.log.info(`Sending to client in room ${roomId}`);
         }

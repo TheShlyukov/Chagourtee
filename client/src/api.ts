@@ -218,5 +218,7 @@ export {
   getWebSocket, 
   addMessageHandler, 
   removeMessageHandler,
-  isWebSocketConnected 
+  isWebSocketConnected,
+  addOpenHandler,
+  removeOpenHandler
 } from './websocket';

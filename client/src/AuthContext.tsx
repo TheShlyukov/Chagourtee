@@ -62,8 +62,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Connect to WebSocket and handle events
   useEffect(() => {
     if (!user) {
-      // Close WebSocket when user is not authenticated
-      closeWebSocket();
       return;
     }
 

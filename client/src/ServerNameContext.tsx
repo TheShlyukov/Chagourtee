@@ -5,12 +5,13 @@ import { serverSettings as serverSettingsApi } from './api';
 type ServerNameContextValue = {
   rawName: string | null;
   displayName: string;
+  serverTagline: string;
   reload: () => Promise<void>;
   setRawNameLocal: (name: string | null) => void;
 };
 
-const DEFAULT_BASE_NAME = 'Chagourtee сервер';
-const SUFFIX = ' (Работает на Chagourtee)';
+const DEFAULT_BASE_NAME = 'Chagourtee';
+const HARDCODED_TAGLINE = 'Работает на Chagourtee'; // Зафиксированный теглайн
 
 const ServerNameContext = createContext<ServerNameContextValue | undefined>(undefined);
 
@@ -31,16 +32,17 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
     void load();
   }, []);
 
-  const displayName = `${rawName && rawName.trim().length > 0 ? rawName.trim() : DEFAULT_BASE_NAME}${SUFFIX}`;
+  const displayName = `${rawName && rawName.trim().length > 0 ? rawName.trim() : DEFAULT_BASE_NAME}`;
 
   const value: ServerNameContextValue = {
     rawName,
     displayName,
+    serverTagline: HARDCODED_TAGLINE,
     reload: load,
     setRawNameLocal: setRawName,
   };
 
-  // Set document title whenever displayName changes
+  // Set document title whenever displayName changes (without tagline)
   useEffect(() => {
     document.title = displayName;
   }, [displayName]);
@@ -59,4 +61,3 @@ export function useServerName() {
   }
   return ctx;
 }
-

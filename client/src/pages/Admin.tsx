@@ -453,7 +453,7 @@ export default function Admin() {
             </button>
           </form>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-            Пример: <strong>Мой сервер (Работает на Chagourtee)</strong>
+            Пример: <strong>Мой сервер</strong>
           </p>
         </div>
 

@@ -10,9 +10,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login: doLogin } = useAuth();
   const navigate = useNavigate();
-  const { displayName } = useServerName();
+  const { displayName, serverTagline } = useServerName();
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -46,7 +46,7 @@ export default function Login() {
           border: '1px solid var(--border)'
         }}>
           <h1 style={{ 
-            marginBottom: '0.5rem', 
+            marginBottom: '0.25rem', 
             textAlign: 'center',
             background: 'var(--gradient-primary)',
             WebkitBackgroundClip: 'text',
@@ -57,6 +57,15 @@ export default function Login() {
           }}>
             {displayName}
           </h1>
+          <p style={{ 
+            textAlign: 'center', 
+            color: 'var(--text-secondary)', 
+            marginBottom: '1.5rem', 
+            fontSize: '0.9rem',
+            fontStyle: 'italic'
+          }}>
+            {serverTagline}
+          </p>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
             Вход на ваш сервер
           </p>

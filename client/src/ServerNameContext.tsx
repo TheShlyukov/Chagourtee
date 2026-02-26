@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ServerSettings } from './api';
-import { serverSettings as serverSettingsApi } from './api';
+import { serverSettings as serverSettingsApi, serverVersion, VersionInfo } from './api';
 
 type ServerNameContextValue = {
   rawName: string | null;
@@ -11,20 +11,27 @@ type ServerNameContextValue = {
 };
 
 const DEFAULT_BASE_NAME = 'Chagourtee';
-const HARDCODED_TAGLINE = 'Работает на Chagourtee'; // Зафиксированный теглайн
 
 const ServerNameContext = createContext<ServerNameContextValue | undefined>(undefined);
 
 export function ServerNameProvider({ children }: { children: React.ReactNode }) {
   const [rawName, setRawName] = useState<string | null>(null);
+  const [versionInfo, setVersionInfo] = useState<string>(''); // Store version info
 
   const load = async () => {
     try {
       const settings: ServerSettings = await serverSettingsApi.get();
       setRawName(settings.name ?? null);
+      
+      // Load version info
+      const versionData: VersionInfo = await serverVersion.get();
+      setVersionInfo(`${versionData.name} ${versionData.version}`);
     } catch (e) {
       // If request fails (e.g. not logged in yet), just keep default
-      console.error('Failed to load server settings', e);
+      console.error('Failed to load server settings or version info', e);
+      
+      // Fallback to default version info if loading fails
+      setVersionInfo(DEFAULT_BASE_NAME);
     }
   };
 
@@ -37,7 +44,7 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
   const value: ServerNameContextValue = {
     rawName,
     displayName,
-    serverTagline: HARDCODED_TAGLINE,
+    serverTagline: versionInfo, // Use version info as tagline
     reload: load,
     setRawNameLocal: setRawName,
   };

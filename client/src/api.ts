@@ -1,5 +1,11 @@
 const BASE = '';
 
+export type VersionInfo = {
+  version: string;
+  name: string;
+  release: string;
+};
+
 export type User = {
   id: number;
   login: string;
@@ -151,6 +157,10 @@ export const serverSettings = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
+};
+
+export const serverVersion = {
+  get: () => api<VersionInfo>('/api/version'),
 };
 
 export const verification = {

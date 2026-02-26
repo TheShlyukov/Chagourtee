@@ -2,7 +2,7 @@ const path = require('path');
 // Загружаем .env из корня проекта или из server/
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
-const fastify = require('fastify')({ logger: true });
+const fastify = require('fastify');
 const cookie = require('@fastify/cookie');
 const { getDb } = require('./db');
 const { hashPassword, verifyPassword, SESSION_TTL_MS, createSessionId } = require('./auth');
@@ -11,22 +11,30 @@ const { authRoutes, addAuthUtils } = require('./auth');
 
 const SESSION_COOKIE = 'chagourtee_sid';
 
+// Import package.json to get version info
+const { version } = require('../package.json');
+
+// Initialize Fastify server
+const server = fastify({
+  logger: true
+});
+
 async function run() {
   const db = getDb();
-  fastify.decorate('db', db);
+  server.decorate('db', db);
 
-  fastify.decorate('getUser', function (userId) {
+  server.decorate('getUser', function (userId) {
     const row = db.prepare('SELECT id, login, role, verified, codeword_hash FROM users WHERE id = ?').get(userId);
     return row ? { ...row, verified: Boolean(row.verified) } : null;
   });
 
-  await fastify.register(cookie, {
+  await server.register(cookie, {
     secret: process.env.CHAGOURTEE_SESSION_SECRET || 'change-me-in-production',
   });
-  await fastify.register(authPlugin);
-  await fastify.register(addAuthUtils); // Register the auth utility functions
+  await server.register(authPlugin);
+  await server.register(addAuthUtils); // Register the auth utility functions
 
-  fastify.addHook('preHandler', async function (request, reply) {
+  server.addHook('preHandler', async function (request, reply) {
     const sessionId = request.cookies[SESSION_COOKIE];
     if (!sessionId) return;
     const row = db.prepare('SELECT user_id, expires_at FROM sessions WHERE id = ?').get(sessionId);
@@ -35,11 +43,11 @@ async function run() {
       return;
     }
     request.session = { userId: row.user_id, sessionId };
-    request.user = fastify.getUser(row.user_id);
+    request.user = server.getUser(row.user_id);
   });
 
   // Add verification check for protected routes
-  fastify.addHook('preHandler', async function (request, reply) {
+  server.addHook('preHandler', async function (request, reply) {
     const setting = db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
     const verificationEnabled = setting ? !!setting.enabled : false;
     
@@ -70,18 +78,18 @@ async function run() {
     }
   });
 
-  await fastify.register(authRoutes);
+  await server.register(authRoutes);
 
-  require('./rooms')(fastify);
-  require('./messages')(fastify);
-  require('./invites')(fastify);
-  require('./profile')(fastify);
-  require('./verification')(fastify);
-  require('./users')(fastify);
-  require('./settings')(fastify);
+  require('./rooms')(server);
+  require('./messages')(server);
+  require('./invites')(server);
+  require('./profile')(server);
+  require('./verification')(server);
+  require('./users')(server);
+  require('./settings')(server);
   
   // Initialize WebSocket server
-  require('./ws')(fastify);
+  require('./ws')(server);
 
   // Create the 'main' room if it doesn't exist and there is at least one user
   const existingMainRoom = db.prepare('SELECT id FROM rooms WHERE name = ?').get('main');
@@ -107,27 +115,27 @@ async function run() {
     }
   }
 
-  fastify.post('/api/auth/register', async (request, reply) => {
+  server.post('/api/auth/register', async (request, reply) => {
     const { inviteId, login, password, codeword, bootstrap } = request.body || {};
     if (!login || !password) {
       return reply.code(400).send({ error: 'Login and password required' });
     }
     const loginTrim = login.trim();
     if (loginTrim.length < 2) return reply.code(400).send({ error: 'Login too short' });
-    const existing = fastify.db.prepare('SELECT id FROM users WHERE login = ?').get(loginTrim);
+    const existing = server.db.prepare('SELECT id FROM users WHERE login = ?').get(loginTrim);
     if (existing) return reply.code(400).send({ error: 'Login already taken' });
 
-    const userCount = fastify.db.prepare('SELECT COUNT(*) as n FROM users').get();
+    const userCount = server.db.prepare('SELECT COUNT(*) as n FROM users').get();
     const isFirstUser = userCount.n === 0;
     const bootstrapOk = isFirstUser && bootstrap && bootstrap === process.env.CHAGOURTEE_BOOTSTRAP_SECRET;
 
     if (bootstrapOk) {
-      fastify.db.prepare(
+      server.db.prepare(
         'INSERT INTO users (login, password_hash, role, verified) VALUES (?, ?, ?, 1)'
       ).run(loginTrim, hashPassword(password), 'owner');
     } else {
       if (!inviteId) return reply.code(400).send({ error: 'Invite required' });
-      const invite = fastify.db.prepare(
+      const invite = server.db.prepare(
         'SELECT id, created_by, max_uses, uses_count, expires_at FROM invites WHERE id = ?'
       ).get(inviteId);
       if (!invite) return reply.code(400).send({ error: 'Invalid invite' });
@@ -138,26 +146,26 @@ async function run() {
         return reply.code(400).send({ error: 'Invite limit reached' });
       }
       // Check if verification is enabled globally
-      const verificationSetting = fastify.db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
+      const verificationSetting = server.db.prepare('SELECT enabled FROM verification_settings LIMIT 1').get();
       const isVerificationEnabled = verificationSetting ? !!verificationSetting.enabled : false;
       
       const codewordHash = codeword ? hashPassword(codeword) : null;
       // If verification is enabled, set user as unverified (0), otherwise auto-verify (1)
       const shouldBeVerified = isVerificationEnabled ? 0 : (codeword ? 0 : 1);
       
-      fastify.db.prepare(
+      server.db.prepare(
         'INSERT INTO users (login, password_hash, role, verified, codeword_hash) VALUES (?, ?, ?, ?, ?)'
       ).run(loginTrim, hashPassword(password), 'member', shouldBeVerified, codewordHash);
-      fastify.db.prepare('UPDATE invites SET uses_count = uses_count + 1 WHERE id = ?').run(inviteId);
+      server.db.prepare('UPDATE invites SET uses_count = uses_count + 1 WHERE id = ?').run(inviteId);
     }
 
-    const userId = fastify.db.prepare('SELECT id FROM users WHERE login = ?').get(loginTrim).id;
+    const userId = server.db.prepare('SELECT id FROM users WHERE login = ?').get(loginTrim).id;
     
     // After registering the first user, check if main room exists, if not create it
     if (isFirstUser) {
-      const existingMainRoom = fastify.db.prepare('SELECT id FROM rooms WHERE name = ?').get('main');
+      const existingMainRoom = server.db.prepare('SELECT id FROM rooms WHERE name = ?').get('main');
       if (!existingMainRoom) {
-        fastify.db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', userId);
+        server.db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', userId);
         if (process.env.DEBUG_MODE === 'true') {
           console.log("Created 'main' room for first user with ID:", userId);
         }
@@ -168,7 +176,7 @@ async function run() {
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
     
     // Store session in DB
-    fastify.db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(
+    server.db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(
       sessionId,
       userId,
       expiresAt
@@ -183,22 +191,25 @@ async function run() {
       sameSite: 'strict',
     });
 
-    const user = fastify.getUser(userId);
+    const user = server.getUser(userId);
     return { user };
   });
 
+  // Add version endpoint
+  server.get('/api/version', async (request, reply) => {
+    return {
+      version: version,
+      name: 'Chagourtee',
+      release: version.includes('-') ? 'alpha' : 'stable' // Determine release type based on presence of hyphen in version
+    };
+  });
+
+  // Run the server
   try {
-    await fastify.listen({ port: 3000, host: '0.0.0.0' });
-    if (process.env.DEBUG_MODE === 'true') {
-      console.log(`Server listening on http://0.0.0.0:3000`);
-    }
-    
-    // Check if debug mode is enabled
-    if (process.env.DEBUG_MODE === 'true') {
-      console.log("Debug endpoints enabled");
-    }
+    await server.listen({ port: 3000, host: '0.0.0.0' });
+    console.log(`Server listening on port ${server.server.address().port}`);
   } catch (err) {
-    fastify.log.error(err);
+    server.log.error(err);
     process.exit(1);
   }
 }

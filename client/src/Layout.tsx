@@ -9,7 +9,7 @@ export default function Layout() {
   const location = useLocation();
   const params = useParams();
   const [roomName, setRoomName] = useState<string | null>(null);
-  const { displayName } = useServerName();
+  const { displayName, serverTagline } = useServerName();
 
   // Загрузка названия комнаты для заголовка
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function Layout() {
               marginTop: '0.15rem',
             }}
           >
-            {displayName}
+            {useServerName().serverTagline}
           </span>
         </div>
       </nav>
@@ -109,7 +109,7 @@ export default function Layout() {
             </NavLink>
           )}
         </nav>
-        <div style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 'auto', borderTop: '1px solid var(--border)' }}>
+        <div style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: 'var(--text-muted', marginTop: 'auto', borderTop: '1px solid var(--border)' }}>
           <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem' }}>{user?.login}</div>
           {!user?.verified && <div style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>⏳ Ожидает верификации</div>}
           <div
@@ -123,6 +123,15 @@ export default function Layout() {
             }}
           >
             {displayName}
+          </div>
+          <div
+            style={{
+              fontSize: '0.8rem',
+              marginTop: '0.35rem',
+              color: 'var(--text-muted)',
+            }}
+          >
+            {serverTagline}
           </div>
         </div>
       </aside>

@@ -1,5 +1,6 @@
 import { Route, Navigate, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
+import { ServerNameProvider } from './ServerNameContext';
 import Layout from './Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -66,7 +67,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <ServerNameProvider>
+        <AppRoutes />
+      </ServerNameProvider>
     </AuthProvider>
   );
 }

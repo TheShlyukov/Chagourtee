@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import { useServerName } from '../ServerNameContext';
 
 export default function Login() {
   const [login, setLogin] = useState('');
@@ -9,6 +10,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login: doLogin } = useAuth();
   const navigate = useNavigate();
+  const { displayName } = useServerName();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,9 +54,11 @@ export default function Login() {
             backgroundClip: 'text',
             fontSize: '2rem',
             fontWeight: 700
-          }}>Chagourtee</h1>
+          }}>
+            {displayName}
+          </h1>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-            Рады видеть вас снова!
+            Вход на ваш сервер
           </p>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>

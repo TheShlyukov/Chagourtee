@@ -78,6 +78,7 @@ async function run() {
   require('./profile')(fastify);
   require('./verification')(fastify);
   require('./users')(fastify);
+  require('./settings')(fastify);
   
   // Initialize WebSocket server
   require('./ws')(fastify);

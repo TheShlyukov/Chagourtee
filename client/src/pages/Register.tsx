@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { auth, verification } from '../api';
 import { useAuth } from '../AuthContext';
+import { useServerName } from '../ServerNameContext';
 
 export default function Register() {
   const [searchParams] = useSearchParams();
@@ -14,6 +15,7 @@ export default function Register() {
   const [verificationEnabled, setVerificationEnabled] = useState(false);
   const { setUser, refresh } = useAuth();
   const navigate = useNavigate();
+  const { displayName } = useServerName();
 
   useEffect(() => {
     // Load verification settings
@@ -81,7 +83,7 @@ export default function Register() {
             fontWeight: 700
           }}>Регистрация</h1>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-            Создайте аккаунт по инвайту
+            Создайте аккаунт на {displayName}
           </p>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>

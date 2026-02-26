@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../AuthContext';
 import type { Room, Invite, User } from '../api';
-import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi } from '../api';
+import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi, serverSettings as serverSettingsApi } from '../api';
+import { useServerName } from '../ServerNameContext';
 
 type PendingUser = { id: number; login: string; created_at: string };
 type UserWithDate = User & { created_at: string };
@@ -20,6 +21,9 @@ export default function Admin() {
   const [verificationEnabled, setVerificationEnabled] = useState(false);
   const [codes, setCodes] = useState<{id: number, created_by_login: string, used: number, created_at: string, expires_at: string}[]>([]);
   const [customCode, setCustomCode] = useState<string>('');
+  const { rawName, displayName, setRawNameLocal } = useServerName();
+  const [serverNameInput, setServerNameInput] = useState<string>(rawName ?? '');
+  const [serverNameSaving, setServerNameSaving] = useState(false);
   
   const load = useCallback(async () => {
     try {
@@ -37,6 +41,10 @@ export default function Admin() {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки');
     }
   }, []);
+
+  useEffect(() => {
+    setServerNameInput(rawName ?? '');
+  }, [rawName]);
 
   useEffect(() => {
     if (user?.role !== 'owner' && user?.role !== 'moderator') return;
@@ -75,6 +83,26 @@ export default function Admin() {
       setMessage('Комната создана');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
+    }
+  }
+
+  async function saveServerName(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const trimmed = serverNameInput.trim();
+    if (trimmed.length > 100) {
+      setError('Имя сервера слишком длинное (максимум 100 символов)');
+      return;
+    }
+    setServerNameSaving(true);
+    try {
+      const res = await serverSettingsApi.update(trimmed);
+      setRawNameLocal(res.name ?? null);
+      setMessage('Имя сервера обновлено');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка при сохранении имени сервера');
+    } finally {
+      setServerNameSaving(false);
     }
   }
 
@@ -407,6 +435,28 @@ export default function Admin() {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🖥 Имя сервера</h3>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+            Текущее отображение: <strong>{displayName}</strong>
+          </p>
+          <form onSubmit={saveServerName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <input
+              type="text"
+              value={serverNameInput}
+              onChange={(e) => setServerNameInput(e.target.value)}
+              placeholder="Например: Мой сервер"
+              maxLength={100}
+            />
+            <button type="submit" disabled={serverNameSaving} style={{ alignSelf: 'flex-start', paddingInline: '1.25rem' }}>
+              {serverNameSaving ? 'Сохранение…' : 'Сохранить имя сервера'}
+            </button>
+          </form>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+            Пример: <strong>Мой сервер (Работает на Chagourtee)</strong>
+          </p>
+        </div>
+
         <div className="card">
           <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🏠 Комнаты</h3>
           <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>

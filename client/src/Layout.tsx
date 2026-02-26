@@ -2,12 +2,14 @@ import { Outlet, NavLink, useLocation, useParams, Link } from 'react-router-dom'
 import { useAuth } from './AuthContext';
 import { useState, useEffect } from 'react';
 import { rooms as roomsApi } from './api';
+import { useServerName } from './ServerNameContext';
 
 export default function Layout() {
   const { user } = useAuth();
   const location = useLocation();
   const params = useParams();
   const [roomName, setRoomName] = useState<string | null>(null);
+  const { displayName } = useServerName();
 
   // Загрузка названия комнаты для заголовка
   useEffect(() => {
@@ -43,7 +45,21 @@ export default function Layout() {
             ←
           </Link>
         )}
-        <span style={{ flex: 1 }}>{getPageTitle()}</span>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <span>{getPageTitle()}</span>
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              marginTop: '0.15rem',
+            }}
+          >
+            {displayName}
+          </span>
+        </div>
       </nav>
       <aside className="layout-sidebar">
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 0.75rem' }}>
@@ -96,6 +112,18 @@ export default function Layout() {
         <div style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 'auto', borderTop: '1px solid var(--border)' }}>
           <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem' }}>{user?.login}</div>
           {!user?.verified && <div style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>⏳ Ожидает верификации</div>}
+          <div
+            style={{
+              fontSize: '0.8rem',
+              marginTop: '0.35rem',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {displayName}
+          </div>
         </div>
       </aside>
       <main className="layout-main">

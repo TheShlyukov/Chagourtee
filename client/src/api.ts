@@ -33,6 +33,10 @@ export type Invite = {
   created_at: string;
 };
 
+export type ServerSettings = {
+  name: string | null;
+};
+
 export async function api<T>(
   path: string,
   opts: RequestInit = {}
@@ -138,6 +142,15 @@ export const invites = {
     }),
   delete: (id: string) =>
     api<{ ok: boolean }>(`/api/invites/${id}`, { method: 'DELETE' }),
+};
+
+export const serverSettings = {
+  get: () => api<ServerSettings>('/api/server/settings'),
+  update: (name: string) =>
+    api<ServerSettings>('/api/server/settings', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
 };
 
 export const verification = {

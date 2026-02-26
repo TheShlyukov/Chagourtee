@@ -78,6 +78,13 @@ function createDb(dbPath) {
       expires_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS server_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      name TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages(room_id);

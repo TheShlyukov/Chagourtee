@@ -67,7 +67,7 @@ export default function Login() {
             {serverTagline}
           </p>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-            Вход на ваш сервер
+            Вход в сервер
           </p>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>

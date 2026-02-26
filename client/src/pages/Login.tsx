@@ -38,7 +38,7 @@ export default function Login() {
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ 
           background: 'var(--bg-elevated)', 
-          borderRadius: '16px', 
+          borderRadius: 'var(--radius-large)', // Используем переменную
           padding: '2.5rem 2rem',
           boxShadow: 'var(--shadow-lg)',
           border: '1px solid var(--border)'
@@ -54,7 +54,7 @@ export default function Login() {
             fontWeight: 700
           }}>Chagourtee</h1>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-            Добро пожаловать обратно
+            Рады видеть вас снова!
           </p>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>

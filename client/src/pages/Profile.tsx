@@ -74,7 +74,7 @@ export default function Profile() {
                 color: 'white',
                 border: 'none',
                 padding: '0.75rem 1.5rem',
-                borderRadius: '6px',
+                borderRadius: 'var(--radius-default)',
                 cursor: 'pointer',
                 fontWeight: 500
               }}

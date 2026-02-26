@@ -65,7 +65,7 @@ export default function Register() {
       <div style={{ width: '100%', maxWidth: 420 }}>
         <div style={{ 
           background: 'var(--bg-elevated)', 
-          borderRadius: '16px', 
+          borderRadius: 'var(--radius-large)', // Используем переменную
           padding: '2.5rem 2rem',
           boxShadow: 'var(--shadow-lg)',
           border: '1px solid var(--border)'

@@ -1,20 +1,23 @@
 :root {
-  --bg: #0f0f14;
-  --bg-elevated: #1a1b23;
-  --bg-hover: #252632;
-  --border: #2d2e3a;
+  --bg: #1a1a1a;
+  --bg-elevated: #252525;
+  --bg-hover: #303030;
+  --border: #3a3a3a;
   --text: #f0f0f5;
-  --text-muted: #8b8d98;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
-  --accent-light: rgba(99, 102, 241, 0.1);
-  --danger: #ef4444;
-  --success: #10b981;
-  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  --gradient-bg: linear-gradient(180deg, #0f0f14 0%, #1a1520 100%);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --text-muted: #a0a0a0;
+  --accent: #ff7b00;
+  --accent-hover: #ff8c22;
+  --accent-light: rgba(255, 123, 0, 0.1);
+  --danger: #ff4757;
+  --success: #2ed573;
+  --gradient-primary: linear-gradient(135deg, #ff7b00 0%, #ffaa33 100%);
+  --gradient-bg: linear-gradient(180deg, #1a1a1a 0%, #151515 100%);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 3px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 6px 16px rgba(0, 0, 0, 0.5);
+  --radius-default: 6px; /* Стандартный радиус скругления */
+  --radius-medium: 8px; /* Средний радиус скругления */
+  --radius-large: 12px; /* Большой радиус скругления */
 }
 
 * {
@@ -55,7 +58,7 @@ a:hover {
 button {
   cursor: pointer;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-default);
   padding: 0.625rem 1.25rem;
   background: var(--gradient-primary);
   color: #fff;
@@ -63,7 +66,7 @@ button {
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
   position: relative;
-  overflow-y: auto; overflow-x: hidden;
+  overflow: hidden;
   touch-action: manipulation;
 }
 button::before {
@@ -118,7 +121,7 @@ button.danger::before {
 input, textarea {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-default);
   padding: 0.625rem 0.875rem;
   width: 100%;
   transition: all 0.2s ease;
@@ -156,7 +159,7 @@ input:focus, textarea:focus {
   flex-shrink: 0;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(26, 27, 35, 0.98);
+  background: var(--bg);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -208,7 +211,7 @@ input:focus, textarea:focus {
   .layout-header-top {
     display: flex;
     flex-shrink: 0;
-    background: rgba(26, 27, 35, 0.98);
+    background: var(--bg);
     backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--border);
     padding: 1rem 1.25rem;
@@ -230,7 +233,7 @@ input:focus, textarea:focus {
   .layout-nav-bottom {
     display: flex;
     flex-shrink: 0;
-    background: rgba(26, 27, 35, 0.98);
+    background: var(--bg);
     backdrop-filter: blur(8px);
     border-top: 1px solid var(--border);
     padding: 0.5rem 0;
@@ -334,7 +337,7 @@ input:focus, textarea:focus {
   flex-shrink: 0;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(26, 27, 35, 0.98);
+  background: var(--bg);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-sm);
   font-weight: 600;
@@ -367,7 +370,7 @@ input:focus, textarea:focus {
 }
 .chat-message {
   background: var(--bg-elevated);
-  border-radius: 12px;
+  border-radius: var(--radius-default);
   padding: 0.875rem 1rem;
   border-left: 3px solid var(--accent);
   box-shadow: var(--shadow-sm);
@@ -401,7 +404,7 @@ input:focus, textarea:focus {
   flex-shrink: 0;
   padding: 1.25rem;
   border-top: 1px solid var(--border);
-  background: rgba(26, 27, 35, 0.98);
+  background: var(--bg);
   backdrop-filter: blur(8px);
   display: flex;
   gap: 0.75rem;
@@ -414,6 +417,7 @@ input:focus, textarea:focus {
 }
 .chat-form button {
   padding: 0.625rem 1rem;
+  border-radius: var(--radius-default);
 }
 .chat-back {
   display: none;
@@ -492,7 +496,7 @@ input:focus, textarea:focus {
 .card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-medium);
   padding: 1.5rem;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
@@ -620,6 +624,7 @@ a:hover {
   flex: 1;
   padding: 0.5rem;
   font-size: 0.9rem;
+  border-radius: var(--radius-default);
 }
 
 /* Removed header actions for desktop since "Выбрать" button was removed */
@@ -644,6 +649,7 @@ a:hover {
   flex: 1;
   padding: 0.5rem;
   font-size: 0.85rem;
+  border-radius: var(--radius-default);
 }
 
 .mobile-selection-actions button.danger {

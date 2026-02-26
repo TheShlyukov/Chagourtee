@@ -56,7 +56,7 @@ export default function VerificationWaiting() {
         flexDirection: 'column',
         gap: '1.5rem'
       }}>
-        <div className="card" style={{ border: '2px solid var(--danger)', gridColumn: '1 / -1' }}>
+        <div className="card" style={{ border: '2px solid var(--danger)', gridColumn: '1 / -1', borderRadius: 'var(--radius-medium)' /* Используем переменную */ }}>
           <h3 style={{ marginBottom: '0.75rem', fontSize: '1.2rem', color: 'var(--danger)'}}>⏳ Ожидание верификации</h3>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
             Ваш аккаунт ожидает подтверждения от владельца сервера. 

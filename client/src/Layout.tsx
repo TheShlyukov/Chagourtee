@@ -54,7 +54,7 @@ export default function Layout() {
               padding: '0.75rem 1rem',
               color: isActive ? 'var(--accent)' : 'var(--text)',
               textDecoration: 'none',
-              borderRadius: '8px',
+              borderRadius: 'var(--radius-medium)', // Используем переменную
               background: isActive ? 'var(--accent-light)' : 'transparent',
               transition: 'all 0.2s ease',
               fontWeight: isActive ? 600 : 400,
@@ -68,7 +68,7 @@ export default function Layout() {
               padding: '0.75rem 1rem',
               color: isActive ? 'var(--accent)' : 'var(--text)',
               textDecoration: 'none',
-              borderRadius: '8px',
+              borderRadius: 'var(--radius-medium)', // Используем переменную
               background: isActive ? 'var(--accent-light)' : 'transparent',
               transition: 'all 0.2s ease',
               fontWeight: isActive ? 600 : 400,
@@ -83,7 +83,7 @@ export default function Layout() {
                 padding: '0.75rem 1rem',
                 color: isActive ? 'var(--accent)' : 'var(--text)',
                 textDecoration: 'none',
-                borderRadius: '8px',
+                borderRadius: 'var(--radius-medium)', // Используем переменную
                 background: isActive ? 'var(--accent-light)' : 'transparent',
                 transition: 'all 0.2s ease',
                 fontWeight: isActive ? 600 : 400,

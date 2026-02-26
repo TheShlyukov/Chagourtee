@@ -399,7 +399,7 @@ export default function Admin() {
           marginBottom: '1.5rem', 
           background: 'rgba(16, 185, 129, 0.1)', 
           border: '1px solid var(--success)',
-          borderRadius: '8px',
+          borderRadius: 'var(--radius-medium)', // Используем переменную
           color: 'var(--success)'
         }}>
           ✓ {message}
@@ -429,7 +429,7 @@ export default function Admin() {
                   gap: '0.75rem',
                   padding: '0.875rem 1rem',
                   background: 'var(--bg-hover)',
-                  borderRadius: '8px',
+                  borderRadius: 'var(--radius-medium)', // Используем переменную
                   border: '1px solid var(--border)',
                   flexWrap: 'wrap'
                 }}>
@@ -444,7 +444,7 @@ export default function Admin() {
                         backgroundColor: 'var(--warning)',
                         color: 'white',
                         border: 'none',
-                        borderRadius: '4px',
+                        borderRadius: 'var(--radius-default)', // Используем переменную
                         padding: '0.25rem 0.5rem',
                         cursor: 'pointer'
                       }}
@@ -486,7 +486,7 @@ export default function Admin() {
               marginBottom: '1.5rem', 
               padding: '1rem',
               background: 'var(--accent-light)',
-              borderRadius: '8px',
+              borderRadius: 'var(--radius-medium)', // Используем переменную
               border: '1px solid var(--accent)'
             }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Ссылка для приглашения:</div>

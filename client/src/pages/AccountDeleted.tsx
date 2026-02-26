@@ -37,7 +37,7 @@ export default function AccountDeleted() {
         textAlign: 'center',
         padding: '2rem',
         background: 'var(--bg-elevated)',
-        borderRadius: '16px',
+        borderRadius: 'var(--radius-large)',
         boxShadow: 'var(--shadow-lg)',
         border: '1px solid var(--border)',
       }}>
@@ -81,7 +81,7 @@ export default function AccountDeleted() {
               padding: '0.875rem 1.5rem',
               fontSize: '1rem',
               fontWeight: 500,
-              borderRadius: '8px',
+              borderRadius: 'var(--radius-default)',
               border: 'none',
               background: 'var(--accent)',
               color: 'white',

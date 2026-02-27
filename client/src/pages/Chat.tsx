@@ -65,6 +65,7 @@ export default function Chat() {
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null); // Для обработки долгого нажатия
   const doubleClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // Таймер для отслеживания двойного клика
+  const editMessageTextareaRef = useRef<HTMLTextAreaElement>(null); // Ref for the editing message textarea
 
   // Handle clicks outside the context menu
   useEffect(() => {
@@ -378,22 +379,47 @@ export default function Chat() {
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
-      // Reset height to calculate new scrollHeight properly
-      textareaRef.current.style.height = 'auto';
+      // Store the current style to restore later
+      const currentStyle = {
+        height: textareaRef.current.style.height,
+        overflowY: textareaRef.current.style.overflowY,
+        borderBottom: textareaRef.current.style.borderBottom
+      };
       
-      // Calculate the height based on content, but limit to 5 lines
-      const lineHeight = 24; // Approximate line height in pixels
-      const maxHeight = lineHeight * 5; // 5 lines max
-      
-      // Calculate scroll height and apply the limit
-      const scrollHeight = Math.min(textareaRef.current.scrollHeight, maxHeight);
-      textareaRef.current.style.height = `${scrollHeight}px`;
+      try {
+        // Temporarily make the textarea invisible but measurable
+        textareaRef.current.style.borderBottom = 'none';
+        textareaRef.current.style.height = 'auto';
+        
+        // Calculate the height based on content, but limit to 10 lines
+        const lineHeight = 24; // Approximate line height in pixels
+        const maxHeight = lineHeight * 10; // 10 lines max
+        
+        // Calculate scroll height and apply the limit
+        const scrollHeight = Math.min(textareaRef.current.scrollHeight, maxHeight);
+        
+        // Apply the calculated height
+        textareaRef.current.style.height = `${scrollHeight}px`;
+        
+        // Show scrollbar when content exceeds max height
+        textareaRef.current.style.overflowY = scrollHeight >= maxHeight ? 'auto' : 'hidden';
+        
+        // Restore the border after resizing
+        textareaRef.current.style.borderBottom = '';
+      } catch (error) {
+        // If there's an error, restore the original styles
+        textareaRef.current.style.height = currentStyle.height;
+        textareaRef.current.style.overflowY = currentStyle.overflowY;
+        textareaRef.current.style.borderBottom = currentStyle.borderBottom;
+      }
     }
   }, []);
 
   // Effect to adjust textarea height when sendText changes
   useEffect(() => {
-    adjustTextareaHeight();
+    // Use a timeout to ensure the DOM has updated
+    const timeoutId = setTimeout(adjustTextareaHeight, 0);
+    return () => clearTimeout(timeoutId);
   }, [sendText, adjustTextareaHeight]);
 
   // Check if user can edit a message (only own messages)
@@ -549,11 +575,26 @@ export default function Chat() {
     setSelectedMessages([]);
   };
 
-  // Handle edit message
+  // Handle editing message
   const startEditingMessage = (message: Message | null) => {
     if (!message) return;
     setEditingMessage({ id: message.id, body: message.body });
     setContextMenu({ visible: false, x: 0, y: 0, message: null });
+    
+    // Adjust the height of the editing textarea after setting the value
+    setTimeout(() => {
+      if (editMessageTextareaRef.current) {
+        editMessageTextareaRef.current.style.height = 'auto';
+        
+        const lineHeight = 24;
+        const maxHeight = lineHeight * 10; // 10 lines max like the main input
+        
+        const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
+        editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
+        
+        editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
+      }
+    }, 0);
   };
 
   // Save edited message
@@ -576,7 +617,32 @@ export default function Chat() {
   // Cancel editing
   const cancelEditing = () => {
     setEditingMessage(null);
+    
+    // Return focus to the main input field
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
+
+  // Update the height of the editing textarea when the editing message changes
+  useEffect(() => {
+    if (editingMessage && editMessageTextareaRef.current) {
+      // Trigger height adjustment after setting the value
+      setTimeout(() => {
+        if (editMessageTextareaRef.current) {
+          editMessageTextareaRef.current.style.height = 'auto';
+          
+          const lineHeight = 24;
+          const maxHeight = lineHeight * 10; // 10 lines max like the main input
+          
+          const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
+          editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
+          
+          editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
+        }
+      }, 0);
+    }
+  }, [editingMessage]);
 
   // Handle deleting a single message
   const deleteSingleMessage = async (messageId: number) => {
@@ -672,9 +738,54 @@ export default function Chat() {
                         {isEditable ? (
                           <div className="edit-message-form">
                             <textarea
-                  ref={textareaRef}
+                              ref={editMessageTextareaRef}
                               value={editingMessage.body}
-                              onChange={(e) => setEditingMessage({...editingMessage, body: e.target.value})}
+                              onChange={(e) => {
+                                setEditingMessage({...editingMessage, body: e.target.value});
+                                
+                                // Adjust height of the editing textarea
+                                if (editMessageTextareaRef.current) {
+                                  editMessageTextareaRef.current.style.height = 'auto';
+                                  
+                                  const lineHeight = 24;
+                                  const maxHeight = lineHeight * 10; // 10 lines max like the main input
+                                  
+                                  const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
+                                  editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
+                                  
+                                  editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
+                                }
+                              }}
+                              onInput={() => {
+                                // Adjust height when content changes
+                                if (editMessageTextareaRef.current) {
+                                  editMessageTextareaRef.current.style.height = 'auto';
+                                  
+                                  const lineHeight = 24;
+                                  const maxHeight = lineHeight * 10; // 10 lines max like the main input
+                                  
+                                  const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
+                                  editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
+                                  
+                                  editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
+                                }
+                              }}
+                              onPaste={() => {
+                                // Adjust height after paste event
+                                setTimeout(() => {
+                                  if (editMessageTextareaRef.current) {
+                                    editMessageTextareaRef.current.style.height = 'auto';
+                                    
+                                    const lineHeight = 24;
+                                    const maxHeight = lineHeight * 10; // 10 lines max like the main input
+                                    
+                                    const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
+                                    editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
+                                    
+                                    editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
+                                  }
+                                }, 10);
+                              }}
                               autoFocus
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -683,6 +794,12 @@ export default function Chat() {
                                 } else if (e.key === 'Escape') {
                                   cancelEditing();
                                 }
+                              }}
+                              style={{
+                                minHeight: '54px',
+                                maxHeight: '240px', // 10 lines * 24px per line
+                                resize: 'none',
+                                overflowY: 'hidden'
                               }}
                             />
                             <div className="edit-message-actions">
@@ -807,12 +924,14 @@ export default function Chat() {
                   value={sendText}
                   onChange={(e) => {
                     setSendText(e.target.value);
-                    // Adjust height after state update
-                    setTimeout(adjustTextareaHeight, 0);
                   }}
                   onInput={() => {
                     handleTyping();
                     adjustTextareaHeight();
+                  }}
+                  onPaste={() => {
+                    // Adjust height after paste event (with slight delay to ensure content is processed)
+                    setTimeout(adjustTextareaHeight, 10);
                   }}
                   placeholder="Сообщение…"
                   autoComplete="off"
@@ -821,9 +940,9 @@ export default function Chat() {
                   onKeyDown={handleKeyDown}
                   style={{
                     minHeight: '54px',
-                    maxHeight: '120px', // 5 lines * 24px per line
+                    maxHeight: '240px', // 10 lines * 24px per line
                     resize: 'none',
-                    overflowY: 'auto'
+                    overflowY: 'hidden' // We control overflow in the function now
                   }}
                 />
                 <button type="submit" disabled={!roomId || !sendText.trim()}>

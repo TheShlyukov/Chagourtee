@@ -1,7 +1,7 @@
 {
   "name": "chagourtee",
   "private": true,
-  "version": "pre-v0.1.2-alpha",
+  "version": "v0.1.2-alpha",
   "description": "Self-hosted messenger with optional federation",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",

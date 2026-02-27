@@ -58,7 +58,7 @@ export default function Chat() {
     message: Message | null;
   }>({ visible: false, x: 0, y: 0, message: null });
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
-  const [editingMessage, setEditingMessage] = useState<{id: number, body: string} | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{id: number, body: string, originalBody: string} | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
@@ -578,7 +578,7 @@ export default function Chat() {
   // Handle editing message
   const startEditingMessage = (message: Message | null) => {
     if (!message) return;
-    setEditingMessage({ id: message.id, body: message.body });
+    setEditingMessage({ id: message.id, body: message.body, originalBody: message.body });
     setContextMenu({ visible: false, x: 0, y: 0, message: null });
     
     // Adjust the height of the editing textarea after setting the value
@@ -600,6 +600,13 @@ export default function Chat() {
   // Save edited message
   const saveEditedMessage = async () => {
     if (!editingMessage || !editingMessage.body.trim() || !roomId) return;
+    
+    // Проверяем, изменилось ли сообщение по сравнению с исходным
+    if (editingMessage.body.trim() === editingMessage.originalBody.trim()) {
+      // Если сообщение не изменилось, просто отменяем редактирование
+      setEditingMessage(null);
+      return;
+    }
     
     try {
       const updated = await messagesApi.edit(editingMessage.id, roomId, editingMessage.body);

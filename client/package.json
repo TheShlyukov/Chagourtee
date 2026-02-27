@@ -1,7 +1,7 @@
 {
   "name": "chagourtee-client",
   "private": true,
-  "version": "pre-v0.1.2-alpha",
+  "version": "v0.1.2-alpha",
   "type": "module",
   "scripts": {
     "dev": "vite",

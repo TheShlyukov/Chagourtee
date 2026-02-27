@@ -18,6 +18,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Загрузка…</div>;
+  if (user) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 function VerificationCheckRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Загрузка…</div>;
@@ -29,8 +36,16 @@ function VerificationCheckRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={
+        <PublicOnlyRoute>
+          <Login />
+        </PublicOnlyRoute>
+      } />
+      <Route path="/register" element={
+        <PublicOnlyRoute>
+          <Register />
+        </PublicOnlyRoute>
+      } />
       <Route path="/account-deleted" element={<AccountDeleted />} />
       <Route path="/account-rejected" element={<AccountRejected />} />
       <Route

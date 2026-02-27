@@ -13,6 +13,7 @@ import {
 import { logger } from '../utils/logger'; // Import our logger
 // Import the custom hook
 import { useMessageInputBehavior } from '../hooks/useMessageInputBehavior';
+import MarkdownMessage from '../components/MarkdownMessage'; // Import MarkdownMessage component
 
 type TypingUser = {
   userId: number;
@@ -710,7 +711,9 @@ export default function Chat() {
                                 )}
                               </div>
                             )}
-                            <div className="chat-message-body">{m.body}</div>
+                            <div className="chat-message-body">
+                              <MarkdownMessage content={m.body} />
+                            </div>
                             
                             {isSelected && (
                               <div className="message-selected-indicator">✓</div>

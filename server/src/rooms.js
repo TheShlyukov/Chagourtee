@@ -21,14 +21,23 @@ module.exports = function (fastify) {
       return reply.code(400).send({ error: 'Room name required' });
     }
     
+    // Check room name length
+    const trimmedName = String(name).trim();
+    if (trimmedName.length < 1) {
+      return reply.code(400).send({ error: 'Room name cannot be empty' });
+    }
+    if (trimmedName.length > 15) {
+      return reply.code(400).send({ error: 'Room name cannot exceed 15 characters' });
+    }
+    
     // Check if a room with this name already exists
-    const existingRoom = db.prepare('SELECT id FROM rooms WHERE name = ?').get(String(name).trim());
+    const existingRoom = db.prepare('SELECT id FROM rooms WHERE name = ?').get(trimmedName);
     if (existingRoom) {
       return reply.code(400).send({ error: 'Room with this name already exists' });
     }
     
     const result = db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run(
-      String(name).trim(),
+      trimmedName,
       request.session.userId
     );
     const room = db.prepare('SELECT id, name, created_at FROM rooms WHERE id = ?').get(result.lastInsertRowid);
@@ -40,15 +49,35 @@ module.exports = function (fastify) {
   }, async (request, reply) => {
     const id = Number(request.params.id);
     const { name } = request.body || {};
-    if (!name || !String(name).trim()) return reply.code(400).send({ error: 'Room name required' });
+    
+    // Get the room to check if it's the main room
+    const roomToCheck = db.prepare('SELECT id, name FROM rooms WHERE id = ?').get(id);
+    if (!roomToCheck) return reply.code(404).send({ error: 'Room not found' });
+    
+    // Prevent renaming of the 'main' room
+    if (roomToCheck.name === 'main') {
+      return reply.code(400).send({ error: 'Main room cannot be renamed' });
+    }
+    
+    if (!name) return reply.code(400).send({ error: 'Room name required' });
+    
+    const trimmedName = String(name).trim();
+    
+    // Check room name length
+    if (trimmedName.length < 1) {
+      return reply.code(400).send({ error: 'Room name cannot be empty' });
+    }
+    if (trimmedName.length > 15) {
+      return reply.code(400).send({ error: 'Room name cannot exceed 15 characters' });
+    }
     
     // Check if a room with this name already exists (excluding current room)
-    const existingRoom = db.prepare('SELECT id FROM rooms WHERE name = ? AND id != ?').get(String(name).trim(), id);
+    const existingRoom = db.prepare('SELECT id FROM rooms WHERE name = ? AND id != ?').get(trimmedName, id);
     if (existingRoom) {
       return reply.code(400).send({ error: 'Room with this name already exists' });
     }
     
-    const r = db.prepare('UPDATE rooms SET name = ? WHERE id = ?').run(String(name).trim(), id);
+    const r = db.prepare('UPDATE rooms SET name = ? WHERE id = ?').run(trimmedName, id);
     if (r.changes === 0) return reply.code(404).send({ error: 'Room not found' });
     return db.prepare('SELECT id, name, created_at FROM rooms WHERE id = ?').get(id);
   });

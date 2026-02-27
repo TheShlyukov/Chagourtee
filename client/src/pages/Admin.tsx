@@ -25,6 +25,10 @@ export default function Admin() {
   const [serverNameInput, setServerNameInput] = useState<string>(rawName ?? '');
   const [serverNameSaving, setServerNameSaving] = useState(false);
   
+  // State for renaming
+  const [renamingRoomId, setRenamingRoomId] = useState<number | null>(null);
+  const [renamingInputValue, setRenamingInputValue] = useState(''); // Separate state for renaming
+
   const load = useCallback(async () => {
     try {
       const [rRes, iRes, pRes, uRes] = await Promise.all([
@@ -74,10 +78,21 @@ export default function Admin() {
 
   async function createRoom(e: React.FormEvent) {
     e.preventDefault();
-    if (!newRoomName.trim()) return;
+    const trimmedName = newRoomName.trim();
+    
+    if (!trimmedName) {
+      alert('Введите название комнаты');
+      return;
+    }
+    
+    if (trimmedName.length > 15) {
+      alert('Название комнаты не может превышать 15 символов');
+      return;
+    }
+    
     setError(null);
     try {
-      await roomsApi.create(newRoomName.trim());
+      await roomsApi.create(trimmedName);
       setNewRoomName('');
       await load();
       setMessage('Комната создана');
@@ -407,6 +422,29 @@ export default function Admin() {
     }
   };
 
+  async function renameRoom(id: number, name: string) {
+    if (!name.trim()) {
+      alert('Введите название комнаты');
+      return;
+    }
+    
+    if (name.length > 15) {
+      alert('Название комнаты не может превышать 15 символов');
+      return;
+    }
+    
+    setError(null);
+    try {
+      await roomsApi.update(id, name.trim());
+      await load(); // Reload rooms to reflect the change
+      setMessage('Комната переименована');
+      setRenamingRoomId(null);
+      setRenamingInputValue(''); // Reset renaming input value
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    }
+  }
+
   return (
     <div className="page-content" style={{ maxWidth: 800 }}>
       {error && (
@@ -462,9 +500,10 @@ export default function Admin() {
           <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             <input
               value={newRoomName}
-              onChange={(e) => setNewRoomName(e.target.value)}
-              placeholder="Название комнаты"
+              onChange={(e) => setNewRoomName(e.target.value.slice(0, 15))}
+              placeholder="Название комнаты (макс. 15 символов)"
               style={{ flex: '1 1 200px', minWidth: 0 }}
+              maxLength={15}
             />
             <button type="submit" style={{ flex: '0 0 auto' }}>➕ Создать</button>
           </form>
@@ -483,28 +522,120 @@ export default function Admin() {
                   border: '1px solid var(--border)',
                   flexWrap: 'wrap'
                 }}>
-                  <span style={{ flex: '1 1 150px', fontWeight: 500, wordBreak: 'break-word' }}>{r.name}</span>
-                  {r.name === 'main' ? (
-                    <button 
-                      type="button" 
-                      onClick={() => clearRoomMessages(r.id)} 
-                      style={{ 
-                        fontSize: '0.875rem', 
-                        flex: '0 0 auto',
-                        backgroundColor: 'var(--warning)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 'var(--radius-default)', // Используем переменную
-                        padding: '0.25rem 0.5rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      🧹 Очистить
-                    </button>
+                  {renamingRoomId === r.id ? (
+                    <>
+                      <input
+                        type="text"
+                        value={renamingInputValue}
+                        onChange={(e) => setRenamingInputValue(e.target.value.slice(0, 15))}
+                        placeholder="Новое название комнаты"
+                        maxLength={15}
+                        autoFocus
+                        style={{ 
+                          flex: '1 1 150px', 
+                          fontWeight: 500, 
+                          wordBreak: 'break-word',
+                          marginRight: '0.5rem'
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            renameRoom(r.id, renamingInputValue);
+                          } else if (e.key === 'Escape') {
+                            setRenamingRoomId(null);
+                            setRenamingInputValue('');
+                          }
+                        }}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => renameRoom(r.id, renamingInputValue)}
+                        style={{ 
+                          fontSize: '0.875rem', 
+                          flex: '0 0 auto',
+                          backgroundColor: 'var(--accent)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 'var(--radius-default)',
+                          padding: '0.25rem 0.5rem',
+                          cursor: 'pointer',
+                          marginRight: '0.25rem'
+                        }}
+                      >
+                        ✅ Сохранить
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setRenamingRoomId(null);
+                          setRenamingInputValue('');
+                        }}
+                        style={{ 
+                          fontSize: '0.875rem', 
+                          flex: '0 0 auto',
+                          backgroundColor: 'var(--danger)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 'var(--radius-default)',
+                          padding: '0.25rem 0.5rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ❌ Отмена
+                      </button>
+                    </>
                   ) : (
-                    <button type="button" className="danger" onClick={() => deleteRoom(r.id)} style={{ fontSize: '0.875rem', flex: '0 0 auto' }}>
-                      🗑️ Удалить
-                    </button>
+                    <>
+                      <span style={{ flex: '1 1 150px', fontWeight: 500, wordBreak: 'break-word' }}>{r.name}</span>
+                      {r.name === 'main' ? (
+                        <button 
+                          type="button" 
+                          onClick={() => clearRoomMessages(r.id)} 
+                          style={{ 
+                            fontSize: '0.875rem', 
+                            flex: '0 0 auto',
+                            backgroundColor: 'var(--warning)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 'var(--radius-default)', // Используем переменную
+                            padding: '0.25rem 0.5rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🧹 Очистить
+                        </button>
+                      ) : (
+                        <>
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              setRenamingRoomId(r.id);
+                              setRenamingInputValue(r.name); // Set the current name as the initial value for renaming
+                            }} 
+                            style={{ 
+                              fontSize: '0.875rem', 
+                              flex: '0 0 auto',
+                              backgroundColor: 'var(--accent)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 'var(--radius-default)',
+                              padding: '0.25rem 0.5rem',
+                              cursor: 'pointer',
+                              marginRight: '0.25rem'
+                            }}
+                          >
+                            ✏️ Переименовать
+                          </button>
+                          <button 
+                            type="button" 
+                            className="danger" 
+                            onClick={() => deleteRoom(r.id)} 
+                            style={{ fontSize: '0.875rem', flex: '0 0 auto' }}
+                          >
+                            🗑️ Удалить
+                          </button>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
               ))}

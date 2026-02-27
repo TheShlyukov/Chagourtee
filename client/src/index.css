@@ -557,6 +557,55 @@ input:focus, textarea:focus {
   border-radius: var(--radius-default);
 }
 
+/* Стили для блоков кода с отображением языка */
+.code-block-wrapper {
+  margin: 0.5em 0;
+  border-radius: var(--radius-default);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.code-header {
+  background: var(--bg);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.code-language {
+  text-transform: uppercase;
+}
+
+pre[class*="language-"] {
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* Обеспечение возможности прокрутки для длинных формул */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5em 0;
+  /* Добавляем индикатор прокрутки */
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) var(--bg);
+}
+
+.katex-display::-webkit-scrollbar {
+  height: 6px;
+}
+
+.katex-display::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.katex-display::-webkit-scrollbar-thumb {
+  background-color: var(--text-muted);
+  border-radius: 6px;
+}
+
 /* Конец стилей для Markdown-элементов */
 
 /* Позиционирование основного индикатора выделения в нижнем правом углу */

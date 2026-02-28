@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useServerName } from '../ServerNameContext';
+import Marquee from '../components/Marquee'; // Import Marquee component
 
 export default function Login() {
   const [login, setLogin] = useState('');
@@ -53,9 +54,13 @@ export default function Login() {
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
             fontSize: '2rem',
-            fontWeight: 700
+            fontWeight: 700,
+            overflow: 'hidden',
+            maxWidth: '100%'
           }}>
-            {displayName}
+            <Marquee animationDuration={15}>
+              {displayName}
+            </Marquee>
           </h1>
           <p style={{ 
             textAlign: 'center', 

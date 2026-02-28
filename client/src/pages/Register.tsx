@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { auth, verification } from '../api';
 import { useAuth } from '../AuthContext';
 import { useServerName } from '../ServerNameContext';
+import Marquee from '../components/Marquee'; // Import Marquee component
 
 export default function Register() {
   const [searchParams] = useSearchParams();
@@ -83,7 +84,7 @@ export default function Register() {
             fontWeight: 700
           }}>Регистрация</h1>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-            Создайте аккаунт на {displayName}
+            Создайте аккаунт на <Marquee animationDuration={15}>{displayName}</Marquee>
           </p>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>

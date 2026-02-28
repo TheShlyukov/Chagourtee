@@ -8,9 +8,11 @@ type ServerNameContextValue = {
   serverTagline: string;
   reload: () => Promise<void>;
   setRawNameLocal: (name: string | null) => void;
+  getTruncatedName: (name: string) => string; // New function to truncate names to 32 chars
 };
 
 const DEFAULT_BASE_NAME = 'Chagourtee';
+const MAX_SERVER_NAME_LENGTH = 32; // Maximum length for server name
 
 const ServerNameContext = createContext<ServerNameContextValue | undefined>(undefined);
 
@@ -21,7 +23,11 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
   const load = async () => {
     try {
       const settings: ServerSettings = await serverSettingsApi.get();
-      setRawName(settings.name ?? null);
+      // Ensure the raw name doesn't exceed the maximum length
+      const limitedName = settings.name && settings.name.length > MAX_SERVER_NAME_LENGTH 
+        ? settings.name.substring(0, MAX_SERVER_NAME_LENGTH) 
+        : settings.name;
+      setRawName(limitedName ?? null);
       
       // Load version info
       const versionData: VersionInfo = await serverVersion.get();
@@ -40,6 +46,13 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const displayName = `${rawName && rawName.trim().length > 0 ? rawName.trim() : DEFAULT_BASE_NAME}`;
+  
+  // Function to truncate names to the maximum length
+  const getTruncatedName = (name: string): string => {
+    return name.length > MAX_SERVER_NAME_LENGTH 
+      ? name.substring(0, MAX_SERVER_NAME_LENGTH) 
+      : name;
+  };
 
   const value: ServerNameContextValue = {
     rawName,
@@ -47,6 +60,7 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
     serverTagline: versionInfo, // Use version info as tagline
     reload: load,
     setRawNameLocal: setRawName,
+    getTruncatedName,
   };
 
   // Set document title whenever displayName changes (without tagline)

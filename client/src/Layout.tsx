@@ -58,7 +58,9 @@ export default function Layout() {
                 textOverflow: 'ellipsis',
               }}
             >
-              {displayName}
+              <Marquee animationDuration={15}>
+                {displayName}
+              </Marquee>
             </span>
             <span
               style={{

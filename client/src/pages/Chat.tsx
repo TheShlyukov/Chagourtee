@@ -524,10 +524,32 @@ export default function Chat() {
   const showContextMenu = (x: number, y: number, message: Message) => {
     if (isSelecting) return; // Don't show context menu during selection
     
+    // Calculate position to prevent menu from going off-screen
+    let adjustedX = x;
+    let adjustedY = y;
+    
+    // We'll use the max dimensions defined in CSS
+    const maxWidth = 300; // max-width from CSS
+    const maxHeight = 300; // max-height from CSS
+    
+    // Adjust X coordinate to stay within screen bounds
+    if (adjustedX + maxWidth > window.innerWidth) {
+      adjustedX = window.innerWidth - maxWidth - 5; // 5px padding from edge
+    }
+    
+    // Adjust Y coordinate to stay within screen bounds
+    if (adjustedY + maxHeight > window.innerHeight) {
+      adjustedY = window.innerHeight - maxHeight - 5; // 5px padding from edge
+    }
+    
+    // Ensure the menu doesn't go off the left/top edges
+    adjustedX = Math.max(adjustedX, 5);
+    adjustedY = Math.max(adjustedY, 5);
+    
     setContextMenu({
       visible: true,
-      x,
-      y,
+      x: adjustedX,
+      y: adjustedY,
       message
     });
   };

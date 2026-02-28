@@ -121,7 +121,12 @@ async function run() {
       return reply.code(400).send({ error: 'Login and password required' });
     }
     const loginTrim = login.trim();
-    if (loginTrim.length < 2) return reply.code(400).send({ error: 'Login too short' });
+    
+    // Validate login format: only alphanumeric characters, length between 2 and 32
+    if (!/^[a-zA-Z0-9]{2,32}$/.test(loginTrim)) {
+      return reply.code(400).send({ error: 'Login must be 2-32 characters long and contain only letters and numbers' });
+    }
+    
     const existing = server.db.prepare('SELECT id FROM users WHERE login = ?').get(loginTrim);
     if (existing) return reply.code(400).send({ error: 'Login already taken' });
 

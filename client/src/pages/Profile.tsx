@@ -149,9 +149,12 @@ export default function Profile() {
               <input
                 type="text"
                 value={loginNew}
-                onChange={(e) => setLoginNew(e.target.value)}
+                onChange={(e) => setLoginNew(e.target.value.slice(0, 32))}
                 placeholder="Минимум 2 символа"
                 minLength={2}
+                maxLength={32}
+                pattern="[a-zA-Z0-9]{2,32}"
+                title="Логин должен содержать от 2 до 32 символов, только латинские буквы и цифры"
                 required
               />
             </div>

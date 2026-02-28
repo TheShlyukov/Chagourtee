@@ -29,7 +29,12 @@ module.exports = function (fastify) {
       return reply.code(400).send({ error: 'Password and new login required' });
     }
     const newLoginTrim = String(newLogin).trim();
-    if (newLoginTrim.length < 2) return reply.code(400).send({ error: 'New login too short' });
+    
+    // Validate new login format: only alphanumeric characters, length between 2 and 32
+    if (!/^[a-zA-Z0-9]{2,32}$/.test(newLoginTrim)) {
+      return reply.code(400).send({ error: 'Login must be 2-32 characters long and contain only letters and numbers' });
+    }
+    
     const user = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(request.session.userId);
     if (!user || !verifyPassword(password, user.password_hash)) {
       return reply.code(401).send({ error: 'Password is wrong' });

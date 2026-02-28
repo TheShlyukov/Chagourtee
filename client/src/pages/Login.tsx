@@ -77,8 +77,12 @@ export default function Login() {
               <input
                 type="text"
                 value={login}
-                onChange={(e) => setLogin(e.target.value)}
+                onChange={(e) => setLogin(e.target.value.slice(0, 32))}
                 autoComplete="username"
+                minLength={2}
+                maxLength={32}
+                pattern="[a-zA-Z0-9]{2,32}"
+                title="Логин должен содержать от 2 до 32 символов, только латинские буквы и цифры"
                 required
               />
             </div>

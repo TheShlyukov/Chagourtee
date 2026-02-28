@@ -371,10 +371,17 @@ export default function Chat() {
       // Show button if user has scrolled up more than 100px from bottom
       const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
       const distanceToBottom = scrollHeight - scrollTop - clientHeight;
-      setShowScrollButton(distanceToBottom > 100);
+      
+      // Show button only when:
+      // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
+      // 2. Container is actually scrollable (content is taller than container)
+      setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
     };
 
     messagesContainer.addEventListener('scroll', handleScroll);
+    
+    // Initial check in case messages load when scrolled
+    handleScroll();
     
     return () => {
       messagesContainer.removeEventListener('scroll', handleScroll);

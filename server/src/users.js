@@ -2,7 +2,7 @@ module.exports = function (fastify) {
   const db = fastify.db;
 
   fastify.get('/api/users', {
-    preHandler: [fastify.requireAuth, fastify.requireOwnerOrModerator],
+    preHandler: [fastify.requireAuth], // Изменено: теперь любой аутентифицированный пользователь может получить список пользователей
   }, async () => {
     const rows = db.prepare(`
       SELECT id, login, role, verified, created_at

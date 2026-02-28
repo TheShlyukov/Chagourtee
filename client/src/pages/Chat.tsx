@@ -72,6 +72,8 @@ export default function Chat() {
   const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null); // Для обработки долгого нажатия
   const doubleClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // Таймер для отслеживания двойного клика
   const editMessageTextareaRef = useRef<HTMLTextAreaElement>(null); // Ref for the editing message textarea
+  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for scroll-to-bottom button
+  const [showScrollButton, setShowScrollButton] = useState(false); // State to control visibility of scroll button
   const [allUsers, setAllUsers] = useState<User[]>([]); // Keep track of all users to get their roles
 
   // Load all users to get their roles
@@ -358,6 +360,33 @@ export default function Chat() {
       ws.send(JSON.stringify({ type: 'typing', roomId }));
     }
   }
+
+  // Handle scroll events to show/hide scroll-to-bottom button
+  useEffect(() => {
+    const messagesContainer = document.querySelector('.chat-messages-wrap');
+    
+    if (!messagesContainer) return;
+
+    const handleScroll = () => {
+      // Show button if user has scrolled up more than 100px from bottom
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
+      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+      setShowScrollButton(distanceToBottom > 100);
+    };
+
+    messagesContainer.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      messagesContainer.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  // Scroll to bottom function
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   // Прокручиваем к последнему сообщению при его получении
   useEffect(() => {
@@ -895,6 +924,19 @@ export default function Chat() {
                   </div>
                 )}
                 <div ref={bottomRef} />
+                {/* Floating scroll to bottom button */}
+                {showScrollButton && (
+                  <button 
+                    className="scroll-to-bottom-btn"
+                    onClick={scrollToBottom}
+                    aria-label="Прокрутить к последнему сообщению"
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M12 5v14M19 12l-7 7-7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+                <div ref={messagesEndRef} />
               </div>
               
               {/* Context Menu */}

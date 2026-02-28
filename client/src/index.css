@@ -430,6 +430,11 @@ input:focus, textarea:focus {
   margin-right: 0.5rem;
 }
 
+/* Стили для marquee в заголовке сообщения */
+.chat-message .chat-message-header .marquee-container {
+  margin-right: 0.5rem;
+}
+
 .chat-message .chat-message-time {
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -924,6 +929,31 @@ a:hover {
   border-radius: 1em;
   margin-left: 0.5em;
   align-self: center;
+}
+
+/* Стили для анимации прокрутки маркера */
+.marquee-container {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
+}
+
+.marquee-content {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.marquee-animated {
+  animation: scroll-left-right var(--duration, 5s) linear infinite alternate;
+}
+
+@keyframes scroll-left-right {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(var(--shift));
+  }
 }
 
 /* Floating scroll to bottom button */

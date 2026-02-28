@@ -14,6 +14,7 @@ import { logger } from '../utils/logger'; // Import our logger
 // Import the custom hook
 import { useMessageInputBehavior } from '../hooks/useMessageInputBehavior';
 import MarkdownMessage from '../components/MarkdownMessage'; // Import MarkdownMessage component
+import Marquee from '../components/Marquee'; // Import Marquee component
 
 type TypingUser = {
   userId: number;
@@ -898,7 +899,7 @@ export default function Chat() {
                           <>
                             {!shouldHideAuthor && (
                               <div className="chat-message-header">
-                                <span className="chat-message-author">{m.login}</span>
+                                <Marquee className="chat-message-author" animationDuration={8}>{m.login}</Marquee>
                                 <span className="chat-message-time">
                                   {new Date(m.created_at).toLocaleString()}
                                   {m.updated_at && m.updated_at !== m.created_at && (

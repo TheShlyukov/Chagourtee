@@ -3,6 +3,7 @@ import { useAuth } from '../AuthContext';
 import type { Room, Invite, User } from '../api';
 import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi, serverSettings as serverSettingsApi } from '../api';
 import { useServerName } from '../ServerNameContext';
+import Marquee from '../components/Marquee'; // Import Marquee component
 
 type PendingUser = { id: number; login: string; created_at: string };
 type UserWithDate = User & { created_at: string };
@@ -832,9 +833,9 @@ export default function Admin() {
                     }}
                   >
                     <div style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>
-                      👤 {u.login}
+                      👤 <Marquee animationDuration={8}>{u.login}</Marquee>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
                         <button type="button" onClick={() => approve(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
                           ✓ Подтвердить
@@ -931,6 +932,9 @@ export default function Admin() {
                         <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
                           Создан: {new Date(code.created_at).toLocaleString()}
                         </div>
+                        <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
+                          Автор: <Marquee>{code.created_by_login}</Marquee>
+                        </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div>Статус: {code.used ? 'Использован' : 'Доступен'}</div>
@@ -980,7 +984,7 @@ export default function Admin() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                       <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
-                          {u.login}
+                          <Marquee>{u.login}</Marquee>
                         </div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                           {u.verified ? '✓ Верифицирован' : '⏳ Ожидает'}

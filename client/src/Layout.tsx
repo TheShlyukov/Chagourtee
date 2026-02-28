@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { useState, useEffect } from 'react';
 import { rooms as roomsApi } from './api';
 import { useServerName } from './ServerNameContext';
+import Marquee from './components/Marquee'; // Import Marquee component
 
 export default function Layout() {
   const { user } = useAuth();
@@ -121,7 +122,11 @@ export default function Layout() {
           )}
         </nav>
         <div style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 'auto', borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem' }}>{user?.login}</div>
+          <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem' }}>
+            <Marquee animationDuration={10}>
+              {user?.login}
+            </Marquee>
+          </div>
           {!user?.verified && <div style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>⏳ Ожидает верификации</div>}
           <div
             style={{
@@ -133,7 +138,9 @@ export default function Layout() {
               textOverflow: 'ellipsis',
             }}
           >
-            {displayName}
+            <Marquee>
+              {displayName}
+            </Marquee>
           </div>
           <div
             style={{

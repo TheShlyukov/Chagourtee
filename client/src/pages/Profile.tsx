@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { profile } from '../api';
+import Marquee from '../components/Marquee'; // Import Marquee component
 
 export default function Profile() {
   const { user, refresh, logout } = useAuth();
@@ -63,7 +64,7 @@ export default function Profile() {
           <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>🚪 Выйти из аккаунта</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              Вы вошли как <strong>{user?.login}</strong>
+              Вы вошли как <strong><Marquee>{user?.login}</Marquee></strong>
             </p>
             <button 
               onClick={handleLogout}

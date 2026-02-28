@@ -434,6 +434,9 @@ input:focus, textarea:focus {
   font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .chat-message .chat-message-body {
@@ -905,4 +908,16 @@ a:hover {
   .mobile-selection-actions button {
     flex: 1 1 auto;
   }
+}
+
+/* Style for user role labels in message headers */
+.user-role-label {
+  font-style: italic;
+  font-size: 0.8em;
+  color: var(--accent);
+  background: rgba(255, 123, 0, 0.15);
+  padding: 0.15em 0.4em;
+  border-radius: 1em;
+  margin-left: 0.5em;
+  align-self: center;
 }

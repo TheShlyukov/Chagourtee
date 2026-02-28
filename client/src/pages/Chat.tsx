@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback} from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { Room, Message, User } from '../api';
-import { rooms as roomsApi, messages as messagesApi, auth as authApi } from '../api';
+import { rooms as roomsApi, messages as messagesApi, auth as authApi, users } from '../api';
 import { 
   getWebSocket, 
   addMessageHandler, 
@@ -18,6 +18,12 @@ import MarkdownMessage from '../components/MarkdownMessage'; // Import MarkdownM
 type TypingUser = {
   userId: number;
   login: string;
+};
+
+// Add a helper function to get user role by user ID
+const getUserRoleById = (userId: number, allUsers: User[]) => {
+  const user = allUsers.find(u => u.id === userId);
+  return user?.role;
 };
 
 function formatTypingUsers(users: TypingUser[]): string | null {
@@ -66,6 +72,22 @@ export default function Chat() {
   const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null); // Для обработки долгого нажатия
   const doubleClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // Таймер для отслеживания двойного клика
   const editMessageTextareaRef = useRef<HTMLTextAreaElement>(null); // Ref for the editing message textarea
+  const [allUsers, setAllUsers] = useState<User[]>([]); // Keep track of all users to get their roles
+
+  // Load all users to get their roles
+  useEffect(() => {
+    const loadAllUsers = async () => {
+      try {
+        const response = await users.list();
+        setAllUsers(response.users);
+      } catch (error) {
+        console.error('Failed to load users:', error);
+      }
+    };
+    
+    loadAllUsers();
+  }, []);
+
 
   // Handle clicks outside the context menu
   useEffect(() => {
@@ -824,6 +846,18 @@ export default function Chat() {
                                   {m.updated_at && m.updated_at !== m.created_at && (
                                     <span title="Редактировалось"> ✎</span>
                                   )}
+                                  {/* Display role label if user is moderator or owner */}
+                                  {allUsers.length > 0 && (() => {
+                                    const userRole = getUserRoleById(m.user_id, allUsers);
+                                    if (userRole === 'moderator' || userRole === 'owner') {
+                                      return (
+                                        <span className="user-role-label" style={{ fontStyle: 'italic', marginLeft: '8px' }}>
+                                          {userRole === 'moderator' ? 'Модератор' : 'Владелец'}
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </span>
                               </div>
                             )}

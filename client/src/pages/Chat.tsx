@@ -909,6 +909,35 @@ export default function Chat() {
                   >
                     {contextMenu.message && selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выделить'}
                   </button>
+                  
+                  {/* Кнопка копирования сообщения */}
+                  <button 
+                    className="context-menu-item"
+                    onClick={() => {
+                      if (contextMenu.message) {
+                        // Проверяем, что мы в безопасном контексте перед доступом к Clipboard API
+                        if (navigator.clipboard && window.isSecureContext) {
+                          navigator.clipboard.writeText(contextMenu.message.body);
+                        } else {
+                          // Резервный вариант для небезопасных контекстов
+                          const textArea = document.createElement('textarea');
+                          textArea.value = contextMenu.message.body;
+                          document.body.appendChild(textArea);
+                          textArea.focus();
+                          textArea.select();
+                          try {
+                            document.execCommand('copy');
+                          } catch (err) {
+                            console.error('Failed to copy text: ', err);
+                          }
+                          document.body.removeChild(textArea);
+                        }
+                      }
+                      hideContextMenu();
+                    }}
+                  >
+                    Скопировать
+                  </button>
                 </div>
               )}
               

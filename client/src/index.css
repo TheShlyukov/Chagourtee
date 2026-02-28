@@ -417,7 +417,7 @@ input:focus, textarea:focus {
   justify-content: space-between;
   align-items: baseline;
   padding-bottom: 0.5rem;
-  border-bottom: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--accent);
   background: linear(to bottom, var(--bg-elevated), var(--bg-hover));
   border-radius: var(--radius-default) var(--radius-default) 0 0;
   margin: -0.875rem -1rem 0.5rem -1rem;

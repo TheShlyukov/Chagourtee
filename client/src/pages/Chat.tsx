@@ -875,41 +875,6 @@ export default function Chat() {
                     zIndex: 1000
                   }}
                 >
-                  {/* Редактировать можно только свои сообщения */}
-                  {canEditMessage(contextMenu.message) && (
-                    <button 
-                      className="context-menu-item"
-                      onClick={() => startEditingMessage(contextMenu.message)}
-                    >
-                      Редактировать
-                    </button>
-                  )}
-                  {/* Удалять могут владелец/модератор или автор */}
-                  {canDeleteMessage(contextMenu.message) && (
-                    <button 
-                      className="context-menu-item danger-text-only"
-                      onClick={() => {
-                        if (contextMenu.message) {
-                          deleteSingleMessage(contextMenu.message.id);
-                        }
-                        hideContextMenu();
-                      }}
-                    >
-                      Удалить
-                    </button>
-                  )}
-                  <button 
-                    className="context-menu-item"
-                    onClick={() => {
-                      if (contextMenu.message && canDeleteMessage(contextMenu.message)) {
-                        toggleMessageSelection(contextMenu.message.id);
-                      }
-                      hideContextMenu();
-                    }}
-                  >
-                    {contextMenu.message && selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выделить'}
-                  </button>
-                  
                   {/* Кнопка копирования сообщения */}
                   <button 
                     className="context-menu-item"
@@ -936,8 +901,45 @@ export default function Chat() {
                       hideContextMenu();
                     }}
                   >
-                    Скопировать
+                    Копировать
                   </button>
+                  
+                  {/* Редактировать можно только свои сообщения */}
+                  {canEditMessage(contextMenu.message) && (
+                    <button 
+                      className="context-menu-item"
+                      onClick={() => startEditingMessage(contextMenu.message)}
+                    >
+                      Редактировать
+                    </button>
+                  )}
+                  
+                  <button 
+                    className="context-menu-item"
+                    onClick={() => {
+                      if (contextMenu.message && canDeleteMessage(contextMenu.message)) {
+                        toggleMessageSelection(contextMenu.message.id);
+                      }
+                      hideContextMenu();
+                    }}
+                  >
+                    {contextMenu.message && selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выделить'}
+                  </button>
+                  
+                  {/* Удалять могут владелец/модератор или автор */}
+                  {canDeleteMessage(contextMenu.message) && (
+                    <button 
+                      className="context-menu-item danger-text-only"
+                      onClick={() => {
+                        if (contextMenu.message) {
+                          deleteSingleMessage(contextMenu.message.id);
+                        }
+                        hideContextMenu();
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  )}
                 </div>
               )}
               

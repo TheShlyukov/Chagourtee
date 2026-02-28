@@ -22,9 +22,25 @@ module.exports = function (fastify) {
     }
     const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(userId);
     if (!target) return reply.code(404).send({ error: 'User not found' });
+    
+    // Check if trying to assign owner role
+    if (role === 'owner' && request.user.id !== userId) {
+      // Only the original owner (who created the first account) can assign owner role
+      const firstUser = db.prepare('SELECT id, role FROM users ORDER BY id ASC LIMIT 1').get();
+      if (!firstUser || request.user.id !== firstUser.id || firstUser.role !== 'owner') {
+        return reply.code(403).send({ error: 'Only the original owner can assign owner role' });
+      }
+    }
+    
     if (target.role === 'owner' && role !== 'owner') {
       return reply.code(403).send({ error: 'Cannot demote owner' });
     }
+    
+    // Prevent moderators from assigning roles higher than moderator
+    if (request.user.role === 'moderator' && role !== 'member') {
+      return reply.code(403).send({ error: 'Moderators can only assign member role' });
+    }
+    
     db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
     return { ok: true };
   });

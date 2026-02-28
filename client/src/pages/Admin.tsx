@@ -31,20 +31,25 @@ export default function Admin() {
 
   const load = useCallback(async () => {
     try {
-      const [rRes, iRes, pRes, uRes] = await Promise.all([
-        roomsApi.list(),
-        invitesApi.list(),
-        verificationApi.pending(),
-        usersApi.list(),
-      ]);
-      setRooms(rRes.rooms);
+      // Load invites for everyone
+      const iRes = await invitesApi.list();
       setInvites(iRes.invites);
-      setPending(pRes.pending);
-      setUsers(uRes.users);
+      
+      // Load other data only for owners
+      if (user?.role === 'owner') {
+        const [rRes, pRes, uRes] = await Promise.all([
+          roomsApi.list(),
+          verificationApi.pending(),
+          usersApi.list(),
+        ]);
+        setRooms(rRes.rooms);
+        setPending(pRes.pending);
+        setUsers(uRes.users);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки');
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     setServerNameInput(rawName ?? '');
@@ -53,98 +58,32 @@ export default function Admin() {
   useEffect(() => {
     if (user?.role !== 'owner' && user?.role !== 'moderator') return;
     
-    // Load verification settings
-    verificationApi.settings()
-      .then(data => setVerificationEnabled(!!data.enabled))
-      .catch(console.error);
-    
-    // Load users
-    usersApi.list().then((data) => {
-      setUsers(data.users);
-    }).catch(console.error);
-    
-    // Load pending verifications
-    verificationApi.pending().then((data) => {
-      setPending(data.pending);
-    }).catch(console.error);
-    
-    // Load verification codes
-    verificationApi.listCodes().then((data) => {
-      setCodes(data.codes);
-    }).catch(console.error);
+    // Load verification settings only for owners
+    if (user.role === 'owner') {
+      verificationApi.settings()
+        .then(data => setVerificationEnabled(!!data.enabled))
+        .catch(console.error);
+      
+      // Load users
+      usersApi.list().then((data) => {
+        setUsers(data.users);
+      }).catch(console.error);
+      
+      // Load pending verifications
+      verificationApi.pending().then((data) => {
+        setPending(data.pending);
+      }).catch(console.error);
+      
+      // Load verification codes
+      verificationApi.listCodes().then((data) => {
+        setCodes(data.codes);
+      }).catch(console.error);
+    }
 
     load();
   }, [user, load]);
 
-  async function createRoom(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmedName = newRoomName.trim();
-    
-    if (!trimmedName) {
-      alert('Введите название комнаты');
-      return;
-    }
-    
-    if (trimmedName.length > 15) {
-      alert('Название комнаты не может превышать 15 символов');
-      return;
-    }
-    
-    setError(null);
-    try {
-      await roomsApi.create(trimmedName);
-      setNewRoomName('');
-      await load();
-      setMessage('Комната создана');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
-    }
-  }
-
-  async function saveServerName(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const trimmed = serverNameInput.trim();
-    if (trimmed.length > 100) {
-      setError('Имя сервера слишком длинное (максимум 100 символов)');
-      return;
-    }
-    setServerNameSaving(true);
-    try {
-      const res = await serverSettingsApi.update(trimmed);
-      setRawNameLocal(res.name ?? null);
-      setMessage('Имя сервера обновлено');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка при сохранении имени сервера');
-    } finally {
-      setServerNameSaving(false);
-    }
-  }
-
-  async function deleteRoom(id: number) {
-    if (!confirm('Удалить комнату и все сообщения?')) return;
-    setError(null);
-    try {
-      await roomsApi.delete(id);
-      // Instead of just reloading, we'll update the state directly
-      setRooms(prev => prev.filter(room => room.id !== id));
-      setMessage('Комната удалена');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
-    }
-  }
-
-  async function clearRoomMessages(id: number) {
-    if (!confirm('Очистить все сообщения в комнате?')) return;
-    setError(null);
-    try {
-      await roomsApi.clearMessages(id);
-      setMessage('Сообщения в комнате очищены');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
-    }
-  }
-
+  // Functions for invites (available to both owners and moderators)
   async function createInvite(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -223,8 +162,102 @@ export default function Admin() {
     }
   }
 
+  // Functions for other sections (only for owners)
+  async function createRoom(e: React.FormEvent) {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может создавать комнаты');
+      return;
+    }
+    
+    e.preventDefault();
+    const trimmedName = newRoomName.trim();
+    
+    if (!trimmedName) {
+      alert('Введите название комнаты');
+      return;
+    }
+    
+    if (trimmedName.length > 15) {
+      alert('Название комнаты не может превышать 15 символов');
+      return;
+    }
+    
+    setError(null);
+    try {
+      await roomsApi.create(trimmedName);
+      setNewRoomName('');
+      await load();
+      setMessage('Комната создана');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    }
+  }
+
+  async function saveServerName(e: React.FormEvent) {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может изменять имя сервера');
+      return;
+    }
+    
+    e.preventDefault();
+    setError(null);
+    const trimmed = serverNameInput.trim();
+    if (trimmed.length > 100) {
+      setError('Имя сервера слишком длинное (максимум 100 символов)');
+      return;
+    }
+    setServerNameSaving(true);
+    try {
+      const res = await serverSettingsApi.update(trimmed);
+      setRawNameLocal(res.name ?? null);
+      setMessage('Имя сервера обновлено');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка при сохранении имени сервера');
+    } finally {
+      setServerNameSaving(false);
+    }
+  }
+
+  async function deleteRoom(id: number) {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может удалять комнаты');
+      return;
+    }
+    
+    if (!confirm('Удалить комнату и все сообщения?')) return;
+    setError(null);
+    try {
+      await roomsApi.delete(id);
+      // Instead of just reloading, we'll update the state directly
+      setRooms(prev => prev.filter(room => room.id !== id));
+      setMessage('Комната удалена');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    }
+  }
+
+  async function clearRoomMessages(id: number) {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может очищать сообщения в комнатах');
+      return;
+    }
+    
+    if (!confirm('Очистить все сообщения в комнате?')) return;
+    setError(null);
+    try {
+      await roomsApi.clearMessages(id);
+      setMessage('Сообщения в комнате очищены');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    }
+  }
 
   async function approve(userId: number) {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может верифицировать пользователей');
+      return;
+    }
+    
     setError(null);
     try {
       // Using the correct API endpoint for approving users
@@ -237,6 +270,11 @@ export default function Admin() {
   }
 
   async function reject(userId: number) {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может отклонять пользователей');
+      return;
+    }
+    
     if (!confirm('Отклонить и удалить пользователя?')) return;
     setError(null);
     try {
@@ -250,6 +288,11 @@ export default function Admin() {
   }
 
   async function changeUserRole(userId: number, role: 'owner' | 'moderator' | 'member') {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может изменять роли пользователей');
+      return;
+    }
+    
     setError(null);
     try {
       await usersApi.changeRole(userId, role);
@@ -261,6 +304,11 @@ export default function Admin() {
   }
 
   const toggleVerification = async () => {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может изменять настройки верификации');
+      return;
+    }
+    
     try {
       const response = await verificationApi.updateSettings(!verificationEnabled);
       setVerificationEnabled(response.enabled);
@@ -272,8 +320,12 @@ export default function Admin() {
     }
   };
 
-
   const approveUser = async (userId: number) => {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может верифицировать пользователей');
+      return;
+    }
+    
     try {
       // Using the correct API endpoint for approving users
       await usersApi.disableCodewordCheck(userId);
@@ -286,6 +338,11 @@ export default function Admin() {
   };
 
   const rejectUser = async (userId: number) => {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может отклонять пользователей');
+      return;
+    }
+    
     try {
       // Rejecting by deleting the user with a rejection reason
       await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
@@ -298,6 +355,11 @@ export default function Admin() {
   };
 
   const createVerificationCode = async () => {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может создавать коды верификации');
+      return;
+    }
+    
     try {
       // Fixed: only pass the customCode as the single argument
       const newCode = await verificationApi.createCode(customCode || undefined);
@@ -370,6 +432,11 @@ export default function Admin() {
   };
 
   const deleteVerificationCode = async (id: number) => {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может удалять коды верификации');
+      return;
+    }
+    
     try {
       await verificationApi.deleteCode(id);
       setCodes(codes.filter(code => code.id !== id));
@@ -381,19 +448,29 @@ export default function Admin() {
     }
   };
 
-
   // Add a new state for tracking the reason for deletion
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
   const [deletionReason, setDeletionReason] = useState<string>('Account removed by administrator');
 
   // Add a new function to handle user deletion with reason
   const handleDeleteUserWithReason = async (userId: number) => {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может удалять пользователей');
+      return;
+    }
+    
     setDeletingUserId(userId);
     setDeletionReason('Account removed by administrator'); // Reset to default reason
   };
 
   // Add a new function to confirm user deletion with reason
   const confirmDeleteUser = async () => {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может удалять пользователей');
+      setDeletingUserId(null);
+      return;
+    }
+    
     if (deletingUserId !== null) {
       if (!window.confirm(`Вы уверены, что хотите удалить пользователя? Причина: ${deletionReason}`)) {
         setDeletingUserId(null);
@@ -414,6 +491,11 @@ export default function Admin() {
 
   // Add a new function to refresh users list
   const refreshUsers = async () => {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может обновлять список пользователей');
+      return;
+    }
+    
     try {
       const uRes = await usersApi.list();
       setUsers(uRes.users);
@@ -423,6 +505,11 @@ export default function Admin() {
   };
 
   async function renameRoom(id: number, name: string) {
+    if (user?.role !== 'owner') {
+      setError('Только владелец может переименовывать комнаты');
+      return;
+    }
+    
     if (!name.trim()) {
       alert('Введите название комнаты');
       return;
@@ -472,475 +559,484 @@ export default function Admin() {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🖥 Имя сервера</h3>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-            Текущее отображение: <strong>{displayName}</strong>
-          </p>
-          <form onSubmit={saveServerName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            <input
-              type="text"
-              value={serverNameInput}
-              onChange={(e) => setServerNameInput(e.target.value)}
-              placeholder="Например: Мой сервер"
-              maxLength={100}
-            />
-            <button type="submit" disabled={serverNameSaving} style={{ alignSelf: 'flex-start', paddingInline: '1.25rem' }}>
-              {serverNameSaving ? 'Сохранение…' : 'Сохранить имя сервера'}
-            </button>
-          </form>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-            Пример: <strong>Мой сервер</strong>
-          </p>
-        </div>
+      {/* Invites section - available to both owners and moderators */}
+      <div className="card">
+        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🎫 Инвайты</h3>
+        <form onSubmit={createInvite} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <input
+            type="number"
+            min={1}
+            value={inviteOpts.maxUses}
+            onChange={(e) => setInviteOpts((o) => ({ ...o, maxUses: e.target.value }))}
+            placeholder="Макс. использований (необязательно)"
+          />
+          <input
+            type="number"
+            min={1}
+            value={inviteOpts.expiresInHours}
+            onChange={(e) => setInviteOpts((o) => ({ ...o, expiresInHours: e.target.value }))}
+            placeholder="Срок в часах (необязательно)"
+          />
+          <button type="submit" style={{ width: '100%' }}>➕ Создать инвайт</button>
+        </form>
+        {lastInviteUrl && (
+          <div style={{ 
+            marginBottom: '1.5rem', 
+            padding: '1rem',
+            background: 'var(--accent-light)',
+            borderRadius: 'var(--radius-medium)', // Используем переменную
+            border: '1px solid var(--accent)'
+          }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Ссылка для приглашения:</div>
+            <a href={lastInviteUrl} target="_blank" rel="noreferrer" style={{ 
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              color: 'var(--accent)',
+              fontWeight: 500,
+              fontSize: '0.9rem'
+            }}>{lastInviteUrl}</a>
+            {import.meta.env.VITE_APP_PUBLIC_URL && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                ℹ️ По настройке VITE_APP_PUBLIC_URL
+              </div>
+            )}
+          </div>
+        )}
+        {invites.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет активных инвайтов</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {invites.map((inv) => (
+              <div key={inv.id} style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem',
+                padding: '0.875rem 1rem',
+                background: 'var(--bg-hover)',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                fontSize: '0.9rem',
+                flexWrap: 'wrap'
+              }}>
+                <code style={{ 
+                  background: 'var(--bg)', 
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '4px',
+                  fontWeight: 600,
+                  color: 'var(--accent)'
+                }}>{inv.id}</code>
+                <span style={{ color: 'var(--text-muted)', flex: '1 1 150px', fontSize: '0.85rem' }}>
+                  {inv.uses_count}{inv.max_uses != null ? `/${inv.max_uses}` : ''} · {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : 'без срока'}
+                </span>
+                <button type="button" className="danger" onClick={() => deleteInvite(inv.id)} style={{ fontSize: '0.875rem', flex: '0 0 auto' }}>
+                  🗑️
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🏠 Комнаты</h3>
-          <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            <input
-              value={newRoomName}
-              onChange={(e) => setNewRoomName(e.target.value.slice(0, 15))}
-              placeholder="Название комнаты (макс. 15 символов)"
-              style={{ flex: '1 1 200px', minWidth: 0 }}
-              maxLength={15}
-            />
-            <button type="submit" style={{ flex: '0 0 auto' }}>➕ Создать</button>
-          </form>
-          {rooms.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет комнат</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {rooms.map((r) => (
-                <div key={r.id} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.75rem',
-                  padding: '0.875rem 1rem',
-                  background: 'var(--bg-hover)',
-                  borderRadius: 'var(--radius-medium)', // Используем переменную
-                  border: '1px solid var(--border)',
-                  flexWrap: 'wrap'
-                }}>
-                  {renamingRoomId === r.id ? (
-                    <>
-                      <input
-                        type="text"
-                        value={renamingInputValue}
-                        onChange={(e) => setRenamingInputValue(e.target.value.slice(0, 15))}
-                        placeholder="Новое название комнаты"
-                        maxLength={15}
-                        autoFocus
-                        style={{ 
-                          flex: '1 1 150px', 
-                          fontWeight: 500, 
-                          wordBreak: 'break-word',
-                          marginRight: '0.5rem'
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            renameRoom(r.id, renamingInputValue);
-                          } else if (e.key === 'Escape') {
-                            setRenamingRoomId(null);
-                            setRenamingInputValue('');
-                          }
-                        }}
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => renameRoom(r.id, renamingInputValue)}
-                        style={{ 
-                          fontSize: '0.875rem', 
-                          flex: '0 0 auto',
-                          backgroundColor: 'var(--accent)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 'var(--radius-default)',
-                          padding: '0.25rem 0.5rem',
-                          cursor: 'pointer',
-                          marginRight: '0.25rem'
-                        }}
-                      >
-                        ✅ Сохранить
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => {
-                          setRenamingRoomId(null);
-                          setRenamingInputValue('');
-                        }}
-                        style={{ 
-                          fontSize: '0.875rem', 
-                          flex: '0 0 auto',
-                          backgroundColor: 'var(--danger)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 'var(--radius-default)',
-                          padding: '0.25rem 0.5rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ❌ Отмена
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ flex: '1 1 150px', fontWeight: 500, wordBreak: 'break-word' }}>{r.name}</span>
-                      {r.name === 'main' ? (
+      {/* Only show the rest of the admin panel to owners */}
+      {user?.role === 'owner' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <div className="card">
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🖥 Имя сервера</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+              Текущее отображение: <strong>{displayName}</strong>
+            </p>
+            <form onSubmit={saveServerName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <input
+                type="text"
+                value={serverNameInput}
+                onChange={(e) => setServerNameInput(e.target.value)}
+                placeholder="Например: Мой сервер"
+                maxLength={100}
+              />
+              <button type="submit" disabled={serverNameSaving} style={{ alignSelf: 'flex-start', paddingInline: '1.25rem' }}>
+                {serverNameSaving ? 'Сохранение…' : 'Сохранить имя сервера'}
+              </button>
+            </form>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+              Пример: <strong>Мой сервер</strong>
+            </p>
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🏠 Комнаты</h3>
+            <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              <input
+                value={newRoomName}
+                onChange={(e) => setNewRoomName(e.target.value.slice(0, 15))}
+                placeholder="Название комнаты (макс. 15 символов)"
+                style={{ flex: '1 1 200px', minWidth: 0 }}
+                maxLength={15}
+              />
+              <button type="submit" style={{ flex: '0 0 auto' }}>➕ Создать</button>
+            </form>
+            {rooms.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет комнат</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {rooms.map((r) => (
+                  <div key={r.id} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.75rem',
+                    padding: '0.875rem 1rem',
+                    background: 'var(--bg-hover)',
+                    borderRadius: 'var(--radius-medium)', // Используем переменную
+                    border: '1px solid var(--border)',
+                    flexWrap: 'wrap'
+                  }}>
+                    {renamingRoomId === r.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={renamingInputValue}
+                          onChange={(e) => setRenamingInputValue(e.target.value.slice(0, 15))}
+                          placeholder="Новое название комнаты"
+                          maxLength={15}
+                          autoFocus
+                          style={{ 
+                            flex: '1 1 150px', 
+                            fontWeight: 500, 
+                            wordBreak: 'break-word',
+                            marginRight: '0.5rem'
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              renameRoom(r.id, renamingInputValue);
+                            } else if (e.key === 'Escape') {
+                              setRenamingRoomId(null);
+                              setRenamingInputValue('');
+                            }
+                          }}
+                        />
                         <button 
                           type="button" 
-                          onClick={() => clearRoomMessages(r.id)} 
+                          onClick={() => renameRoom(r.id, renamingInputValue)}
                           style={{ 
                             fontSize: '0.875rem', 
                             flex: '0 0 auto',
-                            backgroundColor: 'var(--warning)',
+                            backgroundColor: 'var(--accent)',
                             color: 'white',
                             border: 'none',
-                            borderRadius: 'var(--radius-default)', // Используем переменную
+                            borderRadius: 'var(--radius-default)',
+                            padding: '0.25rem 0.5rem',
+                            cursor: 'pointer',
+                            marginRight: '0.25rem'
+                          }}
+                        >
+                          ✅ Сохранить
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            setRenamingRoomId(null);
+                            setRenamingInputValue('');
+                          }}
+                          style={{ 
+                            fontSize: '0.875rem', 
+                            flex: '0 0 auto',
+                            backgroundColor: 'var(--danger)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 'var(--radius-default)',
                             padding: '0.25rem 0.5rem',
                             cursor: 'pointer'
                           }}
                         >
-                          🧹 Очистить
+                          ❌ Отмена
                         </button>
-                      ) : (
-                        <>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ flex: '1 1 150px', fontWeight: 500, wordBreak: 'break-word' }}>{r.name}</span>
+                        {r.name === 'main' ? (
                           <button 
                             type="button" 
-                            onClick={() => {
-                              setRenamingRoomId(r.id);
-                              setRenamingInputValue(r.name); // Set the current name as the initial value for renaming
-                            }} 
+                            onClick={() => clearRoomMessages(r.id)} 
                             style={{ 
                               fontSize: '0.875rem', 
                               flex: '0 0 auto',
-                              backgroundColor: 'var(--accent)',
+                              backgroundColor: 'var(--warning)',
                               color: 'white',
                               border: 'none',
-                              borderRadius: 'var(--radius-default)',
+                              borderRadius: 'var(--radius-default)', // Используем переменную
                               padding: '0.25rem 0.5rem',
-                              cursor: 'pointer',
-                              marginRight: '0.25rem'
+                              cursor: 'pointer'
                             }}
                           >
-                            ✏️ Переименовать
+                            🧹 Очистить
                           </button>
-                          <button 
-                            type="button" 
-                            className="danger" 
-                            onClick={() => deleteRoom(r.id)} 
-                            style={{ fontSize: '0.875rem', flex: '0 0 auto' }}
-                          >
-                            🗑️ Удалить
-                          </button>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                        ) : (
+                          <>
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                setRenamingRoomId(r.id);
+                                setRenamingInputValue(r.name); // Set the current name as the initial value for renaming
+                              }} 
+                              style={{ 
+                                fontSize: '0.875rem', 
+                                flex: '0 0 auto',
+                                backgroundColor: 'var(--accent)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: 'var(--radius-default)',
+                                padding: '0.25rem 0.5rem',
+                                cursor: 'pointer',
+                                marginRight: '0.25rem'
+                              }}
+                            >
+                              ✏️ Переименовать
+                            </button>
+                            <button 
+                              type="button" 
+                              className="danger" 
+                              onClick={() => deleteRoom(r.id)} 
+                              style={{ fontSize: '0.875rem', flex: '0 0 auto' }}
+                            >
+                              🗑️ Удалить
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+      )}
 
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🎫 Инвайты</h3>
-          <form onSubmit={createInvite} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <input
-              type="number"
-              min={1}
-              value={inviteOpts.maxUses}
-              onChange={(e) => setInviteOpts((o) => ({ ...o, maxUses: e.target.value }))}
-              placeholder="Макс. использований (необязательно)"
-            />
-            <input
-              type="number"
-              min={1}
-              value={inviteOpts.expiresInHours}
-              onChange={(e) => setInviteOpts((o) => ({ ...o, expiresInHours: e.target.value }))}
-              placeholder="Срок в часах (необязательно)"
-            />
-            <button type="submit" style={{ width: '100%' }}>➕ Создать инвайт</button>
-          </form>
-          {lastInviteUrl && (
-            <div style={{ 
-              marginBottom: '1.5rem', 
-              padding: '1rem',
-              background: 'var(--accent-light)',
-              borderRadius: 'var(--radius-medium)', // Используем переменную
-              border: '1px solid var(--accent)'
-            }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Ссылка для приглашения:</div>
-              <a href={lastInviteUrl} target="_blank" rel="noreferrer" style={{ 
-                wordBreak: 'break-word',
-                overflowWrap: 'break-word',
-                color: 'var(--accent)',
-                fontWeight: 500,
-                fontSize: '0.9rem'
-              }}>{lastInviteUrl}</a>
-              {import.meta.env.VITE_APP_PUBLIC_URL && (
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                  ℹ️ По настройке VITE_APP_PUBLIC_URL
+      {/* Sections only for owners */}
+      {user?.role === 'owner' && (
+        <>
+          <div className="card">
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>✅ Верификация (ожидают)</h3>
+            {pending.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет пользователей на верификации</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {pending.map((u) => (
+                  <div
+                    key={u.id}
+                    style={{
+                      padding: '1.25rem',
+                      background: 'var(--bg-hover)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>
+                      👤 {u.login}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
+                        <button type="button" onClick={() => approve(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
+                          ✓ Подтвердить
+                        </button>
+                        <button type="button" className="danger" onClick={() => reject(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
+                          ✕ Отклонить
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Card for verification settings */}
+          <div className="card">
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔐 Настройка верификации</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+              <span style={{ flex: 1 }}>
+                {verificationEnabled 
+                  ? '✅ Система верификации включена' 
+                  : '❌ Система верификации отключена'}
+              </span>
+              <button 
+                type="button" 
+                onClick={toggleVerification}
+                className={verificationEnabled ? 'danger' : ''}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              >
+                {verificationEnabled ? '❌ Отключить' : '✅ Включить'}
+              </button>
+            </div>
+            
+            {verificationEnabled && (
+              <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-hover)', borderRadius: '6px' }}>
+                <p style={{ margin: 0, marginBottom: '0.75rem' }}>
+                  При включенной системе все новые пользователи будут ожидать верификации.
+                </p>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  Вы можете использовать одноразовые коды для автоматической верификации или 
+                  проверять кодовые слова вручную для пользователей.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Card for verification codes if verification is enabled */}
+          {verificationEnabled && (
+            <div className="card">
+              <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔢 Одноразовые коды верификации</h3>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Введите свой код (необязательно)"
+                  value={customCode}
+                  onChange={(e) => setCustomCode(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    marginBottom: '0.5rem',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)'
+                  }}
+                />
+                <button 
+                  type="button" 
+                  onClick={createVerificationCode}
+                  style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
+                >
+                  ➕ Создать одноразовый код
+                </button>
+              </div>
+              
+              {codes.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Нет активных кодов</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {codes.map((code) => (
+                    <div 
+                      key={code.id} 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        padding: '0.75rem', 
+                        backgroundColor: 'var(--bg-card)', 
+                        borderRadius: 'var(--radius)',
+                        border: '1px solid var(--border)'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 'bold' }}>ID: {code.id}</div>
+                        <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
+                          Создан: {new Date(code.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div>Статус: {code.used ? 'Использован' : 'Доступен'}</div>
+                        <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
+                          Срок до: {new Date(code.expires_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Удалить этот код?')) {
+                            deleteVerificationCode(code.id);
+                          }
+                        }}
+                        style={{
+                          marginLeft: '0.5rem',
+                          padding: '0.25rem 0.5rem',
+                          border: 'none',
+                          backgroundColor: 'var(--danger)',
+                          color: 'white',
+                          borderRadius: 'var(--radius)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           )}
-          {invites.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет активных инвайтов</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {invites.map((inv) => (
-                <div key={inv.id} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.75rem',
-                  padding: '0.875rem 1rem',
-                  background: 'var(--bg-hover)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  fontSize: '0.9rem',
-                  flexWrap: 'wrap'
-                }}>
-                  <code style={{ 
-                    background: 'var(--bg)', 
-                    padding: '0.25rem 0.5rem',
-                    borderRadius: '4px',
-                    fontWeight: 600,
-                    color: 'var(--accent)'
-                  }}>{inv.id}</code>
-                  <span style={{ color: 'var(--text-muted)', flex: '1 1 150px', fontSize: '0.85rem' }}>
-                    {inv.uses_count}{inv.max_uses != null ? `/${inv.max_uses}` : ''} · {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : 'без срока'}
-                  </span>
-                  <button type="button" className="danger" onClick={() => deleteInvite(inv.id)} style={{ fontSize: '0.875rem', flex: '0 0 auto' }}>
-                    🗑️
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div className="card">
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>✅ Верификация (ожидают)</h3>
-        {pending.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет пользователей на верификации</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {pending.map((u) => (
-              <div
-                key={u.id}
-                style={{
-                  padding: '1.25rem',
-                  background: 'var(--bg-hover)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                <div style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>
-                  👤 {u.login}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
-                    <button type="button" onClick={() => approve(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                      ✓ Подтвердить
-                    </button>
-                    <button type="button" className="danger" onClick={() => reject(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                      ✕ Отклонить
-                    </button>
+          {/* Card for users management */}
+          <div className="card">
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>👥 Пользователи</h3>
+            {users.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет пользователей</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {users.map((u) => (
+                  <div key={u.id} style={{ 
+                    padding: '1rem', 
+                    background: 'var(--bg-elevated)', 
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
+                          {u.login}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                          {u.verified ? '✓ Верифицирован' : '⏳ Ожидает'}
+                        </div>
+                      </div>
+                      <select
+                        value={u.role}
+                        onChange={(e) => changeUserRole(u.id, e.target.value as 'owner' | 'moderator' | 'member')}
+                        disabled={u.role === 'owner'}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '6px',
+                          background: 'var(--bg-elevated)',
+                          border: '1px solid var(--border)',
+                          color: 'var(--text)',
+                          fontSize: '0.9rem',
+                          minWidth: '120px'
+                        }}
+                      >
+                        <option value="owner">Владелец</option>
+                        <option value="moderator">Модератор</option>
+                        <option value="member">Участник</option>
+                      </select>
+                      {u.role !== 'owner' && (
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => handleDeleteUserWithReason(u.id)}
+                          style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                        >
+                          🗑️ Удалить
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Verification controls only for unverified members */}
+                    {!u.verified && u.role === 'member' && verificationEnabled && (
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button type="button" onClick={() => approveUser(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
+                          ✓ Подтвердить
+                        </button>
+                        <button type="button" className="danger" onClick={() => rejectUser(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
+                          ✕ Отклонить
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Card for verification settings */}
-      <div className="card">
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔐 Настройка верификации</h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-          <span style={{ flex: 1 }}>
-            {verificationEnabled 
-              ? '✅ Система верификации включена' 
-              : '❌ Система верификации отключена'}
-          </span>
-          <button 
-            type="button" 
-            onClick={toggleVerification}
-            className={verificationEnabled ? 'danger' : ''}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-          >
-            {verificationEnabled ? '❌ Отключить' : '✅ Включить'}
-          </button>
-        </div>
-        
-        {verificationEnabled && (
-          <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-hover)', borderRadius: '6px' }}>
-            <p style={{ margin: 0, marginBottom: '0.75rem' }}>
-              При включенной системе все новые пользователи будут ожидать верификации.
-            </p>
-            <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-              Вы можете использовать одноразовые коды для автоматической верификации или 
-              проверять кодовые слова вручную для пользователей.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Card for verification codes if verification is enabled */}
-      {verificationEnabled && (
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔢 Одноразовые коды верификации</h3>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <input
-              type="text"
-              placeholder="Введите свой код (необязательно)"
-              value={customCode}
-              onChange={(e) => setCustomCode(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                marginBottom: '0.5rem',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)'
-              }}
-            />
-            <button 
-              type="button" 
-              onClick={createVerificationCode}
-              style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
-            >
-              ➕ Создать одноразовый код
-            </button>
-          </div>
-          
-          {codes.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Нет активных кодов</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {codes.map((code) => (
-                <div 
-                  key={code.id} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between', 
-                    padding: '0.75rem', 
-                    backgroundColor: 'var(--bg-card)', 
-                    borderRadius: 'var(--radius)',
-                    border: '1px solid var(--border)'
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 'bold' }}>ID: {code.id}</div>
-                    <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
-                      Создан: {new Date(code.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div>Статус: {code.used ? 'Использован' : 'Доступен'}</div>
-                    <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
-                      Срок до: {new Date(code.expires_at).toLocaleString()}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (window.confirm('Удалить этот код?')) {
-                        deleteVerificationCode(code.id);
-                      }
-                    }}
-                    style={{
-                      marginLeft: '0.5rem',
-                      padding: '0.25rem 0.5rem',
-                      border: 'none',
-                      backgroundColor: 'var(--danger)',
-                      color: 'white',
-                      borderRadius: 'var(--radius)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Удалить
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        </>
       )}
-
-      {/* Card for users management */}
-      <div className="card">
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>👥 Пользователи</h3>
-        {users.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет пользователей</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {users.map((u) => (
-              <div key={u.id} style={{ 
-                padding: '1rem', 
-                background: 'var(--bg-elevated)', 
-                border: '1px solid var(--border)',
-                borderRadius: '8px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                  <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
-                      {u.login}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      {u.verified ? '✓ Верифицирован' : '⏳ Ожидает'}
-                    </div>
-                  </div>
-                  <select
-                    value={u.role}
-                    onChange={(e) => changeUserRole(u.id, e.target.value as 'owner' | 'moderator' | 'member')}
-                    disabled={u.role === 'owner'}
-                    style={{
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '6px',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--text)',
-                      fontSize: '0.9rem',
-                      minWidth: '120px'
-                    }}
-                  >
-                    <option value="owner">Владелец</option>
-                    <option value="moderator">Модератор</option>
-                    <option value="member">Участник</option>
-                  </select>
-                  {u.role !== 'owner' && (
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={() => handleDeleteUserWithReason(u.id)}
-                      style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                    >
-                      🗑️ Удалить
-                    </button>
-                  )}
-                </div>
-                
-                {/* Verification controls only for unverified members */}
-                {!u.verified && u.role === 'member' && verificationEnabled && (
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button type="button" onClick={() => approveUser(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                      ✓ Подтвердить
-                    </button>
-                    <button type="button" className="danger" onClick={() => rejectUser(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                      ✕ Отклонить
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       
       {/* Add the modal for deletion reason if needed */}
-      {deletingUserId !== null && (
+      {deletingUserId !== null && user?.role === 'owner' && (
         <div style={{
           position: 'fixed',
           top: 0,

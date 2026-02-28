@@ -14,7 +14,7 @@ module.exports = function (fastify) {
   });
 
   fastify.post('/api/rooms', {
-    preHandler: [fastify.requireAuth, fastify.requireOwnerOrModerator],
+    preHandler: [fastify.requireAuth, fastify.requireOwner],
   }, async (request, reply) => {
     const { name } = request.body || {};
     if (!name || !String(name).trim()) {
@@ -45,7 +45,7 @@ module.exports = function (fastify) {
   });
 
   fastify.patch('/api/rooms/:id', {
-    preHandler: [fastify.requireAuth, fastify.requireOwnerOrModerator],
+    preHandler: [fastify.requireAuth, fastify.requireOwner],
   }, async (request, reply) => {
     const id = Number(request.params.id);
     const { name } = request.body || {};

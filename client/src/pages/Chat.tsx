@@ -66,7 +66,6 @@ export default function Chat() {
   }>({ visible: false, x: 0, y: 0, message: null });
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
   const [editingMessage, setEditingMessage] = useState<{id: number, body: string, originalBody: string} | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const contextMenuRef = useRef<HTMLDivElement>(null);

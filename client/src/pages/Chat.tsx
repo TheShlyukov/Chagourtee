@@ -127,6 +127,26 @@ export default function Chat() {
     setRoomList(rooms);
   }, []);
 
+  // Function to update scroll button visibility based on scroll position
+  const updateScrollButtonVisibility = useCallback(() => {
+    const messagesContainer = document.querySelector('.chat-messages-wrap');
+    if (messagesContainer) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
+      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+      
+      // Update auto-scroll ref to determine if we should auto-scroll
+      shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
+      
+      // Show button only when:
+      // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
+      // 2. Container is actually scrollable (content is taller than container)
+      setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
+    } else {
+      // If there's no messages container (e.g. no room selected), hide the button
+      setShowScrollButton(false);
+    }
+  }, []);
+
   const loadMessages = useCallback(async (id: number) => {
     setLoading(true);
     try {
@@ -134,8 +154,11 @@ export default function Chat() {
       setMessages(list);
     } finally {
       setLoading(false);
+      
+      // Update scroll button visibility after messages are loaded and rendered
+      setTimeout(updateScrollButtonVisibility, 0);
     }
-  }, []);
+  }, [updateScrollButtonVisibility]);
 
   useEffect(() => {
     loadRooms();
@@ -143,8 +166,15 @@ export default function Chat() {
 
   useEffect(() => {
     if (roomId) loadMessages(roomId);
-    else setMessages([]);
-  }, [roomId, loadMessages]);
+    else {
+      setMessages([]);
+      // When no room is selected, ensure scroll button is hidden and update visibility
+      setTimeout(() => {
+        setShowScrollButton(false);
+        updateScrollButtonVisibility();
+      }, 0);
+    }
+  }, [roomId, loadMessages, updateScrollButtonVisibility]);
 
   // Handle WebSocket messages related to chat
   useEffect(() => {
@@ -191,21 +221,7 @@ export default function Chat() {
           );
           
           // After deleting a message, update the scroll button visibility
-          setTimeout(() => {
-            const messagesContainer = document.querySelector('.chat-messages-wrap');
-            if (messagesContainer) {
-              const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
-              const distanceToBottom = scrollHeight - scrollTop - clientHeight;
-              
-              // Update auto-scroll ref to determine if we should auto-scroll
-              shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
-              
-              // Show button only when:
-              // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
-              // 2. Container is actually scrollable (content is taller than container)
-              setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
-            }
-          }, 0);
+          setTimeout(updateScrollButtonVisibility, 0);
           break;
           
         case 'messages_deleted':
@@ -217,21 +233,7 @@ export default function Chat() {
             );
             
             // After deleting messages, update the scroll button visibility
-            setTimeout(() => {
-              const messagesContainer = document.querySelector('.chat-messages-wrap');
-              if (messagesContainer) {
-                const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
-                const distanceToBottom = scrollHeight - scrollTop - clientHeight;
-                
-                // Update auto-scroll ref to determine if we should auto-scroll
-                shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
-                
-                // Show button only when:
-                // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
-                // 2. Container is actually scrollable (content is taller than container)
-                setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
-              }
-            }, 0);
+            setTimeout(updateScrollButtonVisibility, 0);
           }
           break;
           
@@ -403,7 +405,11 @@ export default function Chat() {
   useEffect(() => {
     const messagesContainer = document.querySelector('.chat-messages-wrap');
     
-    if (!messagesContainer) return;
+    if (!messagesContainer) {
+      // If no container exists (no room selected), hide the button
+      setShowScrollButton(false);
+      return;
+    }
 
     const handleScroll = () => {
       // Check if user is near the bottom of the chat
@@ -427,7 +433,7 @@ export default function Chat() {
     return () => {
       messagesContainer.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [roomId]); // Add roomId as a dependency so the effect re-runs when room changes
 
   // Scroll to bottom function
   const scrollToBottom = () => {
@@ -437,12 +443,12 @@ export default function Chat() {
     setShowScrollButton(false);
   };
 
-  // Scroll to bottom when messages change, only if user was already at the bottom
+  // Scroll to bottom when messages change, only if user was already at the bottom and there's a room selected
   useEffect(() => {
-    if (shouldAutoScrollRef.current) {
+    if (roomId && shouldAutoScrollRef.current) {
       scrollToBottom();
     }
-  }, [messages]);
+  }, [messages, roomId]);
 
   // Scroll to typing indicator when someone is typing, but only if user was at the bottom
   useEffect(() => {
@@ -687,21 +693,7 @@ export default function Chat() {
         clearSelections(); // Clear selections after successful deletion
         
         // After deleting messages, update the scroll button visibility
-        setTimeout(() => {
-          const messagesContainer = document.querySelector('.chat-messages-wrap');
-          if (messagesContainer) {
-            const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
-            const distanceToBottom = scrollHeight - scrollTop - clientHeight;
-            
-            // Update auto-scroll ref to determine if we should auto-scroll
-            shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
-            
-            // Show button only when:
-            // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
-            // 2. Container is actually scrollable (content is taller than container)
-            setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
-          }
-        }, 0);
+        setTimeout(updateScrollButtonVisibility, 0);
       } catch (error) {
         console.error('Error deleting messages:', error);
         alert('Ошибка при удалении сообщений');
@@ -802,21 +794,7 @@ export default function Chat() {
         setContextMenu({ visible: false, x: 0, y: 0, message: null });
         
         // After deleting a message, update the scroll button visibility
-        setTimeout(() => {
-          const messagesContainer = document.querySelector('.chat-messages-wrap');
-          if (messagesContainer) {
-            const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
-            const distanceToBottom = scrollHeight - scrollTop - clientHeight;
-            
-            // Update auto-scroll ref to determine if we should auto-scroll
-            shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
-            
-            // Show button only when:
-            // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
-            // 2. Container is actually scrollable (content is taller than container)
-            setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
-          }
-        }, 0);
+        setTimeout(updateScrollButtonVisibility, 0);
       } catch (error) {
         console.error('Error deleting message:', error);
         alert('Ошибка при удалении сообщения');

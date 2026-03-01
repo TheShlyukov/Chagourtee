@@ -905,10 +905,12 @@ export default function Chat() {
                                   {m.updated_at && m.updated_at !== m.created_at && (
                                     <span title="Редактировалось"> ✎</span>
                                   )}
-                                  {/* Display role label if user is moderator or owner */}
-                                  {allUsers.length > 0 && (() => {
+                                  {/* Display role label if user is moderator or owner and it's not the current user */}
+                                  {user && allUsers.length > 0 && (() => {
                                     const userRole = getUserRoleById(m.user_id, allUsers);
-                                    if (userRole === 'moderator' || userRole === 'owner') {
+                                    const isCurrentUser = user.id === m.user_id;
+                                    
+                                    if ((userRole === 'moderator' || userRole === 'owner') && !isCurrentUser) {
                                       return (
                                         <span className="user-role-label" style={{ fontStyle: 'italic', marginLeft: '8px' }}>
                                           {userRole === 'moderator' ? 'Модератор' : 'Владелец'}

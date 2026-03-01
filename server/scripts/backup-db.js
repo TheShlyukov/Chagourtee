@@ -1,22 +1,27 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-const { getDbPath } = require('../src/db');
 
-const dbPath = getDbPath();
-const backupDir = path.join(path.dirname(dbPath), 'backups');
-const name = path.basename(dbPath, path.extname(dbPath));
-const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-const backupPath = path.join(backupDir, `${name}_${timestamp}.db`);
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
-if (!fs.existsSync(dbPath)) {
-  console.error('Database file not found:', dbPath);
-  process.exit(1);
-}
+const dbPath = path.join(__dirname, '../data/chagourtee.db');
+const backupDir = path.join(__dirname, '../data/backups');
+
+// Create backups directory if it doesn't exist
 if (!fs.existsSync(backupDir)) {
   fs.mkdirSync(backupDir, { recursive: true });
 }
+
+// Generate backup filename with timestamp
+const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+const backupPath = path.join(backupDir, `chagourtee-backup-${timestamp}.db`);
+
+// Perform the backup by copying the database file
 fs.copyFileSync(dbPath, backupPath);
+
+// Only output to console if DEBUG_MODE is enabled
 if (process.env.DEBUG_MODE === 'true') {
   console.log('Backup saved:', backupPath);
 }

@@ -101,17 +101,17 @@ async function run() {
       // If a user exists, create the main room with that user as creator
       db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', firstUser.id);
       if (process.env.DEBUG_MODE === 'true') {
-        console.log("Created 'main' room on first startup with user ID:", firstUser.id);
+        server.log.info("Created 'main' room on first startup with user ID:", firstUser.id);
       }
     } else {
       // If no users exist yet, we defer creating the main room until the first user registers
       if (process.env.DEBUG_MODE === 'true') {
-        console.log("No users exist yet, deferring main room creation until first user registers.");
+        server.log.info("No users exist yet, deferring main room creation until first user registers.");
       }
     }
   } else {
     if (process.env.DEBUG_MODE === 'true') {
-      console.log("Main room already exists, skipping creation.");
+      server.log.info("Main room already exists, skipping creation.");
     }
   }
 
@@ -172,7 +172,7 @@ async function run() {
       if (!existingMainRoom) {
         server.db.prepare('INSERT INTO rooms (name, created_by) VALUES (?, ?)').run('main', userId);
         if (process.env.DEBUG_MODE === 'true') {
-          console.log("Created 'main' room for first user with ID:", userId);
+          server.log.info("Created 'main' room for first user with ID:", userId);
         }
       }
     }
@@ -212,7 +212,9 @@ async function run() {
   // Run the server
   try {
     await server.listen({ port: 3000, host: '0.0.0.0' });
-    console.log(`Server listening on port ${server.server.address().port}`);
+    if (process.env.DEBUG_MODE === 'true') {
+      server.log.info(`Server listening on port ${server.server.address().port}`);
+    }
   } catch (err) {
     server.log.error(err);
     process.exit(1);

@@ -40,7 +40,7 @@ export type Invite = {
 };
 
 export type ServerSettings = {
-  name: string | null;
+  server_name: string | null;
 };
 
 export async function api<T>(
@@ -152,10 +152,10 @@ export const invites = {
 
 export const serverSettings = {
   get: () => api<ServerSettings>('/api/server/settings'),
-  update: (name: string) =>
+  update: (server_name: string) =>
     api<ServerSettings>('/api/server/settings', {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ server_name }),
     }),
 };
 

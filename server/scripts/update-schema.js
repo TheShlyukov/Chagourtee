@@ -1,70 +1,68 @@
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const fs = require('fs');
 
-const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'chagourtee.db');
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
-function getDbPath() {
-  return process.env.CHAGOURTEE_DB_PATH || DEFAULT_DB_PATH;
-}
+const dbPath = path.join(__dirname, '../data/chagourtee.db');
+const db = new sqlite3.Database(dbPath);
 
-function ensureDataDir(dbPath) {
-  const dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
-
-function updateSchema() {
-  const dbPath = getDbPath();
-  ensureDataDir(dbPath);
-  
-  const db = new Database(dbPath);
-  
-  // Check if updated_at column exists in messages table
-  const columns = db.pragma('table_info(messages)');
-  const updatedAtExists = columns.some(col => col.name === 'updated_at');
-  
-  if (!updatedAtExists) {
-    if (process.env.DEBUG_MODE === 'true') {
-      console.log('Adding updated_at column to messages table...');
+// Check if updated_at column exists in messages table
+db.serialize(() => {
+  // First, check if updated_at column exists
+  db.get("PRAGMA table_info(messages)", (err, rows) => {
+    if (err) {
+      console.error('Error checking table schema:', err);
+      db.close();
+      return;
     }
-    db.exec('ALTER TABLE messages ADD COLUMN updated_at TEXT;');
-    if (process.env.DEBUG_MODE === 'true') {
-      console.log('Column updated_at added successfully!');
-    }
-  } else {
-    if (process.env.DEBUG_MODE === 'true') {
+
+    const columns = rows.map(row => row.name);
+    const hasUpdatedAt = columns.includes('updated_at');
+
+    if (!hasUpdatedAt) {
+      // Add updated_at column to messages table
+      db.run('ALTER TABLE messages ADD COLUMN updated_at DATETIME DEFAULT NULL', (err) => {
+        if (err) {
+          console.error('Error adding updated_at column:', err);
+        } else if (process.env.DEBUG_MODE === 'true') {
+          console.log('Adding updated_at column to messages table...');
+          console.log('Column updated_at added successfully!');
+        }
+      });
+    } else if (process.env.DEBUG_MODE === 'true') {
       console.log('updated_at column already exists.');
     }
-  }
-  
-  // Check if updated_at index exists
-  const indexes = db.pragma('index_list(messages)');
-  const indexExists = indexes.some(idx => idx.name === 'idx_messages_updated_at');
-  
-  if (!indexExists) {
-    if (process.env.DEBUG_MODE === 'true') {
-      console.log('Adding index for updated_at column...');
+  });
+
+  // Check if index exists for updated_at column
+  db.get("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_messages_updated_at'", (err, row) => {
+    if (err) {
+      console.error('Error checking indexes:', err);
+      db.close();
+      return;
     }
-    db.exec('CREATE INDEX idx_messages_updated_at ON messages(updated_at);');
-    if (process.env.DEBUG_MODE === 'true') {
-      console.log('Index idx_messages_updated_at created successfully!');
-    }
-  } else {
-    if (process.env.DEBUG_MODE === 'true') {
+
+    if (!row) {
+      // Create index for updated_at column
+      db.run('CREATE INDEX idx_messages_updated_at ON messages(updated_at)', (err) => {
+        if (err) {
+          console.error('Error creating index:', err);
+        } else if (process.env.DEBUG_MODE === 'true') {
+          console.log('Adding index for updated_at column...');
+          console.log('Index idx_messages_updated_at created successfully!');
+        }
+      });
+    } else if (process.env.DEBUG_MODE === 'true') {
       console.log('Index for updated_at column already exists.');
     }
-  }
-  
-  db.close();
-  if (process.env.DEBUG_MODE === 'true') {
-    console.log('Database schema update completed.');
-  }
-}
 
-if (require.main === module) {
-  updateSchema();
-}
-
-module.exports = { updateSchema };
+    // Close the database connection after all operations
+    db.close(() => {
+      if (process.env.DEBUG_MODE === 'true') {
+        console.log('Database schema update completed.');
+      }
+    });
+  });
+});

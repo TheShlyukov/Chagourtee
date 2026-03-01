@@ -24,19 +24,17 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
     try {
       const settings: ServerSettings = await serverSettingsApi.get();
       // Ensure the raw name doesn't exceed the maximum length
-      const limitedName = settings.name && settings.name.length > MAX_SERVER_NAME_LENGTH 
-        ? settings.name.substring(0, MAX_SERVER_NAME_LENGTH) 
-        : settings.name;
+      const limitedName = settings.server_name && settings.server_name.length > MAX_SERVER_NAME_LENGTH 
+        ? settings.server_name.substring(0, MAX_SERVER_NAME_LENGTH) 
+        : settings.server_name;
       setRawName(limitedName ?? null);
-      
+
       // Load version info
       const versionData: VersionInfo = await serverVersion.get();
       setVersionInfo(`${versionData.name} ${versionData.version}`);
     } catch (e) {
-      // If request fails (e.g. not logged in yet), just keep default
+      // If request fails (e.g. not logged in yet), fallback to default
       console.error('Failed to load server settings or version info', e);
-      
-      // Fallback to default version info if loading fails
       setVersionInfo(DEFAULT_BASE_NAME);
     }
   };

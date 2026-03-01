@@ -62,7 +62,20 @@ module.exports = function (fastify) {
 
     ws.on('message', (raw) => {
       try {
-        const msg = JSON.parse(raw.toString());
+        // Проверяем, что raw - это строка или Buffer перед парсингом
+        let rawData;
+        if (typeof raw === 'string') {
+          rawData = raw;
+        } else if (Buffer.isBuffer(raw)) {
+          rawData = raw.toString();
+        } else {
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.warn('Received non-string/non-buffer data from WebSocket');
+          }
+          return;
+        }
+        
+        const msg = JSON.parse(rawData);
         if (process.env.DEBUG_MODE === 'true') {
           fastify.log.info('Received WebSocket message:', msg);
         }
@@ -106,7 +119,23 @@ module.exports = function (fastify) {
             login: user?.login || userId 
           }, ws);
         }
-      } catch (_) {}
+      } catch (err) {
+        // Логируем конкретную ошибку вместо игнорирования
+        if (process.env.DEBUG_MODE === 'true') {
+          fastify.log.error('Error processing WebSocket message:', err);
+        }
+        // Можно также отправить сообщение клиенту о проблеме
+        try {
+          ws.send(JSON.stringify({ 
+            type: 'error', 
+            message: 'Invalid message format' 
+          }));
+        } catch (sendErr) {
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.error('Error sending error response to client:', sendErr);
+          }
+        }
+      }
     });
 
     ws.on('close', () => {

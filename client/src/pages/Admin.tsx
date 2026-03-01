@@ -212,7 +212,7 @@ export default function Admin() {
     setServerNameSaving(true);
     try {
       const res = await serverSettingsApi.update(trimmed);
-      setRawNameLocal(res.name ?? null);
+      setRawNameLocal(res.server_name ?? null);
       setMessage('Имя сервера обновлено');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка при сохранении имени сервера');

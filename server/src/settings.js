@@ -4,18 +4,22 @@ module.exports = function (fastify) {
   // Get current server settings (public, no auth required)
   fastify.get('/api/server/settings', async () => {
     const row = db.prepare('SELECT name FROM server_settings WHERE id = 1').get();
-    return { name: row ? row.name : null };
+    return { 
+      server_name: row ? row.name : null
+    };
   });
 
-  // Update server name (only owner)
+  // Update server settings (only owner)
   fastify.post('/api/server/settings', {
     preHandler: [fastify.requireAuth, fastify.requireOwner],
   }, async (request, reply) => {
-    const { name } = request.body || {};
-    const raw = typeof name === 'string' ? name : '';
-    const trimmed = raw.trim();
+    const { server_name } = request.body || {};
+    
+    // Validate and sanitize inputs
+    const rawName = typeof server_name === 'string' ? server_name : '';
+    const trimmedName = rawName.trim();
 
-    if (trimmed.length > 100) {
+    if (trimmedName.length > 100) {
       return reply.code(400).send({ error: 'Server name too long' });
     }
 
@@ -24,13 +28,14 @@ module.exports = function (fastify) {
 
     if (existing) {
       db.prepare('UPDATE server_settings SET name = ?, updated_at = ? WHERE id = 1')
-        .run(trimmed || null, now);
+        .run(trimmedName || null, now);
     } else {
       db.prepare('INSERT INTO server_settings (id, name, created_at, updated_at) VALUES (1, ?, ?, ?)')
-        .run(trimmed || null, now, now);
+        .run(trimmedName || null, now, now);
     }
 
-    return { name: trimmed || null };
+    return { 
+      server_name: trimmedName || null
+    };
   });
 };
-

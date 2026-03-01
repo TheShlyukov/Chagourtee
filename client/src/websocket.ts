@@ -1,73 +1,67 @@
-import { logger } from './utils/logger'; // Import our logger
+import { logger } from './utils/logger';
 
-// Global WebSocket instance to ensure only one connection exists
-let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-let sharedWebSocket: WebSocket | null = null;
-let messageHandlers: ((data: any) => void)[] = [];
-let openHandlers: (() => void)[] = [];
+// Use the global Timeout type instead of NodeJS.Timeout
+let heartbeatInterval: number | null = null;
+let reconnectTimeout: number | null = null;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
+const reconnectDelay = 3000; // 3 seconds
+
+// Handlers for messages and connection events
+const messageHandlers: Set<(data: any) => void> = new Set();
+const openHandlers: Set<() => void> = new Set();
+
+// Track rooms we've joined so we can rejoin on reconnect
+const joinedRooms: Set<number> = new Set();
 
 /**
- * Initializes a WebSocket connection if one doesn't already exist
+ * Initialize WebSocket connection
  */
-export const initializeWebSocket = (): WebSocket | null => {
-  if (sharedWebSocket) {
-    // If there's already a connection, return it
-    if (sharedWebSocket.readyState === WebSocket.OPEN) {
-      return sharedWebSocket;
-    } else {
-      // If the connection exists but is not open, close it before creating a new one
-      closeWebSocket();
-    }
+export function initializeWebSocket() {
+  if (sharedWebSocket && sharedWebSocket.readyState !== WebSocket.CLOSED) {
+    logger.debug('WebSocket already exists with readyState:', sharedWebSocket.readyState);
+    return sharedWebSocket;
   }
 
-  // Use the same protocol and host as the current page for Vite proxy to work correctly
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // Use the same host as the current page so Vite proxy handles the WebSocket connection
-  const wsUrl = `${protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/ws`;
-  logger.debug(`Initializing WebSocket connection to: ${wsUrl}`);
-
   try {
-    sharedWebSocket = new WebSocket(wsUrl);
+    logger.debug('Initializing WebSocket connection');
+    sharedWebSocket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:${location.port || '3000'}/ws`);
 
     sharedWebSocket.onopen = () => {
-      logger.debug('WebSocket connected');
+      logger.info('WebSocket connected');
       reconnectAttempts = 0; // Reset attempts on successful connection
       
-      // Start heartbeat interval to keep connection alive
-      if (heartbeatInterval) {
-        clearInterval(heartbeatInterval);
-      }
-      heartbeatInterval = setInterval(() => {
+      // Send any pending join requests
+      joinedRooms.forEach(roomId => {
         if (sharedWebSocket?.readyState === WebSocket.OPEN) {
-          sharedWebSocket.send(JSON.stringify({ type: 'ping' }));
-        }
-      }, 30000); // Send ping every 30 seconds
-
-      // Notify all registered open handlers
-      openHandlers.forEach((handler) => {
-        try {
-          handler();
-        } catch (e) {
-          console.error('Error in WebSocket open handler:', e);
+          sharedWebSocket.send(JSON.stringify({ type: 'join', roomId }));
+          logger.debug(`Re-sent join request for room ${roomId}`);
         }
       });
+      
+      // Run all registered open handlers
+      openHandlers.forEach(handler => handler());
     };
 
-    sharedWebSocket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        // Special handling for pong messages (keep-alive response)
-        if (data.type === 'pong') {
-          return; // Don't broadcast pong messages to handlers
+    sharedWebSocket.onclose = (event) => {
+      logger.warn('WebSocket disconnected:', event.code, event.reason);
+      cleanupConnection();
+      
+      // Attempt to reconnect unless closed was intentional
+      if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+        logger.info(`Attempting to reconnect... (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+        reconnectTimeout = window.setTimeout(() => {
+          reconnectAttempts++;
+          initializeWebSocket();
+        }, reconnectDelay);
+      } else if (reconnectAttempts >= maxReconnectAttempts) {
+        logger.error('Max reconnection attempts reached. Please refresh the page.');
+        // Optionally show a notification to the user
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Соединение с сервером потеряно', {
+            body: 'Превышено максимальное количество попыток восстановления соединения. Пожалуйста, обновите страницу.'
+          });
         }
-        
-        // Broadcast message to all registered handlers
-        messageHandlers.forEach(handler => handler(data));
-      } catch (e) {
-        console.error('Error parsing WebSocket message:', e);
       }
     };
 
@@ -75,103 +69,165 @@ export const initializeWebSocket = (): WebSocket | null => {
       logger.error('WebSocket error:', error);
     };
 
-    sharedWebSocket.onclose = (event) => {
-      logger.debug('WebSocket connection closed:', event.code, event.reason);
-      
-      // Clear heartbeat interval
+    sharedWebSocket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        // Process heartbeat responses
+        if (data.type === 'pong') {
+          logger.debug('Received pong response');
+        }
+        
+        // Call all registered message handlers
+        messageHandlers.forEach(handler => handler(data));
+      } catch (e) {
+        logger.error('Error parsing WebSocket message:', e);
+      }
+    };
+
+    // Start heartbeat/ping mechanism
+    startHeartbeat();
+
+    return sharedWebSocket;
+  } catch (error) {
+    logger.error('Failed to initialize WebSocket:', error);
+    throw error;
+  }
+}
+
+// Declare the sharedWebSocket variable separately to avoid initialization issues
+let sharedWebSocket: WebSocket | null = null;
+
+/**
+ * Start the heartbeat mechanism to keep connection alive
+ */
+function startHeartbeat() {
+  // Clear any existing interval
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
+
+  // Send ping every 30 seconds to keep connection alive
+  heartbeatInterval = setInterval(() => {
+    if (sharedWebSocket?.readyState === WebSocket.OPEN) {
+      logger.debug('Sending ping...');
+      sharedWebSocket.send(JSON.stringify({ type: 'ping' }));
+    } else {
+      logger.warn('WebSocket not open, stopping heartbeat');
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
         heartbeatInterval = null;
       }
-      
-      // If the close was not initiated by us (code 1000), try to reconnect
-      if (event.code !== 1000) {
-        // Implement exponential backoff to prevent overwhelming the server
-        reconnectAttempts++;
-        if (reconnectAttempts <= maxReconnectAttempts) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30 seconds
-          logger.debug(`Attempting to reconnect to WebSocket in ${delay}ms... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
-          setTimeout(() => {
-            // Reinitialize the connection
-            initializeWebSocket();
-          }, delay);
-        } else {
-          logger.error('Max reconnection attempts reached. Please reload the page.');
-        }
-      }
-    };
-  } catch (error) {
-    logger.error('Failed to create WebSocket connection:', error);
-    return null;
-  }
-
-  return sharedWebSocket;
-};
+    }
+  }, 30000); // 30 seconds
+}
 
 /**
- * Closes the WebSocket connection if it exists
+ * Cleanup connection and intervals
  */
-export const closeWebSocket = () => {
+function cleanupConnection() {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  
   if (sharedWebSocket) {
-    // Clear the heartbeat interval
-    if (heartbeatInterval) {
-      clearInterval(heartbeatInterval);
-      heartbeatInterval = null;
-    }
-    
-    // Close the WebSocket with a normal closure code
-    sharedWebSocket.close(1000, "Client closing WebSocket");
+    sharedWebSocket.close();
     sharedWebSocket = null;
   }
-};
+}
 
 /**
- * Adds a message handler to receive WebSocket messages
+ * Get the shared WebSocket instance
  */
-export const addMessageHandler = (handler: (data: any) => void) => {
-  if (!messageHandlers.includes(handler)) {
-    messageHandlers.push(handler);
+export function getWebSocket(): WebSocket | null {
+  return sharedWebSocket;
+}
+
+/**
+ * Check if WebSocket is currently connected
+ */
+export function isWebSocketConnected(): boolean {
+  return sharedWebSocket !== null && sharedWebSocket.readyState === WebSocket.OPEN;
+}
+
+/**
+ * Add a message handler
+ */
+export function addMessageHandler(handler: (data: any) => void) {
+  messageHandlers.add(handler);
+}
+
+/**
+ * Remove a message handler
+ */
+export function removeMessageHandler(handler: (data: any) => void) {
+  messageHandlers.delete(handler);
+}
+
+/**
+ * Add an open handler
+ */
+export function addOpenHandler(handler: () => void) {
+  openHandlers.add(handler);
+}
+
+/**
+ * Remove an open handler
+ */
+export function removeOpenHandler(handler: () => void) {
+  openHandlers.delete(handler);
+}
+
+/**
+ * Join a room
+ */
+export function joinRoom(roomId: number) {
+  if (sharedWebSocket?.readyState === WebSocket.OPEN) {
+    sharedWebSocket.send(JSON.stringify({ type: 'join', roomId }));
+    joinedRooms.add(roomId);
+    logger.debug(`Joined room ${roomId}`);
+  } else {
+    logger.warn(`Cannot join room ${roomId}, WebSocket not ready. Will join when connected.`);
+    // Store the room ID so we can join when connection is established
+    joinedRooms.add(roomId);
   }
-};
+}
 
 /**
- * Removes a message handler
+ * Leave a room
  */
-export const removeMessageHandler = (handler: (data: any) => void) => {
-  const index = messageHandlers.indexOf(handler);
-  if (index !== -1) {
-    messageHandlers.splice(index, 1);
+export function leaveRoom(roomId: number) {
+  if (sharedWebSocket?.readyState === WebSocket.OPEN) {
+    sharedWebSocket.send(JSON.stringify({ type: 'leave', roomId }));
+    joinedRooms.delete(roomId);
+    logger.debug(`Left room ${roomId}`);
+  } else {
+    logger.warn(`Cannot leave room ${roomId}, WebSocket not ready`);
   }
-};
+}
 
 /**
- * Gets the current WebSocket instance
+ * Close the WebSocket connection
  */
-export const getWebSocket = () => sharedWebSocket;
-
-/**
- * Register a handler to be called whenever WebSocket connection opens.
- * This also runs on every reconnection, so it's safe for join-логики комнат.
- */
-export const addOpenHandler = (handler: () => void) => {
-  if (!openHandlers.includes(handler)) {
-    openHandlers.push(handler);
+export function closeWebSocket() {
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
   }
-};
-
-/**
- * Remove a previously registered open handler.
- */
-export const removeOpenHandler = (handler: () => void) => {
-  const index = openHandlers.indexOf(handler);
-  if (index !== -1) {
-    openHandlers.splice(index, 1);
+  
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval as number);
+    heartbeatInterval = null;
   }
-};
-
-/**
- * Checks if WebSocket is connected
- */
-export const isWebSocketConnected = () => {
-  return sharedWebSocket && sharedWebSocket.readyState === WebSocket.OPEN;
-};
+  
+  if (sharedWebSocket) {
+    // Close with code 1000 (normal closure)
+    sharedWebSocket.close(1000);
+    sharedWebSocket = null;
+  }
+  
+  // Clear all handlers
+  messageHandlers.clear();
+  openHandlers.clear();
+}

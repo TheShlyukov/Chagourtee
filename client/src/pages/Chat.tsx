@@ -76,6 +76,9 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for scroll-to-bottom button
   const [showScrollButton, setShowScrollButton] = useState(false); // State to control visibility of scroll button
   const [allUsers, setAllUsers] = useState<User[]>([]); // Keep track of all users to get their roles
+  
+  // Track whether user wants to stay at bottom
+  const shouldAutoScrollRef = useRef(true);
 
   // Load all users to get their roles
   useEffect(() => {
@@ -186,6 +189,23 @@ export default function Chat() {
           setMessages(prev => 
             prev.filter(msg => msg.id !== data.messageId)
           );
+          
+          // After deleting a message, update the scroll button visibility
+          setTimeout(() => {
+            const messagesContainer = document.querySelector('.chat-messages-wrap');
+            if (messagesContainer) {
+              const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
+              const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+              
+              // Update auto-scroll ref to determine if we should auto-scroll
+              shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
+              
+              // Show button only when:
+              // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
+              // 2. Container is actually scrollable (content is taller than container)
+              setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
+            }
+          }, 0);
           break;
           
         case 'messages_deleted':
@@ -195,6 +215,23 @@ export default function Chat() {
             setMessages(prev => 
               prev.filter(msg => !data.messageIds.includes(msg.id))
             );
+            
+            // After deleting messages, update the scroll button visibility
+            setTimeout(() => {
+              const messagesContainer = document.querySelector('.chat-messages-wrap');
+              if (messagesContainer) {
+                const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
+                const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+                
+                // Update auto-scroll ref to determine if we should auto-scroll
+                shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
+                
+                // Show button only when:
+                // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
+                // 2. Container is actually scrollable (content is taller than container)
+                setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
+              }
+            }, 0);
           }
           break;
           
@@ -369,9 +406,12 @@ export default function Chat() {
     if (!messagesContainer) return;
 
     const handleScroll = () => {
-      // Show button if user has scrolled up more than 100px from bottom
+      // Check if user is near the bottom of the chat
       const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
       const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+      
+      // Update auto-scroll ref to determine if we should auto-scroll
+      shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
       
       // Show button only when:
       // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
@@ -391,19 +431,22 @@ export default function Chat() {
 
   // Scroll to bottom function
   const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Reset auto-scroll behavior when user manually scrolls to bottom
+    shouldAutoScrollRef.current = true;
+    setShowScrollButton(false);
   };
 
-  // Прокручиваем к последнему сообщению при его получении
+  // Scroll to bottom when messages change, only if user was already at the bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldAutoScrollRef.current) {
+      scrollToBottom();
+    }
   }, [messages]);
 
-  // Прокручиваем к индикатору "печатает", если он есть
+  // Scroll to typing indicator when someone is typing, but only if user was at the bottom
   useEffect(() => {
-    if (typingUsers.length > 0 && typingIndicatorRef.current) {
+    if (typingUsers.length > 0 && typingIndicatorRef.current && shouldAutoScrollRef.current) {
       typingIndicatorRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [typingUsers]);
@@ -642,6 +685,23 @@ export default function Chat() {
         // Optimistically remove deleted messages locally
         setMessages((prev) => prev.filter((msg) => !selectedMessages.includes(msg.id)));
         clearSelections(); // Clear selections after successful deletion
+        
+        // After deleting messages, update the scroll button visibility
+        setTimeout(() => {
+          const messagesContainer = document.querySelector('.chat-messages-wrap');
+          if (messagesContainer) {
+            const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
+            const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+            
+            // Update auto-scroll ref to determine if we should auto-scroll
+            shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
+            
+            // Show button only when:
+            // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
+            // 2. Container is actually scrollable (content is taller than container)
+            setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
+          }
+        }, 0);
       } catch (error) {
         console.error('Error deleting messages:', error);
         alert('Ошибка при удалении сообщений');
@@ -740,6 +800,23 @@ export default function Chat() {
         // Optimistically remove the message locally
         setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
         setContextMenu({ visible: false, x: 0, y: 0, message: null });
+        
+        // After deleting a message, update the scroll button visibility
+        setTimeout(() => {
+          const messagesContainer = document.querySelector('.chat-messages-wrap');
+          if (messagesContainer) {
+            const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
+            const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+            
+            // Update auto-scroll ref to determine if we should auto-scroll
+            shouldAutoScrollRef.current = distanceToBottom < 100; // Consider "near bottom" if within 100px
+            
+            // Show button only when:
+            // 1. Distance to bottom is greater than 100px (user scrolled up significantly)
+            // 2. Container is actually scrollable (content is taller than container)
+            setShowScrollButton(distanceToBottom > 100 && scrollHeight > clientHeight);
+          }
+        }, 0);
       } catch (error) {
         console.error('Error deleting message:', error);
         alert('Ошибка при удалении сообщения');
@@ -955,7 +1032,7 @@ export default function Chat() {
                     {formatTypingUsers(typingUsers)} печатает…
                   </div>
                 )}
-                <div ref={bottomRef} />
+                <div ref={messagesEndRef} />
                 {/* Floating scroll to bottom button */}
                 {showScrollButton && (
                   <button 
@@ -968,7 +1045,6 @@ export default function Chat() {
                     </svg>
                   </button>
                 )}
-                <div ref={messagesEndRef} />
               </div>
               
               {/* Context Menu */}

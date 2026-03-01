@@ -313,6 +313,31 @@ export default function Chat() {
             window.location.hash = '#/chat';
             window.location.reload(); // Force refresh to update UI
           }
+          // Удаляем комнату из локального списка
+          setRoomList(prev => prev.filter(r => r.id !== data.roomId));
+          break;
+
+        case 'room_created':
+          if (data.room) {
+            setRoomList(prev => {
+              if (prev.some(r => r.id === data.room.id)) return prev;
+              return [...prev, data.room];
+            });
+          }
+          break;
+
+        case 'room_updated':
+          if (data.room) {
+            setRoomList(prev =>
+              prev.map(r => (r.id === data.room.id ? { ...r, ...data.room } : r))
+            );
+          }
+          break;
+
+        case 'room_messages_cleared':
+          if (data.roomId === roomId) {
+            setMessages([]);
+          }
           break;
           
         case 'pong': // Response to heartbeat ping - handled internally

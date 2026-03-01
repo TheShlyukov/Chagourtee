@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ServerSettings } from './api';
 import { serverSettings as serverSettingsApi, serverVersion, VersionInfo } from './api';
+import { initializeWebSocket, addMessageHandler, removeMessageHandler } from './websocket';
 
 type ServerNameContextValue = {
   rawName: string | null;
@@ -65,6 +66,23 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     document.title = displayName;
   }, [displayName]);
+
+  // Подписка на обновление имени сервера по WebSocket
+  useEffect(() => {
+    const handleWsMessage = (data: any) => {
+      if (data.type === 'server_settings_updated') {
+        // При получении события просто перезагружаем настройки и версию
+        void load();
+      }
+    };
+
+    initializeWebSocket();
+    addMessageHandler(handleWsMessage);
+
+    return () => {
+      removeMessageHandler(handleWsMessage);
+    };
+  }, []);
 
   return (
     <ServerNameContext.Provider value={value}>

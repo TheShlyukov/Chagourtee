@@ -3,6 +3,7 @@ import { useAuth } from '../AuthContext';
 import type { Room, Invite, User } from '../api';
 import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi, serverSettings as serverSettingsApi } from '../api';
 import { useServerName } from '../ServerNameContext';
+import { initializeWebSocket, addMessageHandler, removeMessageHandler } from '../websocket';
 
 type PendingUser = { id: number; login: string; created_at: string };
 type UserWithDate = User & { created_at: string };
@@ -82,6 +83,113 @@ export default function Admin() {
 
     load();
   }, [user, load]);
+
+  // WebSocket realtime updates for admin data
+  useEffect(() => {
+    if (!user || (user.role !== 'owner' && user.role !== 'moderator')) return;
+
+    const handleWsMessage = (data: any) => {
+      switch (data.type) {
+        case 'room_created':
+          if (user.role === 'owner' && data.room) {
+            setRooms(prev => {
+              if (prev.some(r => r.id === data.room.id)) return prev;
+              return [...prev, data.room];
+            });
+          }
+          break;
+
+        case 'room_updated':
+          if (user.role === 'owner' && data.room) {
+            setRooms(prev =>
+              prev.map(r => (r.id === data.room.id ? { ...r, ...data.room } : r))
+            );
+          }
+          break;
+
+        case 'room_deleted':
+          if (user.role === 'owner' && typeof data.roomId === 'number') {
+            setRooms(prev => prev.filter(r => r.id !== data.roomId));
+          }
+          break;
+
+        case 'room_messages_cleared':
+          // Админке не нужно состояние сообщений по комнатам, можно игнорировать
+          break;
+
+        case 'admin_invites_updated':
+          // Перезагружаем только инвайты
+          invitesApi.list()
+            .then(res => setInvites(res.invites))
+            .catch(() => {});
+          break;
+
+        case 'admin_verification_codes_updated':
+          if (user.role === 'owner') {
+            verificationApi.listCodes()
+              .then(res => setCodes(res.codes))
+              .catch(() => {});
+          }
+          break;
+
+        case 'verification_settings_updated':
+          if (user.role === 'owner') {
+            // Новое поле settings предпочтительно, но поддерживаем и enabled
+            const enabled = typeof data.enabled === 'boolean'
+              ? data.enabled
+              : !!data.settings?.enabled;
+            setVerificationEnabled(enabled);
+          }
+          break;
+
+        case 'user_role_changed':
+        case 'user_updated':
+        case 'user_verification_changed':
+        case 'user_deleted_admin':
+          if (user.role === 'owner') {
+            // Обновляем список пользователей и ожидающих
+            usersApi.list()
+              .then(res => setUsers(res.users))
+              .catch(() => {});
+            verificationApi.pending()
+              .then(res => setPending(res.pending))
+              .catch(() => {});
+          }
+          break;
+
+        case 'user_verified':
+        case 'user_rejected':
+          if (user.role === 'owner') {
+            // Эти события уже приходят конкретному пользователю, но для админки обновим списки
+            usersApi.list()
+              .then(res => setUsers(res.users))
+              .catch(() => {});
+            verificationApi.pending()
+              .then(res => setPending(res.pending))
+              .catch(() => {});
+          }
+          break;
+
+        case 'server_settings_updated':
+          if (user.role === 'owner' && data.settings) {
+            const name = data.settings.server_name ?? null;
+            setRawNameLocal(name);
+            setServerNameInput(name ?? '');
+          }
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    initializeWebSocket();
+    addMessageHandler(handleWsMessage);
+
+    return () => {
+      removeMessageHandler(handleWsMessage);
+    };
+  }, [user, setRawNameLocal]);
 
   // Functions for invites (available to both owners and moderators)
   async function createInvite(e: React.FormEvent) {
@@ -186,8 +294,8 @@ export default function Admin() {
     try {
       await roomsApi.create(trimmedName);
       setNewRoomName('');
-      await load();
       setMessage('Комната создана');
+      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
     }
@@ -231,9 +339,8 @@ export default function Admin() {
     setError(null);
     try {
       await roomsApi.delete(id);
-      // Instead of just reloading, we'll update the state directly
-      setRooms(prev => prev.filter(room => room.id !== id));
       setMessage('Комната удалена');
+      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
     }
@@ -266,7 +373,7 @@ export default function Admin() {
       // Using the correct API endpoint for approving users
       await usersApi.disableCodewordCheck(userId);
       setMessage('Пользователь верифицирован');
-      await load();
+      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
     }
@@ -284,7 +391,7 @@ export default function Admin() {
       // Rejecting by deleting the user with a rejection reason
       await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
       setMessage('Пользователь отклонён');
-      await load();
+      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
     }
@@ -300,7 +407,7 @@ export default function Admin() {
     try {
       await usersApi.changeRole(userId, role);
       setMessage('Роль изменена');
-      await load();
+      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
     }
@@ -333,7 +440,7 @@ export default function Admin() {
       // Using the correct API endpoint for approving users
       await usersApi.disableCodewordCheck(userId);
       setMessage('Пользователь верифицирован');
-      await load();
+      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (error) {
       console.error('Failed to approve user:', error);
       alert('Ошибка при подтверждении пользователя');
@@ -350,7 +457,7 @@ export default function Admin() {
       // Rejecting by deleting the user with a rejection reason
       await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
       setMessage('Пользователь отклонён');
-      await load();
+      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (error) {
       console.error('Failed to reject user:', error);
       alert('Ошибка при отклонении пользователя');
@@ -526,10 +633,10 @@ export default function Admin() {
     setError(null);
     try {
       await roomsApi.update(id, name.trim());
-      await load(); // Reload rooms to reflect the change
       setMessage('Комната переименована');
       setRenamingRoomId(null);
       setRenamingInputValue(''); // Reset renaming input value
+      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
     }

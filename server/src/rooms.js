@@ -41,6 +41,16 @@ module.exports = function (fastify) {
       request.session.userId
     );
     const room = db.prepare('SELECT id, name, created_at FROM rooms WHERE id = ?').get(result.lastInsertRowid);
+
+    // Реалтайм: сообщаем всем клиентам о создании комнаты
+    if (fastify.broadcastRoomCreated) {
+      const roomWithCount = {
+        ...room,
+        message_count: 0
+      };
+      fastify.broadcastRoomCreated(roomWithCount);
+    }
+
     return room;
   });
 
@@ -79,7 +89,20 @@ module.exports = function (fastify) {
     
     const r = db.prepare('UPDATE rooms SET name = ? WHERE id = ?').run(trimmedName, id);
     if (r.changes === 0) return reply.code(404).send({ error: 'Room not found' });
-    return db.prepare('SELECT id, name, created_at FROM rooms WHERE id = ?').get(id);
+
+    const room = db.prepare('SELECT id, name, created_at FROM rooms WHERE id = ?').get(id);
+
+    // Реалтайм: сообщаем всем клиентам об обновлении комнаты
+    if (fastify.broadcastRoomUpdated) {
+      const messageCountRow = db.prepare('SELECT COUNT(*) as message_count FROM messages WHERE room_id = ?').get(id);
+      const roomWithCount = {
+        ...room,
+        message_count: messageCountRow?.message_count ?? 0
+      };
+      fastify.broadcastRoomUpdated(roomWithCount);
+    }
+
+    return room;
   });
 
   fastify.delete('/api/rooms/:id', {
@@ -122,6 +145,11 @@ module.exports = function (fastify) {
     
     // Delete all messages in the room
     const r = db.prepare('DELETE FROM messages WHERE room_id = ?').run(id);
+
+    // Реалтайм: уведомляем всех клиентов в комнате, что сообщения очищены
+    if (fastify.broadcastRoomMessagesCleared) {
+      fastify.broadcastRoomMessagesCleared(id);
+    }
     
     return { ok: true, message: `Cleared ${r.changes} messages from room` };
   });

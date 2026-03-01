@@ -42,6 +42,15 @@ module.exports = function (fastify) {
     const existing = db.prepare('SELECT id FROM users WHERE login = ?').get(newLoginTrim);
     if (existing) return reply.code(400).send({ error: 'Login already taken' });
     db.prepare('UPDATE users SET login = ? WHERE id = ?').run(newLoginTrim, user.id);
+
+    // Реалтайм: уведомляем о смене логина
+    if (fastify.broadcastUserUpdated) {
+      const updatedUser = db.prepare('SELECT id, login, role, verified, created_at FROM users WHERE id = ?').get(user.id);
+      if (updatedUser) {
+        fastify.broadcastUserUpdated(updatedUser);
+      }
+    }
+
     return { ok: true, login: newLoginTrim };
   });
 

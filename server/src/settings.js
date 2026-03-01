@@ -34,8 +34,16 @@ module.exports = function (fastify) {
         .run(trimmedName || null, now, now);
     }
 
-    return { 
+    // Получаем обновленные настройки для отправки
+    const updatedSettings = { 
       server_name: trimmedName || null
     };
+
+    // Реалтайм: сообщаем всем клиентам об обновлении настроек сервера
+    if (fastify.broadcastServerSettingsUpdated) {
+      fastify.broadcastServerSettingsUpdated(updatedSettings);
+    }
+
+    return updatedSettings;
   });
 };

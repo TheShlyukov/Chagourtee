@@ -42,6 +42,15 @@ module.exports = function (fastify) {
     }
     
     db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
+
+    // Реалтайм: уведомляем клиентов об изменении роли пользователя
+    if (fastify.broadcastUserRoleChanged) {
+      const updatedUser = db.prepare('SELECT id, login, role, verified, created_at FROM users WHERE id = ?').get(userId);
+      if (updatedUser) {
+        fastify.broadcastUserRoleChanged(updatedUser);
+      }
+    }
+
     return { ok: true };
   });
 
@@ -82,6 +91,15 @@ module.exports = function (fastify) {
     db.prepare('DELETE FROM invites WHERE created_by = ?').run(userId);
     db.prepare('DELETE FROM rooms WHERE created_by = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+    // Реалтайм: уведомляем админку/клиентов об изменении списка пользователей
+    if (fastify.broadcastAll) {
+      fastify.broadcastAll({
+        type: 'user_deleted_admin',
+        userId
+      });
+    }
+
     return { ok: true };
   });
 
@@ -106,20 +124,20 @@ module.exports = function (fastify) {
     if (!target) return reply.code(404).send({ error: 'User not found' });
     db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(userId);
     
-    // Broadcast verification status update
-    const wsServer = fastify.ws.wss;
-    if (wsServer) {
-      const payload = {
-        type: 'user_verified',
-        userId: userId
-      };
-      
-      wsServer.clients.forEach((client) => {
-        const clientId = fastify.ws.userByClient.get(client);
-        if (client.readyState === 1 /* WebSocket.OPEN */ && clientId === userId) {
-          client.send(JSON.stringify(payload));
-        }
-      });
+    // Реалтайм: уведомляем самого пользователя и обновляем списки пользователей
+    fastify.broadcastToUser(userId, {
+      type: 'user_verified',
+      userId
+    });
+
+    if (fastify.broadcastAll) {
+      const updatedUser = db.prepare('SELECT id, login, role, verified, created_at FROM users WHERE id = ?').get(userId);
+      if (updatedUser) {
+        fastify.broadcastAll({
+          type: 'user_verification_changed',
+          user: updatedUser
+        });
+      }
     }
     
     return { ok: true };

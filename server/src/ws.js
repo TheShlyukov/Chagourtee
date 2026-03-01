@@ -230,10 +230,56 @@ module.exports = function (fastify) {
     }
   }
 
+  function broadcastRoomCreated(room) {
+    broadcast({ type: 'room_created', room });
+  }
+
+  function broadcastRoomUpdated(room) {
+    broadcast({ type: 'room_updated', room });
+  }
+
+  function broadcastRoomMessagesCleared(roomId) {
+    broadcastToRoom(roomId, { type: 'room_messages_cleared', roomId });
+  }
+
+  function broadcastUserRoleChanged(user) {
+    broadcast({ type: 'user_role_changed', user });
+  }
+
+  function broadcastUserUpdated(user) {
+    broadcast({ type: 'user_updated', user });
+  }
+
+  function broadcastInvitesChanged() {
+    broadcast({ type: 'admin_invites_updated' });
+  }
+
+  function broadcastVerificationCodesChanged() {
+    broadcast({ type: 'admin_verification_codes_updated' });
+  }
+
+  function broadcastVerificationSettingsUpdated(settings) {
+    const payload = {
+      type: 'verification_settings_updated',
+      // для обратной совместимости оставляем enabled на верхнем уровне
+      enabled: settings && typeof settings.enabled !== 'undefined' ? !!settings.enabled : undefined,
+      settings
+    };
+    broadcast(payload);
+  }
+
+  function broadcastServerSettingsUpdated(settings) {
+    broadcast({ type: 'server_settings_updated', settings });
+  }
+
   fastify.broadcastRoom = function (roomId, payload) {
     broadcastToRoom(roomId, payload);
   };
-  
+
+  fastify.broadcastAll = function (payload) {
+    broadcast(payload);
+  };
+
   // Broadcast message updates to all users in the room
   fastify.broadcastMessageUpdated = function (roomId, messageId, content, userId, login) {
     broadcastMessageUpdated(roomId, messageId, content, userId, login);
@@ -266,4 +312,14 @@ module.exports = function (fastify) {
     clientsByUser,
     userByClient
   };
+
+  fastify.broadcastRoomCreated = broadcastRoomCreated;
+  fastify.broadcastRoomUpdated = broadcastRoomUpdated;
+  fastify.broadcastRoomMessagesCleared = broadcastRoomMessagesCleared;
+  fastify.broadcastUserRoleChanged = broadcastUserRoleChanged;
+  fastify.broadcastUserUpdated = broadcastUserUpdated;
+  fastify.broadcastInvitesChanged = broadcastInvitesChanged;
+  fastify.broadcastVerificationCodesChanged = broadcastVerificationCodesChanged;
+  fastify.broadcastVerificationSettingsUpdated = broadcastVerificationSettingsUpdated;
+  fastify.broadcastServerSettingsUpdated = broadcastServerSettingsUpdated;
 };

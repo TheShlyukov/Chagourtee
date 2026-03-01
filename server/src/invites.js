@@ -33,6 +33,12 @@ module.exports = function (fastify) {
     const invite = db.prepare(
       'SELECT id, created_by, max_uses, uses_count, expires_at, created_at FROM invites WHERE id = ?'
     ).get(id);
+    
+    // Реалтайм: список инвайтов изменился
+    if (fastify.broadcastInvitesChanged) {
+      fastify.broadcastInvitesChanged();
+    }
+
     return invite;
   });
 
@@ -42,6 +48,12 @@ module.exports = function (fastify) {
     const { id } = request.params;
     const r = db.prepare('DELETE FROM invites WHERE id = ?').run(id);
     if (r.changes === 0) return reply.code(404).send({ error: 'Invite not found' });
+
+    // Реалтайм: список инвайтов изменился
+    if (fastify.broadcastInvitesChanged) {
+      fastify.broadcastInvitesChanged();
+    }
+
     return { ok: true };
   });
 };

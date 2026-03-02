@@ -593,7 +593,10 @@ export default function Chat() {
         
         // Only scroll to bottom if we were already near bottom before the messages changed
         if (isAlreadyNearBottom) {
-          scrollToBottom();
+          // Small delay to ensure DOM is updated
+          setTimeout(() => {
+            scrollToBottom();
+          }, 0);
         }
       }
     }
@@ -620,6 +623,11 @@ export default function Chat() {
         }
         return [...prev, newMessage];
       });
+      
+      // Ensure we scroll to the bottom after adding the new message
+      setTimeout(() => {
+        scrollToBottom();
+      }, 0);
     } catch (err) {
       setSendText(text);
       alert(err instanceof Error ? err.message : 'Не удалось отправить');

@@ -1,6 +1,6 @@
 {
   "name": "@chagourtee/server",
-  "version": "pre-v0.1.4-alpha",
+  "version": "v0.1.4-alpha",
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon src/index.js",

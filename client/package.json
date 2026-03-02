@@ -1,6 +1,6 @@
 {
   "name": "@chagourtee/client",
-  "version": "pre-v0.1.4-alpha",
+  "version": "v0.1.4-alpha",
   "type": "module",
   "scripts": {
     "dev": "vite",

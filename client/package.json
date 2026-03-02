@@ -1,6 +1,6 @@
 {
   "name": "@chagourtee/client",
-  "version": "v0.1.4-alpha",
+  "version": "v0.1.4.1-alpha",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,20 +13,21 @@
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.1",
     "react-router-dom": "^6.16.0",
-    "remark-gfm": "^4.0.0",
-    "remark-math": "^6.0.0",
+    "react-syntax-highlighter": "^15.6.6",
     "rehype-katex": "^7.0.0",
-    "rehype-sanitize": "^6.0.0"
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
+    "@types/node": "^20.11.7",
     "@types/react": "^18.2.21",
     "@types/react-dom": "^18.2.7",
-    "@vitejs/plugin-react": "^4.0.4",
-    "typescript": "^5.2.2",
-    "vite": "^4.4.9",
-    "eslint": "^8.48.0",
     "@typescript-eslint/eslint-plugin": "^6.6.0",
     "@typescript-eslint/parser": "^6.6.0",
-    "@types/node": "^20.11.7"
+    "@vitejs/plugin-react": "^4.0.4",
+    "eslint": "^8.48.0",
+    "typescript": "^5.2.2",
+    "vite": "^4.4.9"
   }
 }

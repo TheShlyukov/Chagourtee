@@ -574,7 +574,10 @@ export default function Chat() {
 
   // Scroll to bottom function
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const messagesContainer = document.querySelector('.chat-messages-wrap');
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
     // Reset auto-scroll behavior when user manually scrolls to bottom
     shouldAutoScrollRef.current = true;
     setShowScrollButton(false);
@@ -593,7 +596,10 @@ export default function Chat() {
         
         // Only scroll to bottom if we were already near bottom before the messages changed
         if (isAlreadyNearBottom) {
-          scrollToBottom();
+          // Small delay to ensure DOM has updated with new messages
+          setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }, 0);
         }
       }
     }

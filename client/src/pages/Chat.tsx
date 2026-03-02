@@ -392,7 +392,7 @@ export default function Chat() {
             const timeoutId = setTimeout(() => {
               setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
               timeouts.delete(userId);
-            }, 3000);
+            }, 800); // Изменено с 3000 на 800 мс для уменьшения задержки
 
             timeouts.set(userId, timeoutId);
           }
@@ -574,10 +574,7 @@ export default function Chat() {
 
   // Scroll to bottom function
   const scrollToBottom = () => {
-    const messagesContainer = document.querySelector('.chat-messages-wrap');
-    if (messagesContainer) {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     // Reset auto-scroll behavior when user manually scrolls to bottom
     shouldAutoScrollRef.current = true;
     setShowScrollButton(false);
@@ -596,10 +593,7 @@ export default function Chat() {
         
         // Only scroll to bottom if we were already near bottom before the messages changed
         if (isAlreadyNearBottom) {
-          // Small delay to ensure DOM has updated with new messages
-          setTimeout(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          }, 0);
+          scrollToBottom();
         }
       }
     }

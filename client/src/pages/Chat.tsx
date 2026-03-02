@@ -215,14 +215,75 @@ export default function Chat() {
     }
   }, [roomId, loading, messages]);
 
-  // Handle WebSocket messages related to chat
+  // Handle WebSocket messages related to global state (rooms, users, etc.)
   useEffect(() => {
-    if (!roomId) return;
+    logger.debug('Global WebSocket handler mounted for Chat component');
 
-    logger.debug(`Chat component mounted for room ${roomId}`);
+    const handleGlobalWsMessage = (data: any) => {
+      logger.debug('Received global WebSocket message:', data);
+      
+      switch(data.type) {
+        case 'room_deleted':
+          // Handle room deletion notification
+          if (data.roomId === roomId) {
+            // Navigate away from the deleted room
+            window.location.hash = '#/chat';
+            window.location.reload(); // Force refresh to update UI
+          }
+          // Удаляем комнату из локального списка
+          setRoomList(prev => prev.filter(r => r.id !== data.roomId));
+          break;
 
-    const handleMessage = (data: any) => {
-      logger.debug('Received WebSocket message:', data);
+        case 'room_created':
+          if (data.room) {
+            setRoomList(prev => {
+              if (prev.some(r => r.id === data.room.id)) return prev;
+              return [...prev, data.room];
+            });
+          }
+          break;
+
+        case 'room_updated':
+          if (data.room) {
+            setRoomList(prev =>
+              prev.map(r => (r.id === data.room.id ? { ...r, ...data.room } : r))
+            );
+          }
+          break;
+          
+        case 'server_settings_updated':
+          if (data.settings) {
+            // Обновляем имя сервера, если оно доступно
+            // Но это обрабатывается в ServerNameContext, так что можно пропустить
+          }
+          break;
+          
+        default:
+          // Не обрабатываем специфичные для комнаты события в глобальном обработчике
+          break;
+      }
+    };
+
+    // Add message handler when component mounts
+    addMessageHandler(handleGlobalWsMessage);
+
+    // Ensure WebSocket is initialized
+    initializeWebSocket();
+
+    // Cleanup function
+    return () => {
+      logger.debug('Global WebSocket handler unmounting');
+      // Remove message handler when component unmounts
+      removeMessageHandler(handleGlobalWsMessage);
+    };
+  }, []); // Only run once on mount and clean up on unmount
+
+  // Handle WebSocket messages related to chat and room-specific events
+  useEffect(() => {
+    logger.debug(`Chat component mounted for room ${roomId || 'none'}`);
+
+    const handleRoomSpecificWsMessage = (data: any) => {
+      logger.debug('Received room-specific WebSocket message:', data);
       
       switch(data.type) {
         case 'message':
@@ -306,34 +367,6 @@ export default function Chat() {
           }
           break;
           
-        case 'room_deleted':
-          // Handle room deletion notification
-          if (data.roomId === roomId) {
-            // Navigate away from the deleted room
-            window.location.hash = '#/chat';
-            window.location.reload(); // Force refresh to update UI
-          }
-          // Удаляем комнату из локального списка
-          setRoomList(prev => prev.filter(r => r.id !== data.roomId));
-          break;
-
-        case 'room_created':
-          if (data.room) {
-            setRoomList(prev => {
-              if (prev.some(r => r.id === data.room.id)) return prev;
-              return [...prev, data.room];
-            });
-          }
-          break;
-
-        case 'room_updated':
-          if (data.room) {
-            setRoomList(prev =>
-              prev.map(r => (r.id === data.room.id ? { ...r, ...data.room } : r))
-            );
-          }
-          break;
-
         case 'room_messages_cleared':
           if (data.roomId === roomId) {
             setMessages([]);
@@ -344,6 +377,13 @@ export default function Chat() {
           // Connection is alive, do nothing
           break;
           
+        // room events are now handled in the global handler
+        case 'room_deleted':
+        case 'room_created':
+        case 'room_updated':
+          // These are handled by the global handler
+          break;
+          
         default:
           // Handle any other message types
           break;
@@ -351,10 +391,7 @@ export default function Chat() {
     };
 
     // Add message handler when component mounts
-    addMessageHandler(handleMessage);
-
-    // Ensure WebSocket is initialized
-    initializeWebSocket();
+    addMessageHandler(handleRoomSpecificWsMessage);
 
     // Function to join room with retry logic
     const joinRoomWithRetry = (attempts = 0) => {
@@ -402,7 +439,9 @@ export default function Chat() {
     };
 
     // Try to join room immediately
-    joinRoomWithRetry();
+    if (roomId) {
+      joinRoomWithRetry();
+    }
 
     // Global open handler to (re)join room on every WebSocket (re)connection
     const handleOpen = () => {
@@ -418,9 +457,9 @@ export default function Chat() {
 
     // Cleanup function
     return () => {
-      logger.debug(`Chat component unmounting for room ${roomId}`);
+      logger.debug('Chat component unmounting');
       // Remove message handler when component unmounts
-      removeMessageHandler(handleMessage);
+      removeMessageHandler(handleRoomSpecificWsMessage);
       // Remove open handler
       removeOpenHandler(handleOpen);
       // Clear typing timeouts

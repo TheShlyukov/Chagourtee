@@ -52,6 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         break;
         
+      case 'user_updated':
+      case 'user_role_changed':
+      case 'user_verification_changed':
+        // Update user data if the current user is affected
+        if (user && data.user && Number(data.user.id) === Number(user.id)) {
+          // Update the local user object with new data
+          setUser(prevUser => {
+            if (!prevUser) return prevUser;
+            // Merge the old user object with the new data
+            return { ...prevUser, ...data.user };
+          });
+        }
+        break;
+        
       case 'verification_settings_updated':
         // We could handle this if needed, but typically settings changes
         // would be noticed on subsequent page loads or API calls

@@ -251,6 +251,37 @@ export default function Chat() {
           }
           break;
           
+        case 'user_role_changed':
+        case 'user_updated':
+        case 'user_verification_changed':
+          if (data.user) {
+            // Обновляем информацию о пользователе в списке allUsers
+            setAllUsers(prev => {
+              // Проверяем, существует ли пользователь в списке
+              const userExists = prev.some(u => u.id === data.user.id);
+              
+              if (userExists) {
+                // Обновляем существующего пользователя
+                return prev.map(u => 
+                  u.id === data.user.id ? { ...u, ...data.user } : u
+                );
+              } else {
+                // Добавляем нового пользователя
+                return [...prev, data.user];
+              }
+            });
+            
+            // Обновляем логин пользователя в списке печатающих
+            setTypingUsers(prev => 
+              prev.map(typingUser => 
+                typingUser.userId === data.user.id 
+                  ? { ...typingUser, login: data.user.login } 
+                  : typingUser
+              )
+            );
+          }
+          break;
+          
         case 'server_settings_updated':
           if (data.settings) {
             // Обновляем имя сервера, если оно доступно
@@ -1072,7 +1103,9 @@ export default function Chat() {
                           <>
                             {!shouldHideAuthor && (
                               <div className="chat-message-header">
-                                <Marquee className="chat-message-author" animationDuration={8}>{m.login}</Marquee>
+                                <Marquee className="chat-message-author" animationDuration={8}>
+                                  {allUsers.find(u => u.id === m.user_id)?.login || m.login}
+                                </Marquee>
                                 <span className="chat-message-time">
                                   {new Date(m.created_at).toLocaleString()}
                                   {m.updated_at && m.updated_at !== m.created_at && (
@@ -1125,7 +1158,7 @@ export default function Chat() {
                     ref={typingIndicatorRef}
                     style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}
                   >
-                    {formatTypingUsers(typingUsers)} печатает…
+                    <Marquee animationDuration={8}>{formatTypingUsers(typingUsers)}</Marquee> печатает…
                   </div>
                 )}
                 <div ref={messagesEndRef} />

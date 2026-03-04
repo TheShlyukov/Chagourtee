@@ -326,6 +326,7 @@ input:focus, textarea:focus {
   display: flex;
   flex-direction: column;
 }
+
 .chat-room-link {
   display: block;
   padding: 0.875rem 1.25rem;
@@ -338,7 +339,10 @@ input:focus, textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  border-bottom: 1px solid var(--border); /* Add separator between items */
 }
+
+
 .chat-room-link-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -872,7 +876,11 @@ pre[class*="language-"] {
     padding: 1rem;
   }
   .chat-back {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
   }
 }
 
@@ -1109,6 +1117,71 @@ a:hover {
   }
 }
 
+@keyframes mention-flash {
+  0%, 100% { 
+    background-color: var(--bg-elevated);
+    border-left-color: var(--accent);
+  }
+  25% { 
+    background-color: rgba(255, 123, 0, 0.3);
+    border-left-color: var(--accent);
+  }
+  50% { 
+    background-color: rgba(255, 123, 0, 0.5);
+    border-left-color: var(--accent);
+  }
+  75% { 
+    background-color: rgba(255, 123, 0, 0.3);
+    border-left-color: var(--accent);
+  }
+}
+
+@keyframes room-mention-flash {
+  0%, 100% { 
+    background-color: var(--bg-elevated);
+  }
+  25% { 
+    background-color: rgba(255, 123, 0, 0.3);
+  }
+  50% { 
+    background-color: rgba(255, 123, 0, 0.5);
+  }
+  75% { 
+    background-color: rgba(255, 123, 0, 0.3);
+  }
+}
+
+.mention-flash {
+  animation: mention-flash 1.5s ease-in-out;
+}
+
+.room-mention-flash {
+  animation: room-mention-flash 1.5s ease-in-out;
+}
+
+.chat-room-mention-indicator {
+  margin-left: 6px;
+  padding: 0 4px;
+  background-color: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  line-height: 1.2rem;
+  animation: mention-pulse 1.5s infinite;
+}
+
+@keyframes mention-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 0 4px rgba(255, 123, 0, 0.5);
+  }
+  50% { 
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(255, 123, 0, 0.8);
+  }
+}
+
 /* Floating scroll to bottom button */
 .scroll-to-bottom-btn {
   position: absolute;
@@ -1125,7 +1198,7 @@ a:hover {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
   padding: 0;
 }
@@ -1133,7 +1206,7 @@ a:hover {
 .scroll-to-bottom-btn:hover {
   background: var(--accent-hover);
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
 }
 
 .scroll-to-bottom-btn:active {

@@ -1152,7 +1152,7 @@ export default function Chat() {
             className="chat-rooms-users-button secondary"
             onClick={toggleUserList}
           >
-            👥 Пользователи
+            👥
           </button>
         </div>
         <div className="chat-rooms-list">

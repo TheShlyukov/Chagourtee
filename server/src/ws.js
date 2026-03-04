@@ -56,9 +56,12 @@ module.exports = function (fastify) {
     userByClient.set(ws, userId);
 
     const user = fastify.getUser(userId);
-    if (user) {
-      broadcast({ type: 'presence', userId, login: user.login, online: true });
-    }
+    // Defer the presence broadcast to ensure connection is fully established
+    setTimeout(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        broadcast({ type: 'presence', userId, login: user?.login, online: true });
+      }
+    }, 100); // Small delay to ensure connection is ready
 
     ws.on('message', (raw) => {
       try {

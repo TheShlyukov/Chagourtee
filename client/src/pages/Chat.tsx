@@ -80,6 +80,8 @@ export default function Chat() {
   const [allUsers, setAllUsers] = useState<User[]>([]); // Keep track of all users to get their roles
   const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<number | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(() => new Set());
+  const [mentionedMessages, setMentionedMessages] = useState<Set<number>>(new Set()); // Track messages where user is mentioned
+  const [mentionedRooms, setMentionedRooms] = useState<Set<number>>(new Set()); // Track rooms where user is mentioned
   
   // Track whether user wants to stay at bottom
   const shouldAutoScrollRef = useRef(true);
@@ -165,6 +167,13 @@ export default function Chat() {
       const { messages: list, first_unread_message_id }: MessageListResponse = await messagesApi.list(id);
       setMessages(list);
       setFirstUnreadMessageId(first_unread_message_id ?? null);
+      
+      // Clear mentions for this room when loading messages
+      setMentionedRooms(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     } finally {
       setLoading(false);
       
@@ -350,6 +359,15 @@ export default function Chat() {
             const isMentionForUser = !!(hasDirectMention || hasAllMention);
 
             if (isMentionForUser) {
+              // Add the room to mentioned rooms to trigger flash animation
+              if (msgRoomId !== roomId) { // Only add to mentioned rooms if it's not the current room
+                setMentionedRooms(prev => {
+                  const newSet = new Set(prev);
+                  newSet.add(msgRoomId);
+                  return newSet;
+                });
+              }
+              
               playMention();
             } else {
               playIncoming();
@@ -466,6 +484,35 @@ export default function Chat() {
               }
               return [...prev, newMessage];
             });
+
+            // Check for mentions and add flash animation if needed
+            if (user && data.message?.user_id !== user.id) {
+              const body: string = data.message.body || '';
+              const login = user.login;
+              const hasDirectMention =
+                new RegExp(`(^|\\s)@${login}(\\b|\\s|$)`).test(body);
+              const hasAllMention = /(^|\s)@(all|here)(\b|\s|$)/i.test(body);
+              const isMentionForUser = hasDirectMention || hasAllMention;
+
+              if (isMentionForUser) {
+                // Add the message to mentioned messages to trigger flash animation
+                setMentionedMessages(prev => {
+                  const newSet = new Set(prev);
+                  newSet.add(data.message.id);
+                  
+                  // Remove the message from mentioned set after animation completes
+                  setTimeout(() => {
+                    setMentionedMessages(current => {
+                      const updated = new Set(current);
+                      updated.delete(data.message.id);
+                      return updated;
+                    });
+                  }, 1500);
+                  
+                  return newSet;
+                });
+              }
+            }
 
             // Play sound and possibly show notification for messages in the current room
             if (user && data.message?.user_id !== user.id) {
@@ -1160,18 +1207,32 @@ export default function Chat() {
             <Link
               key={r.id}
               to={`/chat/${r.id}`}
-              className={`chat-room-link${roomId === r.id ? ' active' : ''}`}
+              className={`chat-room-link${roomId === r.id ? ' active' : ''} ${mentionedRooms.has(r.id) && roomId !== r.id ? 'room-mention-flash' : ''}`}
               onClick={() => {
+                // Clear mentions for this room when entering it
+                setMentionedRooms(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(r.id); // Remove the current room from mentioned set
+                  return newSet;
+                });
+                
                 // Reload rooms when changing rooms to ensure latest state
                 loadRooms();
               }}
             >
-              <span className="chat-room-link-name">{r.name}</span>
-              {r.unread_count != null && r.unread_count > 0 && (
-                <span className="chat-room-unread-badge">
-                  {r.unread_count > 99 ? '99+' : r.unread_count}
-                </span>
-              )}
+              <span className="chat-room-link-name">
+                {r.name}
+              </span>
+              <div className="chat-room-indicators">
+                {mentionedRooms.has(r.id) && roomId !== r.id && (
+                  <span className="chat-room-mention-indicator-noflash">@</span>
+                )}
+                {r.unread_count != null && r.unread_count > 0 && (
+                  <span className="chat-room-unread-badge">
+                    {r.unread_count > 99 ? '99+' : r.unread_count}
+                  </span>
+                )}
+              </div>
             </Link>
           ))}
         </div>
@@ -1211,7 +1272,7 @@ export default function Chat() {
                           </div>
                         )}
                         <div
-                        className={`chat-message ${shouldHideAuthor ? 'grouped-message' : 'has-author'} ${isSelected ? 'selected' : ''} ${(canEditMessage(m) || canDeleteMessage(m)) ? 'editable' : ''}`}
+                        className={`chat-message ${shouldHideAuthor ? 'grouped-message' : 'has-author'} ${isSelected ? 'selected' : ''} ${(canEditMessage(m) || canDeleteMessage(m)) ? 'editable' : ''} ${mentionedMessages.has(m.id) ? 'mention-flash' : ''}`}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           showContextMenu(e.clientX, e.clientY, m);

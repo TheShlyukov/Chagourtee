@@ -348,6 +348,13 @@ input:focus, textarea:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.chat-room-indicators {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .chat-room-unread-badge {
   min-width: 1.5rem;
   padding: 0.1rem 0.4rem;
@@ -359,6 +366,31 @@ input:focus, textarea:focus {
   text-align: center;
   box-shadow: var(--shadow-sm);
 }
+
+.chat-room-mention-indicator {
+  margin-left: 6px;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  line-height: 1.2rem;
+  animation: mention-pulse 1.5s infinite;
+}
+
+.chat-room-mention-indicator-noflash {
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  line-height: 1.2rem;
+  margin-left: 0.3rem; /* Small margin to separate from unread badge */
+}
+
 .chat-room-link:hover {
   background: var(--bg-hover);
   border-left-color: var(--accent);
@@ -1169,6 +1201,17 @@ a:hover {
   font-weight: bold;
   line-height: 1.2rem;
   animation: mention-pulse 1.5s infinite;
+}
+
+.chat-room-mention-indicator-noflash {
+  margin-left: 6px;
+  padding: 0 4px;
+  background-color: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  line-height: 1.2rem;
 }
 
 @keyframes mention-pulse {

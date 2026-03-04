@@ -53,6 +53,13 @@ function createDb(dbPath) {
       updated_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS message_reads (
+      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      read_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (message_id, user_id)
+    );
+
     CREATE TABLE IF NOT EXISTS invites (
       id TEXT PRIMARY KEY,
       created_by INTEGER NOT NULL REFERENCES users(id),
@@ -90,6 +97,7 @@ function createDb(dbPath) {
     CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages(room_id);
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(room_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_updated_at ON messages(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_message_reads_user_id ON message_reads(user_id);
   `);
 
   return db;

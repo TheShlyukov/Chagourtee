@@ -308,6 +308,26 @@ input:focus, textarea:focus {
   transition: all 0.2s ease;
   border-left: 3px solid transparent;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.chat-room-link-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-room-unread-badge {
+  min-width: 1.5rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 .chat-room-link:hover {
   background: var(--bg-hover);
@@ -368,6 +388,11 @@ input:focus, textarea:focus {
   min-height: 0;
   overscroll-behavior: contain;
 }
+.chat-message-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
 .chat-message {
   background: var(--bg-elevated);
   border-radius: var(--radius-default);
@@ -379,6 +404,28 @@ input:focus, textarea:focus {
 .chat-message:hover {
   background: var(--bg-hover);
   transform: translateX(2px);
+}
+
+.new-messages-divider {
+  position: relative;
+  margin: 0.25rem 0 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.new-messages-divider::before,
+.new-messages-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  border-bottom: 1px dashed var(--border);
+}
+.new-messages-divider::before {
+  left: 0;
+}
+.new-messages-divider::after {
+  right: 0;
 }
 
 /* Стили для компактного отображения сообщений одного пользователя */

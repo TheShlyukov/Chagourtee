@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback} from 'react';
 import { useParams, Link } from 'react-router-dom';
-import type { Room, Message, User } from '../api';
+import type { Room, Message, User, MessageListResponse } from '../api';
 import { rooms as roomsApi, messages as messagesApi, auth as authApi, users } from '../api';
 import { 
   getWebSocket, 
@@ -15,6 +15,8 @@ import { logger } from '../utils/logger'; // Import our logger
 import { useMessageInputBehavior } from '../hooks/useMessageInputBehavior';
 import MarkdownMessage from '../components/MarkdownMessage'; // Import MarkdownMessage component
 import Marquee from '../components/Marquee'; // Import Marquee component
+import { playIncoming, playMention, playSent } from '../sounds';
+import { ensureNotificationPermission, showMessageNotification } from '../notifications';
 
 type TypingUser = {
   userId: number;
@@ -75,9 +77,11 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for scroll-to-bottom button
   const [showScrollButton, setShowScrollButton] = useState(false); // State to control visibility of scroll button
   const [allUsers, setAllUsers] = useState<User[]>([]); // Keep track of all users to get their roles
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<number | null>(null);
   
   // Track whether user wants to stay at bottom
   const shouldAutoScrollRef = useRef(true);
+  const lastReadMessageIdRef = useRef<Record<number, number>>({});
   
   // Store scroll position to preserve it between room switches
   const scrollPositions = useRef<Record<number, number>>({}); // Store scroll position per room
@@ -117,6 +121,7 @@ export default function Chat() {
       try {
         const userData = await authApi.me();
         setUser(userData);
+        ensureNotificationPermission();
       } catch (error) {
         console.error('Failed to load user info:', error);
       }
@@ -152,8 +157,9 @@ export default function Chat() {
   const loadMessages = useCallback(async (id: number) => {
     setLoading(true);
     try {
-      const { messages: list } = await messagesApi.list(id);
+      const { messages: list, first_unread_message_id }: MessageListResponse = await messagesApi.list(id);
       setMessages(list);
+      setFirstUnreadMessageId(first_unread_message_id ?? null);
     } finally {
       setLoading(false);
       
@@ -181,6 +187,7 @@ export default function Chat() {
     }
     else {
       setMessages([]);
+      setFirstUnreadMessageId(null);
       // When no room is selected, ensure scroll button is hidden and update visibility
       setTimeout(() => {
         setShowScrollButton(false);
@@ -215,6 +222,53 @@ export default function Chat() {
     }
   }, [roomId, loading, messages]);
 
+  const markRoomAsRead = useCallback(async () => {
+    if (!roomId || messages.length === 0) return;
+    const lastMessageId = messages[messages.length - 1]?.id;
+    if (!lastMessageId) return;
+
+    const prevMarked = lastReadMessageIdRef.current[roomId];
+    if (prevMarked && lastMessageId <= prevMarked) {
+      return;
+    }
+
+    try {
+      const result = await messagesApi.markRead(roomId, lastMessageId);
+      const effectiveLastId = result.lastReadMessageId ?? lastMessageId;
+      lastReadMessageIdRef.current[roomId] = effectiveLastId;
+
+      setMessages(prev =>
+        prev.map((m) =>
+          m.id <= effectiveLastId ? { ...m, is_read: 1 } : m
+        )
+      );
+
+      setFirstUnreadMessageId((prev) =>
+        prev && prev <= effectiveLastId ? null : prev
+      );
+
+      setRoomList(prev =>
+        prev.map((r) =>
+          r.id === roomId ? { ...r, unread_count: 0 } : r
+        )
+      );
+    } catch (error) {
+      console.error('Failed to mark messages as read:', error);
+    }
+  }, [roomId, messages]);
+
+  // When messages change, if user is near the bottom, mark them as read
+  useEffect(() => {
+    if (!roomId || messages.length === 0) return;
+    const messagesContainer = document.querySelector('.chat-messages-wrap');
+    if (!messagesContainer) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainer as HTMLElement;
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+    if (distanceToBottom < 40) {
+      markRoomAsRead();
+    }
+  }, [roomId, messages, markRoomAsRead]);
+
   // Handle WebSocket messages related to global state (rooms, users, etc.)
   useEffect(() => {
     logger.debug('Global WebSocket handler mounted for Chat component');
@@ -248,6 +302,65 @@ export default function Chat() {
             setRoomList(prev =>
               prev.map(r => (r.id === data.room.id ? { ...r, ...data.room } : r))
             );
+          }
+          break;
+          
+        case 'room_message':
+          if (data.roomId && data.userId && user) {
+            const msgRoomId = Number(data.roomId);
+            const senderId = Number(data.userId);
+            // Ignore own messages for unread counters
+            if (senderId === user.id) {
+              break;
+            }
+
+            setRoomList(prev =>
+              prev.map(r => {
+                if (r.id !== msgRoomId) return r;
+
+                const isActiveRoom = roomId === msgRoomId;
+                const shouldCountUnread = !(isActiveRoom && shouldAutoScrollRef.current);
+
+                if (!shouldCountUnread) {
+                  return r;
+                }
+
+                const current = r.unread_count ?? 0;
+                return { ...r, unread_count: current + 1 };
+              })
+            );
+
+            // For messages in other rooms (or when tab is hidden), play sounds and show notification
+            const roomName =
+              roomList.find((r) => r.id === msgRoomId)?.name ?? 'Чат';
+            const preview: string = data.preview || '';
+            const bodyForDetection = preview;
+            const login = user.login;
+            const hasDirectMention =
+              bodyForDetection &&
+              new RegExp(`(^|\\s)@${login}(\\b|\\s|$)`).test(bodyForDetection);
+            const hasAllMention =
+              bodyForDetection &&
+              /(^|\s)@(all|here)(\b|\s|$)/i.test(bodyForDetection);
+            const isMentionForUser = !!(hasDirectMention || hasAllMention);
+
+            if (isMentionForUser) {
+              playMention();
+            } else {
+              playIncoming();
+            }
+
+            const isTabVisible = document.visibilityState === 'visible';
+            // Если сообщение в другой комнате или вкладка скрыта — показываем нотификацию
+            if (!isTabVisible || msgRoomId !== roomId) {
+              const notifPreview =
+                preview.length > 120 ? `${preview.slice(0, 117)}...` : preview;
+              void showMessageNotification({
+                roomName,
+                preview: notifPreview,
+                isMention: isMentionForUser,
+              });
+            }
           }
           break;
           
@@ -307,7 +420,7 @@ export default function Chat() {
       // Remove message handler when component unmounts
       removeMessageHandler(handleGlobalWsMessage);
     };
-  }, []); // Only run once on mount and clean up on unmount
+  }, [roomId, user]); // Re-run when room or user changes so unread logic sees fresh state
 
   // Handle WebSocket messages related to chat and room-specific events
   useEffect(() => {
@@ -327,9 +440,42 @@ export default function Chat() {
                 return prev;
               }
               logger.debug('Adding new message to state');
-              // Add the new message
-              return [...prev, data.message];
+              const isReadNow = shouldAutoScrollRef.current ? 1 : 0;
+              const newMessage: Message = { ...data.message, is_read: isReadNow };
+              if (!isReadNow && firstUnreadMessageId == null) {
+                setFirstUnreadMessageId(newMessage.id);
+              }
+              return [...prev, newMessage];
             });
+
+            // Play sound and possibly show notification for messages in the current room
+            if (user && data.message?.user_id !== user.id) {
+              const body: string = data.message.body || '';
+              const login = user.login;
+              const hasDirectMention =
+                new RegExp(`(^|\\s)@${login}(\\b|\\s|$)`).test(body);
+              const hasAllMention = /(^|\s)@(all|here)(\b|\s|$)/i.test(body);
+              const isMentionForUser = hasDirectMention || hasAllMention;
+
+              if (isMentionForUser) {
+                playMention();
+              } else {
+                playIncoming();
+              }
+
+              const isTabVisible = document.visibilityState === 'visible';
+              if (!isTabVisible) {
+                const roomName =
+                  roomList.find((r) => r.id === roomId)?.name ?? 'Чат';
+                const preview =
+                  body.length > 120 ? `${body.slice(0, 117)}...` : body;
+                void showMessageNotification({
+                  roomName,
+                  preview,
+                  isMention: isMentionForUser,
+                });
+              }
+            }
           }
           break;
           
@@ -578,6 +724,9 @@ export default function Chat() {
     // Reset auto-scroll behavior when user manually scrolls to bottom
     shouldAutoScrollRef.current = true;
     setShowScrollButton(false);
+    setTimeout(() => {
+      markRoomAsRead();
+    }, 200);
   };
 
   // Scroll to bottom when messages change, only if user was already at the bottom and there's a room selected
@@ -621,8 +770,10 @@ export default function Chat() {
         if (prev.some((m) => m.id === newMessage.id)) {
           return prev;
         }
-        return [...prev, newMessage];
+        const msgWithRead: Message = { ...newMessage, is_read: 1 };
+        return [...prev, msgWithRead];
       });
+      playSent();
       
       // Ensure we scroll to the bottom after adding the new message
       setTimeout(() => {
@@ -986,7 +1137,12 @@ export default function Chat() {
                 loadRooms();
               }}
             >
-              {r.name}
+              <span className="chat-room-link-name">{r.name}</span>
+              {r.unread_count != null && r.unread_count > 0 && (
+                <span className="chat-room-unread-badge">
+                  {r.unread_count > 99 ? '99+' : r.unread_count}
+                </span>
+              )}
             </Link>
           ))}
         </div>
@@ -1015,10 +1171,17 @@ export default function Chat() {
                     
                     const isSelected = selectedMessages.includes(m.id);
                     const isEditable = editingMessage && editingMessage.id === m.id;
+                    const showNewMessagesDivider =
+                      firstUnreadMessageId != null && m.id === firstUnreadMessageId;
                     
                     return (
-                      <div
-                        key={m.id} 
+                      <div key={m.id} className="chat-message-wrapper">
+                        {showNewMessagesDivider && (
+                          <div className="new-messages-divider">
+                            Новые сообщения
+                          </div>
+                        )}
+                        <div
                         className={`chat-message ${shouldHideAuthor ? 'grouped-message' : 'has-author'} ${isSelected ? 'selected' : ''} ${(canEditMessage(m) || canDeleteMessage(m)) ? 'editable' : ''}`}
                         onContextMenu={(e) => {
                           e.preventDefault();
@@ -1157,6 +1320,7 @@ export default function Chat() {
                             )}
                           </>
                         )}
+                      </div>
                       </div>
                     );
                   })

@@ -3,13 +3,27 @@ module.exports = function (fastify) {
 
   fastify.get('/api/rooms', {
     preHandler: [fastify.requireAuth],
-  }, async () => {
+  }, async (request) => {
+    const userId = request.session.userId;
     const rows = db.prepare(`
-      SELECT r.id, r.name, r.created_at,
-             (SELECT COUNT(*) FROM messages WHERE room_id = r.id) as message_count
+      SELECT 
+        r.id, 
+        r.name, 
+        r.created_at,
+        (SELECT COUNT(*) FROM messages WHERE room_id = r.id) as message_count,
+        (
+          SELECT COUNT(*)
+          FROM messages m
+          WHERE m.room_id = r.id
+            AND NOT EXISTS (
+              SELECT 1 
+              FROM message_reads mr 
+              WHERE mr.message_id = m.id AND mr.user_id = ?
+            )
+        ) AS unread_count
       FROM rooms r
       ORDER BY r.created_at ASC
-    `).all();
+    `).all(userId);
     return { rooms: rows };
   });
 

@@ -13,28 +13,44 @@ module.exports = function (fastify) {
     const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(roomId);
     if (!room) return reply.code(404).send({ error: 'Room not found' });
 
+    const userId = request.session.userId;
+
     let rows;
     if (before) {
       rows = db.prepare(`
-        SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login
+        SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
+               CASE WHEN mr.user_id IS NULL THEN 0 ELSE 1 END AS is_read
         FROM messages m
         JOIN users u ON u.id = m.user_id
+        LEFT JOIN message_reads mr ON mr.message_id = m.id AND mr.user_id = ?
         WHERE m.room_id = ? AND m.id < ?
         ORDER BY m.id DESC
         LIMIT ?
-      `).all(roomId, before, limit);
+      `).all(userId, roomId, before, limit);
     } else {
       rows = db.prepare(`
-        SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login
+        SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
+               CASE WHEN mr.user_id IS NULL THEN 0 ELSE 1 END AS is_read
         FROM messages m
         JOIN users u ON u.id = m.user_id
+        LEFT JOIN message_reads mr ON mr.message_id = m.id AND mr.user_id = ?
         WHERE m.room_id = ?
         ORDER BY m.id DESC
         LIMIT ?
-      `).all(roomId, limit);
+      `).all(userId, roomId, limit);
     }
     rows.reverse();
-    return { messages: rows };
+
+    const firstUnreadRow = db.prepare(`
+      SELECT MIN(m.id) as first_unread_id
+      FROM messages m
+      LEFT JOIN message_reads mr ON mr.message_id = m.id AND mr.user_id = ?
+      WHERE m.room_id = ? AND mr.user_id IS NULL
+    `).get(userId, roomId);
+
+    const first_unread_message_id = firstUnreadRow ? firstUnreadRow.first_unread_id : null;
+
+    return { messages: rows, first_unread_message_id };
   });
 
   fastify.post('/api/rooms/:roomId/messages', {
@@ -59,6 +75,18 @@ module.exports = function (fastify) {
       WHERE m.id = ?
     `).get(result.lastInsertRowid);
 
+    // Mark author's own message as read for them
+    try {
+      db.prepare(
+        `INSERT OR IGNORE INTO message_reads (message_id, user_id, read_at)
+         VALUES (?, ?, datetime('now'))`
+      ).run(msg.id, request.session.userId);
+    } catch (e) {
+      if (process.env.DEBUG_MODE === 'true') {
+        fastify.log.error('Failed to insert into message_reads for author:', e);
+      }
+    }
+
     if (process.env.DEBUG_MODE === 'true') {
       fastify.log.info(`About to broadcast new message to room ${roomId}:`, msg);
     }
@@ -75,7 +103,68 @@ module.exports = function (fastify) {
         fastify.log.info(`broadcastRoom function not available on fastify instance`);
       }
     }
+    // Additionally broadcast lightweight notification about new message to all clients
+    if (fastify.broadcastAll) {
+      const previewBody = String(msg.body || '');
+      const preview =
+        previewBody.length > 120 ? `${previewBody.slice(0, 117)}...` : previewBody;
+      fastify.broadcastAll({
+        type: 'room_message',
+        roomId,
+        messageId: msg.id,
+        userId: msg.user_id,
+        login: msg.login,
+        preview,
+        created_at: msg.created_at,
+      });
+    }
     return msg;
+  });
+
+  // Endpoint to mark messages in a room as read up to a certain message
+  fastify.post('/api/rooms/:roomId/read', {
+    preHandler: [fastify.requireAuth],
+  }, async (request, reply) => {
+    const roomId = Number(request.params.roomId);
+    const { lastReadMessageId } = request.body || {};
+
+    if (!lastReadMessageId || Number.isNaN(Number(lastReadMessageId))) {
+      return reply.code(400).send({ error: 'lastReadMessageId is required' });
+    }
+
+    const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(roomId);
+    if (!room) return reply.code(404).send({ error: 'Room not found' });
+
+    const userId = request.session.userId;
+    const maxIdRow = db
+      .prepare(
+        'SELECT MAX(id) as max_id FROM messages WHERE room_id = ? AND id <= ?'
+      )
+      .get(roomId, Number(lastReadMessageId));
+
+    if (!maxIdRow || !maxIdRow.max_id) {
+      return { ok: true, marked: 0 };
+    }
+
+    const effectiveLastId = maxIdRow.max_id;
+
+    try {
+      const result = db
+        .prepare(
+          `
+        INSERT OR IGNORE INTO message_reads (message_id, user_id, read_at)
+        SELECT m.id, ?, datetime('now')
+        FROM messages m
+        WHERE m.room_id = ? AND m.id <= ?
+      `
+        )
+        .run(userId, roomId, effectiveLastId);
+
+      return { ok: true, marked: result.changes || 0, lastReadMessageId: effectiveLastId };
+    } catch (error) {
+      fastify.log.error('Error marking messages as read:', error);
+      return reply.code(500).send({ error: 'Error marking messages as read' });
+    }
   });
 
   // Endpoint to edit a message

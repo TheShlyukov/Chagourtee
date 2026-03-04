@@ -18,6 +18,7 @@ export type Room = {
   name: string;
   created_at: string;
   message_count?: number;
+  unread_count?: number;
 };
 
 export type Message = {
@@ -28,6 +29,12 @@ export type Message = {
   created_at: string;
   updated_at?: string; // Optional field for when message was last updated
   login: string;
+  is_read?: 0 | 1;
+};
+
+export type MessageListResponse = {
+  messages: Message[];
+  first_unread_message_id: number | null;
 };
 
 export type Invite = {
@@ -114,7 +121,7 @@ export const messages = {
     if (params?.limit) sp.set('limit', String(params.limit));
     if (params?.before) sp.set('before', String(params.before));
     const q = sp.toString();
-    return api<{ messages: Message[] }>(
+    return api<MessageListResponse>(
       `/api/rooms/${roomId}/messages${q ? `?${q}` : ''}`
     );
   },
@@ -137,6 +144,14 @@ export const messages = {
       method: 'DELETE',
       body: JSON.stringify({ messageIds }),
     }),
+  markRead: (roomId: number, lastReadMessageId: number) =>
+    api<{ ok: boolean; marked: number; lastReadMessageId?: number }>(
+      `/api/rooms/${roomId}/read`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ lastReadMessageId }),
+      }
+    ),
 };
 
 export const invites = {

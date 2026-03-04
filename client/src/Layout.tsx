@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { rooms as roomsApi } from './api';
 import { useServerName } from './ServerNameContext';
 import Marquee from './components/Marquee'; // Import Marquee component
+import { useUserListPanel } from './UserListPanelContext';
 
 export default function Layout() {
   const { user } = useAuth();
@@ -11,6 +12,26 @@ export default function Layout() {
   const params = useParams();
   const [roomName, setRoomName] = useState<string | null>(null);
   const { displayName, serverTagline } = useServerName();
+  const { toggle: toggleUserList } = useUserListPanel();
+  
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  // Check if we're in a specific chat room
+  const isInSpecificRoom = location.pathname.startsWith('/chat/') && params.roomId;
+
+  // Update mobile state when window resizes
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup listener on unmount
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   // Загрузка названия комнаты для заголовка
   useEffect(() => {
@@ -48,32 +69,46 @@ export default function Layout() {
         )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <span>{getPageTitle()}</span>
-          <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                color: 'var(--text-muted)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              <Marquee animationDuration={15}>
-                {displayName}
-              </Marquee>
-            </span>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                color: 'var(--text-muted)',
-                whiteSpace: 'nowrap',
-                marginLeft: '0.5rem',
-              }}
-            >
-              {serverTagline}
-            </span>
-          </div>
+          {/* Conditionally render server name and tagline only if not on mobile in a specific room */}
+          {!(isMobile && isInSpecificRoom) ? (
+            <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                <Marquee animationDuration={15}>
+                  {displayName}
+                </Marquee>
+              </span>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                  marginLeft: '0.5rem',
+                }}
+              >
+                {serverTagline}
+              </span>
+            </div>
+          ) : (
+            <div></div> // Empty div to maintain layout spacing
+          )}
         </div>
+        {location.pathname.startsWith('/chat/') && (
+          <button
+            type="button"
+            className="layout-users-button secondary"
+            onClick={toggleUserList}
+          >
+            👥
+          </button>
+        )}
       </nav>
       <aside className="layout-sidebar">
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 0.75rem' }}>

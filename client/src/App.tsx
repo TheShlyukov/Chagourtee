@@ -1,6 +1,7 @@
 import { Route, Navigate, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ServerNameProvider } from './ServerNameContext';
+import { UserListPanelProvider } from './UserListPanelContext';
 import Layout from './Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -83,7 +84,9 @@ export default function App() {
   return (
     <AuthProvider>
       <ServerNameProvider>
-        <AppRoutes />
+        <UserListPanelProvider>
+          <AppRoutes />
+        </UserListPanelProvider>
       </ServerNameProvider>
     </AuthProvider>
   );

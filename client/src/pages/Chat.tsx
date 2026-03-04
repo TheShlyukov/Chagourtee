@@ -17,6 +17,7 @@ import MarkdownMessage from '../components/MarkdownMessage'; // Import MarkdownM
 import Marquee from '../components/Marquee'; // Import Marquee component
 import { playIncoming, playMention, playSent } from '../sounds';
 import { ensureNotificationPermission, showMessageNotification } from '../notifications';
+import { useUserListPanel } from '../UserListPanelContext';
 
 type TypingUser = {
   userId: number;
@@ -78,6 +79,7 @@ export default function Chat() {
   const [showScrollButton, setShowScrollButton] = useState(false); // State to control visibility of scroll button
   const [allUsers, setAllUsers] = useState<User[]>([]); // Keep track of all users to get their roles
   const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<number | null>(null);
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(() => new Set());
   
   // Track whether user wants to stay at bottom
   const shouldAutoScrollRef = useRef(true);
@@ -85,6 +87,9 @@ export default function Chat() {
   
   // Store scroll position to preserve it between room switches
   const scrollPositions = useRef<Record<number, number>>({}); // Store scroll position per room
+
+  const { isOpen: isUserListOpen, close: closeUserList, toggle: toggleUserList } =
+    useUserListPanel();
 
   // Load all users to get their roles
   useEffect(() => {
@@ -364,6 +369,20 @@ export default function Chat() {
           }
           break;
           
+        case 'presence':
+          if (typeof data.userId === 'number') {
+            setOnlineUserIds((prev) => {
+              const next = new Set(prev);
+              if (data.online) {
+                next.add(data.userId);
+              } else {
+                next.delete(data.userId);
+              }
+              return next;
+            });
+          }
+          break;
+          
         case 'user_role_changed':
         case 'user_updated':
         case 'user_verification_changed':
@@ -516,7 +535,7 @@ export default function Chat() {
           
         case 'typing':
           // Сообщение о наборе приходит уже только в нужную комнату,
-          // поэтому roomId в payload не обязателен
+          // поэтому roomId в payload не обязатен
           if (data.userId != null && user && data.userId !== user.id) { // Исключаем себя из отображения
             const userId = Number(data.userId);
             const login = data.login || String(data.userId);
@@ -1126,6 +1145,16 @@ export default function Chat() {
   return (
     <div className={`chat-page${roomId ? ' has-room' : ''}`}>
       <div className="chat-rooms">
+        <div className="chat-rooms-header">
+          <span className="chat-rooms-title">🏠 Комнаты</span>
+          <button
+            type="button"
+            className="chat-rooms-users-button secondary"
+            onClick={toggleUserList}
+          >
+            👥 Пользователи
+          </button>
+        </div>
         <div className="chat-rooms-list">
           {roomList.map((r) => (
             <Link
@@ -1482,6 +1511,72 @@ export default function Chat() {
             </div>
           )}
         </div>
+        {isUserListOpen && (
+          <aside className="chat-users-panel">
+            <div className="chat-users-panel-header">
+              <span>Пользователи</span>
+              <button
+                type="button"
+                className="chat-users-panel-close secondary"
+                onClick={closeUserList}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="chat-users-panel-list">
+              {allUsers.map((u) => {
+                const isOnline = onlineUserIds.has(u.id);
+                const statusClass = isOnline ? 'online' : 'offline';
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    className="chat-users-panel-item"
+                    onClick={() => {
+                      if (!user || !textareaRef.current) return;
+                      
+                      // Don't add own nickname if clicking on yourself
+                      if (u.id === user.id) {
+                        return;
+                      }
+                      
+                      const insert = `@${u.login} `;
+                      const el = textareaRef.current;
+                      const start = el.selectionStart ?? el.value.length;
+                      const end = el.selectionEnd ?? el.value.length;
+                      const value = el.value;
+                      const nextValue =
+                        value.slice(0, start) + insert + value.slice(end);
+                      el.value = nextValue;
+                      setSendText(nextValue);
+                      el.focus();
+                      const caretPos = start + insert.length;
+                      el.selectionStart = caretPos;
+                      el.selectionEnd = caretPos;
+                      
+                      // Close the user list panel after mentioning a user
+                      closeUserList();
+                    }}
+                  >
+                    <div className="chat-users-panel-item-main">
+                      <span className="chat-users-panel-login">{u.login}</span>
+                      <span className={`chat-users-panel-status ${statusClass}`}>
+                        {isOnline ? 'онлайн' : 'оффлайн'}
+                      </span>
+                    </div>
+                    <span className="chat-users-panel-role">
+                      {u.role === 'owner'
+                        ? 'Владелец'
+                        : u.role === 'moderator'
+                        ? 'Модератор'
+                        : 'Участник'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );

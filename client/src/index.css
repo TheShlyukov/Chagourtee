@@ -1333,3 +1333,33 @@ a:hover {
     height: 44px;
   }
 }
+
+/* User status indicator styles */
+.chat-message-author-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.user-status-indicator {
+  font-size: 1.2em;
+  line-height: 1;
+  color: var(--success);
+  align-self: center;
+}
+
+.user-status-indicator.online {
+  color: var(--success);
+}
+
+.user-status-indicator.offline {
+  color: var(--text-muted);
+}
+
+/* Make sure the marquee doesn't overlap with the status indicator */
+.chat-message .chat-message-header .marquee-container {
+  flex: 1;
+  min-width: 0; /* Allows flex child to shrink below content size */
+  margin-right: 6px;
+}

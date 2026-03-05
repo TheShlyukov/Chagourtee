@@ -1392,9 +1392,15 @@ export default function Chat() {
                           <>
                             {!shouldHideAuthor && (
                               <div className="chat-message-header">
-                                <Marquee className="chat-message-author" animationDuration={8}>
-                                  {allUsers.find(u => u.id === m.user_id)?.login || m.login}
-                                </Marquee>
+                                <div className="chat-message-author-wrapper">
+                                  <span className={`user-status-indicator ${onlineUserIds.has(m.user_id) ? 'online' : 'offline'}`} 
+                                        title={onlineUserIds.has(m.user_id) ? 'Онлайн' : 'Оффлайн'}>
+                                    •
+                                  </span>
+                                  <Marquee className="chat-message-author" animationDuration={8}>
+                                    {allUsers.find(u => u.id === m.user_id)?.login || m.login}
+                                  </Marquee>
+                                </div>
                                 <span className="chat-message-time">
                                   {new Date(m.created_at).toLocaleString()}
                                   {m.updated_at && m.updated_at !== m.created_at && (

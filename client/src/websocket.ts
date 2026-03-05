@@ -1,8 +1,8 @@
 import { logger } from './utils/logger';
 
-// Use the global Timeout type instead of NodeJS.Timeout
-let heartbeatInterval: number | null = null;
-let reconnectTimeout: number | null = null;
+// Use the cross-environment compatible timeout types
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 const reconnectDelay = 3000; // 3 seconds
@@ -39,70 +39,89 @@ export function initializeWebSocket() {
         }
       });
       
-      // Run all registered open handlers
+      // Call all registered open handlers
       openHandlers.forEach(handler => handler());
     };
 
+    sharedWebSocket.onmessage = (event) => {
+      let data;
+
+      try {
+        data = JSON.parse(event.data);
+      } catch (error) {
+        logger.warn('Could not parse websocket message as JSON', event.data);
+        return;
+      }
+
+      if (data.type === 'pong') {
+        logger.debug('Received pong');
+        return;
+      }
+
+      // Handle user disconnected message
+      if (data.type === 'user_disconnected') {
+        // Call all registered message handlers
+        messageHandlers.forEach(handler => handler(data));
+        return;
+      }
+
+      // Handle user connected message
+      if (data.type === 'user_connected') {
+        // Call all registered message handlers
+        messageHandlers.forEach(handler => handler(data));
+        return;
+      }
+
+      // Call all registered message handlers
+      messageHandlers.forEach(handler => handler(data));
+    };
+
     sharedWebSocket.onclose = (event) => {
-      logger.warn('WebSocket disconnected:', event.code, event.reason);
-      cleanupConnection();
+      logger.info('WebSocket disconnected:', event.code, event.reason);
       
-      // Attempt to reconnect unless closed was intentional
-      if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+      // Clear heartbeat
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
+
+      // Don't try to reconnect if closed intentionally
+      if (event.code === 1000) {
+        logger.debug('WebSocket closed normally');
+        return;
+      }
+
+      // Reconnect logic
+      if (reconnectAttempts < maxReconnectAttempts) {
         logger.info(`Attempting to reconnect... (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
-        reconnectTimeout = window.setTimeout(() => {
+        reconnectTimeout = setTimeout(() => {
           reconnectAttempts++;
           initializeWebSocket();
         }, reconnectDelay);
-      } else if (reconnectAttempts >= maxReconnectAttempts) {
-        logger.error('Max reconnection attempts reached. Please refresh the page.');
-        // Optionally show a notification to the user
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Соединение с сервером потеряно', {
-            body: 'Превышено максимальное количество попыток восстановления соединения. Пожалуйста, обновите страницу.'
-          });
-        }
+      } else {
+        logger.error('Max reconnection attempts reached');
       }
     };
-
+    
     sharedWebSocket.onerror = (error) => {
       logger.error('WebSocket error:', error);
     };
-
-    sharedWebSocket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        // Process heartbeat responses
-        if (data.type === 'pong') {
-          logger.debug('Received pong response');
-        }
-        
-        // Call all registered message handlers
-        messageHandlers.forEach(handler => handler(data));
-      } catch (e) {
-        logger.error('Error parsing WebSocket message:', e);
-      }
-    };
-
-    // Start heartbeat/ping mechanism
-    startHeartbeat();
-
-    return sharedWebSocket;
   } catch (error) {
-    logger.error('Failed to initialize WebSocket:', error);
-    throw error;
+    logger.error('Error initializing WebSocket:', error);
+    
+    // Reconnect logic for initialization errors
+    if (reconnectAttempts < maxReconnectAttempts) {
+      logger.info(`Attempting to reconnect... (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+      reconnectTimeout = setTimeout(() => {
+        reconnectAttempts++;
+        initializeWebSocket();
+      }, reconnectDelay);
+    } else {
+      logger.error('Max reconnection attempts reached');
+    }
   }
-}
 
-// Declare the sharedWebSocket variable separately to avoid initialization issues
-let sharedWebSocket: WebSocket | null = null;
-
-/**
- * Start the heartbeat mechanism to keep connection alive
- */
-function startHeartbeat() {
-  // Clear any existing interval
+  // Start heartbeat once connected
   if (heartbeatInterval) {
     clearInterval(heartbeatInterval);
   }
@@ -120,35 +139,41 @@ function startHeartbeat() {
       }
     }
   }, 30000); // 30 seconds
+
+  return sharedWebSocket;
 }
 
-/**
- * Cleanup connection and intervals
- */
-function cleanupConnection() {
-  if (heartbeatInterval) {
-    clearInterval(heartbeatInterval);
-    heartbeatInterval = null;
-  }
-  
-  if (sharedWebSocket) {
-    sharedWebSocket.close();
-    sharedWebSocket = null;
-  }
-}
+// Store the WebSocket instance globally
+let sharedWebSocket: WebSocket | null = null;
 
 /**
- * Get the shared WebSocket instance
+ * Get the current WebSocket instance
  */
 export function getWebSocket(): WebSocket | null {
   return sharedWebSocket;
 }
 
 /**
- * Check if WebSocket is currently connected
+ * Close the WebSocket connection gracefully
  */
-export function isWebSocketConnected(): boolean {
-  return sharedWebSocket !== null && sharedWebSocket.readyState === WebSocket.OPEN;
+export function closeWebSocket() {
+  // Clear heartbeat
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  
+  // Clear any reconnect attempt
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+
+  // Close the WebSocket if it exists
+  if (sharedWebSocket) {
+    sharedWebSocket.close(1000, 'Closing WebSocket');
+    sharedWebSocket = null;
+  }
 }
 
 /**
@@ -183,51 +208,65 @@ export function removeOpenHandler(handler: () => void) {
  * Join a room
  */
 export function joinRoom(roomId: number) {
-  if (sharedWebSocket?.readyState === WebSocket.OPEN) {
-    sharedWebSocket.send(JSON.stringify({ type: 'join', roomId }));
-    joinedRooms.add(roomId);
-    logger.debug(`Joined room ${roomId}`);
-  } else {
-    logger.warn(`Cannot join room ${roomId}, WebSocket not ready. Will join when connected.`);
-    // Store the room ID so we can join when connection is established
-    joinedRooms.add(roomId);
+  if (!sharedWebSocket) {
+    logger.error('Cannot join room: WebSocket not initialized');
+    return;
   }
+
+  if (sharedWebSocket.readyState !== WebSocket.OPEN) {
+    logger.error('Cannot join room: WebSocket not open');
+    return;
+  }
+
+  sharedWebSocket.send(JSON.stringify({ type: 'join', roomId }));
+  logger.debug(`Joined room ${roomId}`);
+
+  // Track that we've joined this room
+  joinedRooms.add(roomId);
 }
 
 /**
  * Leave a room
  */
 export function leaveRoom(roomId: number) {
-  if (sharedWebSocket?.readyState === WebSocket.OPEN) {
-    sharedWebSocket.send(JSON.stringify({ type: 'leave', roomId }));
-    joinedRooms.delete(roomId);
-    logger.debug(`Left room ${roomId}`);
-  } else {
-    logger.warn(`Cannot leave room ${roomId}, WebSocket not ready`);
+  if (!sharedWebSocket) {
+    logger.error('Cannot leave room: WebSocket not initialized');
+    return;
   }
+
+  if (sharedWebSocket.readyState !== WebSocket.OPEN) {
+    logger.error('Cannot leave room: WebSocket not open');
+    return;
+  }
+
+  sharedWebSocket.send(JSON.stringify({ type: 'leave', roomId }));
+  logger.debug(`Left room ${roomId}`);
+
+  // Stop tracking that we're in this room
+  joinedRooms.delete(roomId);
 }
 
 /**
- * Close the WebSocket connection
+ * Send a message to a room
  */
-export function closeWebSocket() {
-  if (reconnectTimeout) {
-    clearTimeout(reconnectTimeout);
-    reconnectTimeout = null;
+export function sendMessage(roomId: number, message: string) {
+  if (!sharedWebSocket) {
+    logger.error('Cannot send message: WebSocket not initialized');
+    return;
   }
-  
-  if (heartbeatInterval) {
-    clearInterval(heartbeatInterval as number);
-    heartbeatInterval = null;
+
+  if (sharedWebSocket.readyState !== WebSocket.OPEN) {
+    logger.error('Cannot send message: WebSocket not open');
+    return;
   }
-  
-  if (sharedWebSocket) {
-    // Close with code 1000 (normal closure)
-    sharedWebSocket.close(1000);
-    sharedWebSocket = null;
-  }
-  
-  // Clear all handlers
-  messageHandlers.clear();
-  openHandlers.clear();
+
+  sharedWebSocket.send(JSON.stringify({ type: 'message', roomId, message }));
+  logger.debug(`Sent message to room ${roomId}: ${message}`);
+}
+
+/**
+ * Check if WebSocket is connected
+ */
+export function isWebSocketConnected(): boolean {
+  return sharedWebSocket !== null && sharedWebSocket.readyState === WebSocket.OPEN;
 }

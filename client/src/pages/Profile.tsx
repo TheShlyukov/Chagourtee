@@ -52,6 +52,20 @@ export default function Profile() {
     }
   };
 
+  // Function to get role display name
+  const getRoleDisplayName = (role: string) => {
+    switch(role) {
+      case 'owner':
+        return 'Владелец';
+      case 'moderator':
+        return 'Модератор';
+      case 'member':
+        return 'Участник';
+      default:
+        return role;
+    }
+  };
+
   return (
     <div className="page-content" style={{ maxWidth: 800 }}>
       <div style={{ 
@@ -65,6 +79,13 @@ export default function Profile() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
               Вы вошли как <strong><Marquee>{user?.login}</Marquee></strong>
+            </p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Роль: <strong>
+                <span className="user-role-label">
+                  {getRoleDisplayName(user?.role || '')}
+                </span>
+              </strong>
             </p>
             <button 
               onClick={handleLogout}

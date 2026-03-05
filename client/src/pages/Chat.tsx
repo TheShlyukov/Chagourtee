@@ -1534,7 +1534,7 @@ export default function Chat() {
                         hideContextMenu();
                       }}
                     >
-                      {contextMenu.message && selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выбрать'}
+                      {contextMenu.message && selectedMessages.includes(contextMenu.message.id) ? 'Снять выбор' : 'Выбрать'}
                     </button>
                   )}
                   
@@ -1560,7 +1560,7 @@ export default function Chat() {
                 <div className="mobile-selection-controls">
                   <div className="mobile-selection-actions">
                     <button onClick={selectAllMessages}>Выбрать все</button>
-                    <button onClick={clearSelectedMessagesOnly}>Снять выделение</button>
+                    <button onClick={clearSelectedMessagesOnly}>Снять выбор</button>
                     <button className="danger" onClick={deleteSelectedMessages}>
                       Удалить ({selectedMessages.length})
                     </button>

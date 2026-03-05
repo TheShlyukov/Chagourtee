@@ -232,7 +232,7 @@ export default function Admin() {
     // Показываем пользователю, что ссылка создана
     setMessage('Инвайт создан. Для копирования нажмите Ctrl+C или Cmd+C.');
     
-    // Создаем временный элемент для выделения текста
+    // Создаем временный элемент для выбора текста
     const textArea = document.createElement("textarea");
     textArea.value = url;
     textArea.setAttribute('readonly', '');
@@ -514,7 +514,7 @@ export default function Admin() {
     // Показываем код и инструкции пользователю
     setMessage(`Новый код создан: ${code}. Нажмите Ctrl+C или Cmd+C для копирования.`);
     
-    // Создаем временный элемент для выделения текста
+    // Создаем временный элемент для выбора текста
     const textArea = document.createElement("textarea");
     textArea.value = code;
     textArea.setAttribute('readonly', '');

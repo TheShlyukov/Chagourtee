@@ -880,7 +880,7 @@ pre[class*="language-"] {
 
 /* Конец стилей для Markdown-элементов */
 
-/* Позиционирование основного индикатора выделения в нижнем правом углу */
+/* Позиционирование основного индикатора выбора в нижнем правом углу */
 .chat-message.selected {
   position: relative;
 }
@@ -902,7 +902,7 @@ pre[class*="language-"] {
   pointer-events: none;
 }
 
-/* Индикатор для сообщений, которые нельзя выделить, в нижнем правом углу */
+/* Индикатор для сообщений, которые нельзя выбрать, в нижнем правом углу */
 .chat-message .message-not-selectable-indicator {
   position: absolute;
   bottom: 0.3rem;

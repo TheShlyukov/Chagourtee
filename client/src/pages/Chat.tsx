@@ -1517,17 +1517,20 @@ export default function Chat() {
                     </button>
                   )}
                   
-                  <button 
-                    className="context-menu-item"
-                    onClick={() => {
-                      if (contextMenu.message && selectedMessages.includes(contextMenu.message.id)) {
-                        toggleMessageSelection(contextMenu.message.id);
-                      }
-                      hideContextMenu();
-                    }}
-                  >
-                    {contextMenu.message && selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выделить'}
-                  </button>
+                  {/* Выделять могут только те, кто может удалять сообщения */}
+                  {canDeleteMessage(contextMenu.message) && (
+                    <button 
+                      className="context-menu-item"
+                      onClick={() => {
+                        if (contextMenu.message) {
+                          toggleMessageSelection(contextMenu.message.id);
+                        }
+                        hideContextMenu();
+                      }}
+                    >
+                      {contextMenu.message && selectedMessages.includes(contextMenu.message.id) ? 'Снять выделение' : 'Выделить'}
+                    </button>
+                  )}
                   
                   {/* Удалять могут владелец/модератор или автор */}
                   {canDeleteMessage(contextMenu.message) && (

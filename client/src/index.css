@@ -303,55 +303,6 @@ input:focus, textarea:focus {
   }
 }
 
-@media (min-width: 769px) and (max-width: 900px) {
-  .chat-header-tools {
-    display: block;
-  }
-  
-  .chat-page.rooms-hidden .chat-rooms {
-    display: none;
-  }
-  
-  .chat-page.rooms-visible .chat-rooms {
-    display: block;
-    width: 260px;
-  }
-  
-  .chat-toggle-rooms-button {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: bold;
-    height: 32px;
-    min-width: 32px;
-    padding: 0;
-    position: relative;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .chat-toggle-rooms-button:hover {
-    background: var(--bg-hover);
-  }
-}
-
-@media (min-width: 901px) {
-  .chat-header-tools {
-    display: none; /* Не показываем кнопку при ширине более 900px */
-  }
-  
-  .chat-page.rooms-hidden .chat-rooms,
-  .chat-page.rooms-visible .chat-rooms {
-    display: block !important; /* Всегда отображаем панель комнат при ширине более 900px */
-    width: 260px;
-  }
-}
-
 .chat-rooms {
   width: 260px;
   border-right: 1px solid var(--border);

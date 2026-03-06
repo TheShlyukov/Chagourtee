@@ -58,7 +58,6 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendText, setSendText] = useState('');
-  const [isRoomsVisible, setIsRoomsVisible] = useState(true); // State for rooms sidebar visibility
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -93,24 +92,6 @@ export default function Chat() {
 
   const { isOpen: isUserListOpen, close: closeUserList, toggle: toggleUserList } =
     useUserListPanel();
-
-  // Automatically show rooms panel when screen width is greater than 900px
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth > 900) {
-        setIsRoomsVisible(true);
-      }
-    };
-
-    // Initial check
-    handleResize();
-    
-    window.addEventListener('resize', handleResize);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
 
   // Load all users to get their roles
   useEffect(() => {
@@ -1209,8 +1190,8 @@ export default function Chat() {
   }
 
   return (
-    <div className={`chat-page${roomId ? ' has-room' : ''}${isRoomsVisible ? ' rooms-visible' : ' rooms-hidden'}`}>
-      <div className={`chat-rooms ${isRoomsVisible ? '' : 'hidden'}`}>
+    <div className={`chat-page${roomId ? ' has-room' : ''}`}>
+      <div className="chat-rooms">
         <div className="chat-rooms-header">
           <span className="chat-rooms-title">🏠 Комнаты</span>
           <button
@@ -1261,15 +1242,6 @@ export default function Chat() {
           {roomId ? (
             <>
               <div className="chat-header-desktop">
-                <div className="chat-header-tools">
-                  <button
-                    className={`chat-toggle-rooms-button ${isRoomsVisible ? 'visible' : 'hidden'}`}
-                    onClick={() => setIsRoomsVisible(!isRoomsVisible)}
-                    aria-label={isRoomsVisible ? 'Скрыть список комнат' : 'Показать список комнат'}
-                  >
-                    {isRoomsVisible ? '«' : '»'}
-                  </button>
-                </div>
                 {roomList.find((r) => r.id === roomId)?.name ?? 'Чат'}
               </div>
               <div className="chat-messages-wrap">

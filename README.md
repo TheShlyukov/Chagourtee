@@ -2,7 +2,7 @@
 
 Self-hosted messenger: the owner runs the server on their computer, creates invites and verifies participants with a codeword. In perspective — federation between servers.
 
-[Версия на русском](./README.ru.md)
+[English version](./README.md) | [Версия на русском](./README.ru.md)
 
 ## Stack
 
@@ -63,7 +63,7 @@ If there are no users in the database yet, the first owner can be created as fol
    ```bash
    export CHAGOURTEE_BOOTSTRAP_SECRET=your-secret-key
    ```
-2. On the registration page (/register), pass in the request (via devtools or separate form) a `bootstrap` parameter with the value of this secret along with login and password. Or call the API:
+2. On the registration page (/register) or call the API:
    ```bash
    curl -X POST http://localhost:3000/api/auth/register \
      -H "Content-Type: application/json" \
@@ -102,6 +102,8 @@ Recommended environment variables (or `.env` file in `server/`):
 - `CHAGOURTEE_DB_PATH` – SQLite file path (default `./data/chagourtee.db`)
 - `CHAGOURTEE_SESSION_SECRET` – secret for cookies (must be changed)
 - `CHAGOURTEE_BOOTSTRAP_SECRET` – secret for creating the first owner (see above)
+- `CHAGOURTEE_MAX_FILE_SIZE` – maximum file size for upload in bytes (default 52428800 = 50MB)
+- `CHAGOURTEE_MEDIA_ENCRYPTION_KEY` – encryption key for media files (32 bytes for AES-256)
 
 ### Internet access
 
@@ -213,6 +215,8 @@ To enable media file encryption, you need to generate and configure an encryptio
 3. All uploaded media files are encrypted using AES-256-GCM encryption and stored in `server/data/media/`.
 
 **Important**: The encryption key must be exactly 32 bytes (64 hexadecimal characters) for AES-256 encryption.
+
+Additionally, you can configure the maximum file size allowed for upload by setting the `CHAGOURTEE_MAX_FILE_SIZE` environment variable in bytes (default is 50MB = 52428800 bytes).
 
 ## License
 

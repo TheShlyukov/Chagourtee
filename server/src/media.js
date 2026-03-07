@@ -147,10 +147,13 @@ function isFileTypeAllowed(mimeType, originalName) {
  * Registers the media plugin with Fastify
  */
 async function mediaPlugin(fastify, options) {
+    // Get max file size from environment, default to 50MB
+    const maxFileSize = parseInt(process.env.CHAGOURTEE_MAX_FILE_SIZE || '52428800'); // 50MB in bytes
+    
     // Register multipart for handling file uploads
     await fastify.register(require('fastify-multipart'), {
         limits: {
-            fileSize: 50 * 1024 * 1024, // 50MB limit
+            fileSize: maxFileSize,
             fields: 10,
             files: 1
         }

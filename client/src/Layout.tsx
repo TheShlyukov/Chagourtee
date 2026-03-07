@@ -51,9 +51,12 @@ export default function Layout() {
 
   // Определяем заголовок для текущей страницы
   const getPageTitle = () => {
-    if (location.pathname.startsWith('/chat')) {
-      if (params.roomId && roomName) return roomName;
-      return '🏠 Комнаты';
+    if (location.pathname === '/chat') {
+      return ''; // Don't show title in header-top when viewing room list, since it's shown in chat-rooms-header
+    }
+    if (location.pathname.startsWith('/chat/')) {
+      if (params.roomId && roomName) return roomName; // Show room name when in a specific room
+      return 'Чат'; // Fallback if room name is not loaded yet
     }
     if (location.pathname === '/profile') return '👤 Профиль';
     if (location.pathname === '/admin') return '⚙️ Админка';

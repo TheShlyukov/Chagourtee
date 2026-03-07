@@ -1028,7 +1028,7 @@ pre[class*="language-"] {
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   width: 100%;
-  max-height: 150px;
+  max-height: 170px;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
@@ -1073,8 +1073,8 @@ pre[class*="language-"] {
 .selected-files-grid {
   display: flex;
   gap: 0.5rem;
-  padding: 0 0.5rem;
-  min-height: 100px;
+  padding: 0.5rem;
+  min-height: 120px;
   align-items: center;
   flex-grow: 1;
   overflow-x: auto;
@@ -1094,6 +1094,7 @@ pre[class*="language-"] {
   padding: 0.5rem;
   position: relative;
   scroll-snap-align: start;
+  cursor: default; /* Show that this element has interactive content */
 }
 
 .file-preview {
@@ -1132,40 +1133,10 @@ pre[class*="language-"] {
   width: 100%;
   margin-bottom: 0.25rem;
   cursor: help; /* Indicate that there's more info on hover */
+  position: relative;
 }
 
-.file-size {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  align-self: flex-start;
-  width: 100%;
-  white-space: nowrap;
-}
-
-.remove-file-btn {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: var(--danger);
-  color: white;
-  border: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-.remove-file-btn:hover {
-  opacity: 0.8;
-}
-
-/* Tooltip for file name and size */
-.selected-file-item:hover .file-name::after {
+.file-name:hover::after {
   content: attr(title);
   position: absolute;
   bottom: 100%;
@@ -1183,6 +1154,36 @@ pre[class*="language-"] {
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.file-size {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  align-self: flex-start;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.remove-file-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--danger);
+  color: white;
+  border: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.remove-file-btn:hover {
+  opacity: 0.8;
 }
 
 /* Media container styles */

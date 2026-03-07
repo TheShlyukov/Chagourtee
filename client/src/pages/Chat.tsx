@@ -1713,7 +1713,10 @@ export default function Chat() {
                         : `${(file.size / 1024).toFixed(1)} KB`;
                       
                       return (
-                        <div key={index} className="selected-file-item">
+                        <div 
+                          key={index} 
+                          className="selected-file-item"
+                        >
                           {previewElement}
                           <div 
                             className="file-name" 

@@ -6,6 +6,7 @@ import { useServerName } from './ServerNameContext';
 import Marquee from './components/Marquee'; // Import Marquee component
 import { useUserListPanel } from './UserListPanelContext';
 import logoImage from './assets/Images/Chagourtee_512px.png'; // Import the logo
+import VersionModal from './components/VersionModal'; // Import the version modal
 
 export default function Layout() {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function Layout() {
   
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isTabletInRange, setIsTabletInRange] = useState(window.innerWidth >= 768 && window.innerWidth <= 876);
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false); // State for version modal
 
   // Check if we're in a specific chat room
   const isInSpecificRoom = location.pathname.startsWith('/chat/') && params.roomId;
@@ -26,7 +28,7 @@ export default function Layout() {
     const handleResize = () => {
       const width = window.innerWidth;
       setIsMobile(width <= 768);
-      setIsTabletInRange(width >= 768 && width <= 876);
+      setIsTabletInRange(width >= 768 && window.innerWidth <= 876);
     };
 
     window.addEventListener('resize', handleResize);
@@ -198,13 +200,17 @@ export default function Layout() {
         </div>
         
         {/* Adding the logo in the sidebar, below the version info */}
-        <div style={{ 
-          textAlign: 'left', 
-          padding: '1rem 0.5rem 0.5rem',
-          borderTop: '1px solid var(--border)',
-          marginTop: 'auto',
-          paddingLeft: '1rem' // Add some left padding for better alignment
-        }}>
+        <div 
+          style={{ 
+            textAlign: 'left', 
+            padding: '1rem 0.5rem 0.5rem',
+            borderTop: '1px solid var(--border)',
+            marginTop: 'auto',
+            paddingLeft: '1rem', // Add some left padding for better alignment
+            cursor: 'pointer' // Indicate that the logo is clickable
+          }}
+          onClick={() => setIsVersionModalOpen(true)} // Open the version modal when clicked
+        >
           <img 
             src={logoImage} 
             alt="Chagourtee" 
@@ -236,6 +242,12 @@ export default function Layout() {
           )}
         </nav>
       )}
+      
+      {/* Version Modal */}
+      <VersionModal 
+        isOpen={isVersionModalOpen} 
+        onClose={() => setIsVersionModalOpen(false)} 
+      />
     </div>
   );
 }

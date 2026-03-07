@@ -11,8 +11,8 @@ const { authRoutes, addAuthUtils } = require('./auth');
 
 const SESSION_COOKIE = 'chagourtee_sid';
 
-// Import package.json to get version info
-const { version } = require('../package.json');
+// Import version information from the dedicated version module
+const { getVersionInfo } = require('./version');
 
 // Initialize Fastify server
 const server = fastify({
@@ -202,11 +202,8 @@ async function run() {
 
   // Add version endpoint
   server.get('/api/version', async (request, reply) => {
-    return {
-      version: version,
-      name: 'Chagourtee',
-      release: version.includes('-') ? 'alpha' : 'stable' // Determine release type based on presence of hyphen in version
-    };
+    const versionInfo = getVersionInfo();
+    return versionInfo;
   });
 
   // Run the server

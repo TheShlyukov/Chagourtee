@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { serverVersion, VersionInfo } from '../api';
+import { formatVersionDisplay } from '../version'; // Import the new version utility
 
 const ServerVersion: React.FC = () => {
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
@@ -39,7 +40,8 @@ const ServerVersion: React.FC = () => {
 
   return (
     <div className="text-sm text-gray-500 dark:text-gray-400 px-2 py-1">
-      {versionInfo?.name} {versionInfo?.version}
+      {/* Using the new utility function to format the version display */}
+      {versionInfo ? formatVersionDisplay(versionInfo) : 'Unknown version'}
     </div>
   );
 };

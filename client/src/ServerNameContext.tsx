@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ServerSettings } from './api';
 import { serverSettings as serverSettingsApi, serverVersion, VersionInfo } from './api';
 import { initializeWebSocket, addMessageHandler, removeMessageHandler } from './websocket';
+import { formatVersionDisplay } from './version'; // Import the new version utility
 
 type ServerNameContextValue = {
   rawName: string | null;
@@ -32,7 +33,7 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
 
       // Load version info
       const versionData: VersionInfo = await serverVersion.get();
-      setVersionInfo(`${versionData.name} ${versionData.version}`);
+      setVersionInfo(formatVersionDisplay(versionData)); // Use the new utility function
     } catch (e) {
       // If request fails (e.g. not logged in yet), fallback to default
       console.error('Failed to load server settings or version info', e);

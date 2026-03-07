@@ -5,6 +5,7 @@ import { rooms as roomsApi } from './api';
 import { useServerName } from './ServerNameContext';
 import Marquee from './components/Marquee'; // Import Marquee component
 import { useUserListPanel } from './UserListPanelContext';
+import logoImage from './assets/Images/Chagourtee_512px.png'; // Import the logo
 
 export default function Layout() {
   const { user } = useAuth();
@@ -194,6 +195,26 @@ export default function Layout() {
           >
             {serverTagline}
           </div>
+        </div>
+        
+        {/* Adding the logo in the sidebar, below the version info */}
+        <div style={{ 
+          textAlign: 'left', 
+          padding: '1rem 0.5rem 0.5rem',
+          borderTop: '1px solid var(--border)',
+          marginTop: 'auto',
+          paddingLeft: '1rem' // Add some left padding for better alignment
+        }}>
+          <img 
+            src={logoImage} 
+            alt="Chagourtee" 
+            style={{ 
+              maxWidth: '40px', 
+              height: 'auto',
+              filter: 'grayscale(100%) opacity(0.7)', // Monochrome effect
+              margin: '0 0 0 0' // Left alignment
+            }} 
+          />
         </div>
       </aside>
       <main className="layout-main">

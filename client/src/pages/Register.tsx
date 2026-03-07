@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { auth, verification } from '../api';
 import { useAuth } from '../AuthContext';
 import { useServerName } from '../ServerNameContext';
+import logoImage from '../assets/Images/Chagourtee_512px.png'; // Import the logo
 import Marquee from '../components/Marquee'; // Import Marquee component
 
 export default function Register() {
@@ -73,6 +74,20 @@ export default function Register() {
           boxShadow: 'var(--shadow-lg)',
           border: '1px solid var(--border)'
         }}>
+          {/* Logo added above the form */}
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <img 
+              src={logoImage} 
+              alt="Chagourtee" 
+              style={{ 
+                maxWidth: '120px', 
+                height: 'auto',
+                display: 'block',
+                margin: '0 auto'
+              }} 
+            />
+          </div>
+          
           <h1 style={{ 
             marginBottom: '0.5rem', 
             textAlign: 'center',

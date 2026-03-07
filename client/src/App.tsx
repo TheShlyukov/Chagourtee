@@ -11,6 +11,7 @@ import Admin from './pages/Admin';
 import VerificationWaiting from './pages/VerificationWaiting';
 import AccountDeleted from './pages/AccountDeleted';
 import AccountRejected from './pages/AccountRejected';
+import InternalServerError from './pages/InternalServerError'; // Import the new 500 error page
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -49,6 +50,7 @@ function AppRoutes() {
       } />
       <Route path="/account-deleted" element={<AccountDeleted />} />
       <Route path="/account-rejected" element={<AccountRejected />} />
+      <Route path="/500" element={<InternalServerError />} /> {/* Add route for 500 error page */}
       <Route
         path="/"
         element={

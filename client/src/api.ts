@@ -62,14 +62,36 @@ export async function api<T>(
       ...opts.headers,
     },
   });
+  
+  // Check if response status is 500 and redirect to error page
+  if (res.status === 500) {
+    // Store the error details in sessionStorage for the error page to display
+    sessionStorage.setItem('lastErrorStatus', res.status.toString());
+    sessionStorage.setItem('lastErrorUrl', path);
+    
+    // Redirect to the 500 error page
+    window.location.href = '/500';
+    // This promise will never resolve since we're redirecting
+    return new Promise<T>(() => {});
+  }
+  
   const text = await res.text();
   let data: unknown;
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
+    // If parsing fails, check if it's a 500 error situation
+    if (res.status === 500) {
+      sessionStorage.setItem('lastErrorStatus', res.status.toString());
+      sessionStorage.setItem('lastErrorUrl', path);
+      window.location.href = '/500';
+      return new Promise<T>(() => {});
+    }
     throw new Error(res.ok ? text : `HTTP ${res.status}`);
   }
+  
   if (!res.ok) {
+    // Handle other non-OK responses that aren't 500
     const err = data as { error?: string };
     throw new Error(err?.error || `HTTP ${res.status}`);
   }
@@ -189,7 +211,7 @@ export const verification = {
   listCodes: () => 
     api<{ codes: {id: number, created_by_login: string, used: number, created_at: string, expires_at: string}[] }>('/api/verification/codes'),
   createCode: (customCode?: string) => 
-    api<{ code: string, id: number }>('/api/verification/codes', {
+    api<{ code: string, id: number }>('/api/invites/codes', {
       method: 'POST',
       body: JSON.stringify({ customCode }),
     }),

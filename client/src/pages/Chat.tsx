@@ -1672,6 +1672,72 @@ export default function Chat() {
                 </div>
               )}
               
+              {/* Selected files preview - moved above the form */}
+              {selectedFiles.length > 0 && (
+                <div className="selected-files-preview">
+                  <div className="selected-files-header">
+                    <h4>Выбранные файлы:</h4>
+                    <button 
+                      type="button" 
+                      className="clear-all-files"
+                      onClick={() => setSelectedFiles([])}
+                    >
+                      Очистить все
+                    </button>
+                  </div>
+                  <div className="selected-files-grid">
+                    {selectedFiles.map((file, index) => {
+                      // Determine file type and show appropriate preview
+                      let previewElement;
+                      if (file.type.startsWith('image/')) {
+                        // For images, show a thumbnail
+                        const fileUrl = URL.createObjectURL(file);
+                        previewElement = (
+                          <div className="file-preview">
+                            <img src={fileUrl} alt="Preview" />
+                          </div>
+                        );
+                      } else {
+                        // For other files, show the first 3 letters of the extension
+                        const ext = file.name.split('.').pop()?.substring(0, 3) || 'FILE';
+                        previewElement = (
+                          <div className="file-preview other">
+                            {ext.toUpperCase()}
+                          </div>
+                        );
+                      }
+                      
+                      // Format file size for display
+                      const formattedSize = file.size > 1024 * 1024 
+                        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
+                        : `${(file.size / 1024).toFixed(1)} KB`;
+                      
+                      return (
+                        <div key={index} className="selected-file-item">
+                          {previewElement}
+                          <div 
+                            className="file-name" 
+                            title={`${file.name} (${formattedSize})`}
+                          >
+                            {file.name.length > 15 ? `${file.name.substring(0, 15)}...` : file.name}
+                          </div>
+                          <div className="file-size">
+                            {formattedSize}
+                          </div>
+                          <button 
+                            type="button" 
+                            className="remove-file-btn"
+                            onClick={() => removeSelectedFile(index)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
               <form onSubmit={handleSend} className="chat-form" style={{ display: isSelecting ? 'none' : 'flex' }}>
                 {/* Attachment button */}
                 <div className="attachment-button-wrapper">
@@ -1723,38 +1789,7 @@ export default function Chat() {
                 </button>
               </form>
               
-              {/* Selected files preview */}
-              {selectedFiles.length > 0 && (
-                <div className="selected-files-preview">
-                  <div className="selected-files-header">
-                    <h4>Выбранные файлы:</h4>
-                    <button 
-                      type="button" 
-                      className="clear-all-files"
-                      onClick={() => setSelectedFiles([])}
-                    >
-                      Очистить все
-                    </button>
-                  </div>
-                  <div className="selected-files-list">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="selected-file-item">
-                        <div className="file-info">
-                          <div className="file-name">{file.name}</div>
-                          <div className="file-size">{(file.size / 1024).toFixed(1)} KB</div>
-                        </div>
-                        <button 
-                          type="button" 
-                          className="remove-file-btn"
-                          onClick={() => removeSelectedFile(index)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Removed the old selected files preview */}
             </>
           ) : (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>

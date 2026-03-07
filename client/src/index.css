@@ -1025,9 +1025,16 @@ pre[class*="language-"] {
 /* Selected files preview */
 .selected-files-preview {
   padding: 0 1.25rem 1rem;
-  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   background: var(--bg);
   width: 100%;
+  max-height: 150px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .selected-files-header {
@@ -1035,6 +1042,12 @@ pre[class*="language-"] {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
+  padding: 0 0.5rem;
+  flex-shrink: 0;
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .selected-files-header h4 {
@@ -1057,60 +1070,119 @@ pre[class*="language-"] {
   background: var(--bg-hover);
 }
 
-.selected-files-list {
+.selected-files-grid {
   display: flex;
-  flex-direction: column;
   gap: 0.5rem;
+  padding: 0 0.5rem;
+  min-height: 100px;
+  align-items: center;
+  flex-grow: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scroll-snap-type: x mandatory;
 }
 
 .selected-file-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem;
+  min-width: 80px;
   background: var(--bg-elevated);
   border-radius: var(--radius-default);
   border: 1px solid var(--border);
+  padding: 0.5rem;
+  position: relative;
+  scroll-snap-align: start;
 }
 
-.file-info {
+.file-preview {
+  width: 60px;
+  height: 60px;
   display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-
-.file-name {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 0.25rem;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg);
 }
 
-.file-size {
+.file-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-preview.other {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.8rem;
   color: var(--text-muted);
 }
 
+.file-name {
+  font-weight: 500;
+  font-size: 0.7rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  margin-bottom: 0.25rem;
+  cursor: help; /* Indicate that there's more info on hover */
+}
+
+.file-size {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  align-self: flex-start;
+  width: 100%;
+  white-space: nowrap;
+}
+
 .remove-file-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
   background: var(--danger);
   color: white;
   border: none;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 0.5rem;
-  flex-shrink: 0;
+  padding: 0;
 }
 
 .remove-file-btn:hover {
   opacity: 0.8;
+}
+
+/* Tooltip for file name and size */
+.selected-file-item:hover .file-name::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-default);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Media container styles */

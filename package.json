@@ -1,6 +1,6 @@
 {
   "name": "chagourtee",
-  "version": "pre-v0.2.2-alpha",
+  "version": "v0.2.2-alpha",
   "scripts": {
     "dev": "concurrently \"npm:dev:*\"",
     "dev:server": "cd server && npm run dev",

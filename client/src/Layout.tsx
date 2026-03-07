@@ -55,7 +55,7 @@ export default function Layout() {
   // Определяем заголовок для текущей страницы
   const getPageTitle = () => {
     if (location.pathname === '/chat') {
-      return ''; // Don't show title in header-top when viewing room list, since it's shown in chat-rooms-header
+      return isMobile ? '🏠 Комнаты' : ''; // Show 'Комнаты' title on mobile when viewing room list
     }
     if (location.pathname.startsWith('/chat/')) {
       if (params.roomId && roomName) return roomName; // Show room name when in a specific room
@@ -226,22 +226,23 @@ export default function Layout() {
       <main className="layout-main">
         <Outlet />
       </main>
-      {(location.pathname.startsWith('/chat') && isTabletInRange) ? null : 
-        location.pathname.startsWith('/chat') ? null : (
-        <nav className="layout-nav-bottom">
-          <NavLink to="/chat" end className={({ isActive }) => (isActive ? 'active' : '')}>
-            💬 Чаты
+      {((location.pathname.startsWith('/chat') && isTabletInRange) || 
+         (location.pathname.startsWith('/chat') && !isMobile) ||
+         (location.pathname !== '/chat' && location.pathname.startsWith('/chat') && !isTabletInRange && isMobile)) ? null : (
+      <nav className="layout-nav-bottom">
+        <NavLink to="/chat" end className={({ isActive }) => (isActive ? 'active' : '')}>
+          💬 Чаты
+        </NavLink>
+        <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
+          👤 Профиль
+        </NavLink>
+        {(user?.role === 'owner' || user?.role === 'moderator') && (
+          <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
+            ⚙️ Админка
           </NavLink>
-          <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
-            👤 Профиль
-          </NavLink>
-          {(user?.role === 'owner' || user?.role === 'moderator') && (
-            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
-              ⚙️ Админка
-            </NavLink>
-          )}
-        </nav>
-      )}
+        )}
+      </nav>
+    )}
       
       {/* Version Modal */}
       <VersionModal 

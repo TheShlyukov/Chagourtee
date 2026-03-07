@@ -197,8 +197,9 @@ In recent updates, Chagourtee added support for sharing media files in chat. Use
 
 - Images (JPG, PNG, GIF, WebP, SVG, BMP, TIFF)
 - Videos (MP4, WebM, OGG, MPEG, QuickTime)
-- Audio files (MP3, WAV, AAC, OGG, MIDI, WebM)
-- Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, ZIP, RAR)
+- Audio files (MP3, WAV, AAC, OGG, MIDI, WebM, AIF, M4A, etc.)
+- Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, ZIP, RAR, etc.)
+- Any other file types (all file types are supported)
 
 ### Setup
 

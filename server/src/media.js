@@ -63,84 +63,8 @@ function decryptFile(buffer, key) {
  * Checks if a file type is allowed
  */
 function isFileTypeAllowed(mimeType, originalName) {
-    // Define allowed file types
-    const allowedTypes = [
-        // Images
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'image/svg+xml',
-        'image/bmp',
-        'image/tiff',
-        
-        // Videos
-        'video/mp4',
-        'video/webm',
-        'video/ogg',
-        'video/mpeg',
-        'video/quicktime',
-        
-        // Audio
-        'audio/mpeg',
-        'audio/wav',
-        'audio/aac',
-        'audio/ogg',
-        'audio/midi',
-        'audio/x-midi',
-        'audio/webm',
-        
-        // Documents
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/plain',
-        'application/zip',
-        'application/x-rar-compressed'
-    ];
-    
-    // Check MIME type
-    if (allowedTypes.includes(mimeType)) {
-        return true;
-    }
-    
-    // Additional check based on file extension for cases where MIME type detection fails
-    const ext = path.extname(originalName).toLowerCase();
-    const extMap = {
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp',
-        '.svg': 'image/svg+xml',
-        '.bmp': 'image/bmp',
-        '.tiff': 'image/tiff',
-        '.tif': 'image/tiff',
-        '.mp4': 'video/mp4',
-        '.webm': 'video/webm',
-        '.ogg': 'video/ogg',
-        '.mpeg': 'video/mpeg',
-        '.mov': 'video/quicktime',
-        '.avi': 'video/x-msvideo',
-        '.wmv': 'video/x-ms-wmv',
-        '.mp3': 'audio/mpeg',
-        '.wav': 'audio/wav',
-        '.aac': 'audio/aac',
-        '.flac': 'audio/flac',
-        '.midi': 'audio/midi',
-        '.pdf': 'application/pdf',
-        '.doc': 'application/msword',
-        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        '.xls': 'application/vnd.ms-excel',
-        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        '.txt': 'text/plain',
-        '.zip': 'application/zip',
-        '.rar': 'application/x-rar-compressed'
-    };
-    
-    return !!extMap[ext] && allowedTypes.includes(extMap[ext]);
+    // Allow all file types - no restriction
+    return true;
 }
 
 /**

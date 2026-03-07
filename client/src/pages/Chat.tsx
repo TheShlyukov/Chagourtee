@@ -1683,8 +1683,7 @@ export default function Chat() {
                   <input 
                     id="file-upload" 
                     type="file" 
-                    multiple 
-                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" 
+                    multiple
                     onChange={handleFileSelect} 
                     style={{ display: 'none' }} 
                   />

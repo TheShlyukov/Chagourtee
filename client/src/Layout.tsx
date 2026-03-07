@@ -15,14 +15,17 @@ export default function Layout() {
   const { toggle: toggleUserList } = useUserListPanel();
   
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isTabletInRange, setIsTabletInRange] = useState(window.innerWidth >= 768 && window.innerWidth <= 876);
 
   // Check if we're in a specific chat room
   const isInSpecificRoom = location.pathname.startsWith('/chat/') && params.roomId;
 
-  // Update mobile state when window resizes
+  // Update mobile and tablet state when window resizes
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
+      const width = window.innerWidth;
+      setIsMobile(width <= 768);
+      setIsTabletInRange(width >= 768 && width <= 876);
     };
 
     window.addEventListener('resize', handleResize);
@@ -193,7 +196,8 @@ export default function Layout() {
       <main className="layout-main">
         <Outlet />
       </main>
-      {location.pathname.startsWith('/chat/') ? null : (
+      {(location.pathname.startsWith('/chat') && isTabletInRange) ? null : 
+        location.pathname.startsWith('/chat') ? null : (
         <nav className="layout-nav-bottom">
           <NavLink to="/chat" end className={({ isActive }) => (isActive ? 'active' : '')}>
             💬 Чаты

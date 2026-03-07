@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback} from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import type { Room, Message, User, MessageListResponse } from '../api';
 import { rooms as roomsApi, messages as messagesApi, auth as authApi, users } from '../api';
 import { 
@@ -93,6 +93,27 @@ export default function Chat() {
   const { isOpen: isUserListOpen, close: closeUserList, toggle: toggleUserList } =
     useUserListPanel();
 
+  // State to track if we're in the 768-876px range
+  const [isTabletInRange, setIsTabletInRange] = useState(
+    typeof window !== 'undefined' 
+      ? window.innerWidth >= 768 && window.innerWidth <= 876
+      : false
+  );
+
+  // Update tablet range state when window resizes
+  useEffect(() => {
+    const handleResize = () => {
+      setIsTabletInRange(window.innerWidth >= 768 && window.innerWidth <= 876);
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup listener on unmount
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   // Load all users to get their roles
   useEffect(() => {
     const loadAllUsers = async () => {
@@ -107,6 +128,22 @@ export default function Chat() {
     loadAllUsers();
   }, []);
 
+  // Custom component to handle active class for tablet navigation
+  const IsActiveLink: React.FC<{to: string, children: React.ReactNode, end?: boolean}> = ({ to, children, end }) => {
+    const location = useLocation();
+    const isActive = end 
+      ? location.pathname === to 
+      : location.pathname.startsWith(to);
+    
+    return (
+      <Link 
+        to={to} 
+        className={isActive ? 'active' : ''}
+      >
+        {children}
+      </Link>
+    );
+  };
 
   // Handle clicks outside the context menu
   useEffect(() => {
@@ -1236,6 +1273,25 @@ export default function Chat() {
             </Link>
           ))}
         </div>
+        {/* Tablet Navigation Bar - shown only in 768-876px range */}
+        {isTabletInRange && (
+          <nav className="tablet-nav-bottom">
+            <IsActiveLink to="/chat" end>
+              <span className="icon">💬</span>
+              <span>Чаты</span>
+            </IsActiveLink>
+            <IsActiveLink to="/profile">
+              <span className="icon">👤</span>
+              <span>Профиль</span>
+            </IsActiveLink>
+            {(user?.role === 'owner' || user?.role === 'moderator') && (
+              <IsActiveLink to="/admin">
+                <span className="icon">⚙️</span>
+                <span>Админка</span>
+              </IsActiveLink>
+            )}
+          </nav>
+        )}
       </div>
       <div className="chat-main">
         <div className="chat-main-content">

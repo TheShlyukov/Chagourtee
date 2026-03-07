@@ -1,6 +1,6 @@
-import incomingSound from '../sounds/Incoming.wav';
-import mentionedSound from '../sounds/Mentioned.wav';
-import sentSound from '../sounds/Sent.wav';
+import incomingSound from './assets/sounds/Incoming.wav';
+import mentionedSound from './assets/sounds/Mentioned.wav';
+import sentSound from './assets/sounds/Sent.wav';
 
 class SoundPlayer {
   private audioContext: AudioContext | null = null;

@@ -93,12 +93,34 @@ export default function Chat() {
   const { isOpen: isUserListOpen, close: closeUserList, toggle: toggleUserList } =
     useUserListPanel();
 
+  // Create ref for the user panel to detect clicks outside
+  const userPanelRef = useRef<HTMLElement>(null);
+
   // State to track if we're in the 768-876px range
   const [isTabletInRange, setIsTabletInRange] = useState(
     typeof window !== 'undefined' 
       ? window.innerWidth >= 768 && window.innerWidth <= 876
       : false
   );
+
+  // Effect to handle clicks outside the user panel
+  useEffect(() => {
+    if (!isUserListOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userPanelRef.current && !userPanelRef.current.contains(event.target as Node)) {
+        closeUserList();
+      }
+    };
+
+    // Add event listener when panel is open
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      // Clean up event listener when component unmounts or panel closes
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUserListOpen, closeUserList]);
 
   // Update tablet range state when window resizes
   useEffect(() => {
@@ -1638,7 +1660,7 @@ export default function Chat() {
           )}
         </div>
         {isUserListOpen && (
-          <aside className="chat-users-panel">
+          <aside className="chat-users-panel" ref={userPanelRef}>
             <div className="chat-users-panel-header">
               <span>Пользователи</span>
               <button

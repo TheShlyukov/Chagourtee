@@ -14,7 +14,7 @@ export default function Layout() {
   const params = useParams();
   const [roomName, setRoomName] = useState<string | null>(null);
   const { displayName, serverTagline } = useServerName();
-  const { toggle: toggleUserList } = useUserListPanel();
+  const { isOpen: isUserListOpen, open: openUserList } = useUserListPanel();
   
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isTabletInRange, setIsTabletInRange] = useState(window.innerWidth >= 768 && window.innerWidth <= 876);
@@ -113,7 +113,11 @@ export default function Layout() {
           <button
             type="button"
             className="layout-users-button secondary"
-            onClick={toggleUserList}
+            onClick={() => {
+              if (!isUserListOpen) {
+                openUserList();
+              }
+            }}
           >
             👥
           </button>

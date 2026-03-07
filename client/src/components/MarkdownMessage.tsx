@@ -6,15 +6,17 @@ import rehypeSanitize from 'rehype-sanitize';
 import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import type { MediaFile } from '../api';
 
 // Импортируем KaTeX CSS
 import 'katex/dist/katex.min.css';
 
 interface MarkdownMessageProps {
   content: string;
+  media?: MediaFile[];
 }
 
-const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content }) => {
+const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content, media }) => {
   return (
     <div className="markdown-container">
       <ReactMarkdown
@@ -90,7 +92,7 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content })
             <blockquote 
               style={{ 
                 margin: '0.5em 0', 
-                padding: '0.25e 1em', 
+                padding: '0.25em 1em', 
                 borderLeft: '3px solid var(--border)',
                 color: 'var(--text-muted)',
                 maxHeight: '200px',
@@ -138,6 +140,94 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content })
           )
         }}
       />
+      
+      {/* Render media files if any */}
+      {media && media.length > 0 && (
+        <div className="media-container" style={{ marginTop: '10px' }}>
+          {media.map((mediaFile) => {
+            const isImage = mediaFile.mime_type.startsWith('image/');
+            const isVideo = mediaFile.mime_type.startsWith('video/');
+            const isAudio = mediaFile.mime_type.startsWith('audio/');
+            
+            return (
+              <div key={mediaFile.id} className="media-item" style={{ marginBottom: '10px' }}>
+                {isImage ? (
+                  <img
+                    src={`/api/media/${mediaFile.encrypted_filename}`}
+                    alt={mediaFile.original_name}
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '300px',
+                      borderRadius: '4px',
+                      objectFit: 'contain'
+                    }}
+                  />
+                ) : isVideo ? (
+                  <video
+                    controls
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '400px',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    <source
+                      src={`/api/media/${mediaFile.encrypted_filename}`}
+                      type={mediaFile.mime_type}
+                    />
+                    Your browser does not support the video tag.
+                  </video>
+                ) : isAudio ? (
+                  <audio
+                    controls
+                    style={{
+                      width: '100%'
+                    }}
+                  >
+                    <source
+                      src={`/api/media/${mediaFile.encrypted_filename}`}
+                      type={mediaFile.mime_type}
+                    />
+                    Your browser does not support the audio element.
+                  </audio>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '10px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      backgroundColor: '#f9f9f9'
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div><strong>{mediaFile.original_name}</strong></div>
+                      <div style={{ fontSize: '0.9em', color: '#666' }}>
+                        {(mediaFile.file_size / 1024).toFixed(1)} KB • {mediaFile.mime_type}
+                      </div>
+                    </div>
+                    <a
+                      href={`/api/media/${mediaFile.encrypted_filename}`}
+                      download={mediaFile.original_name}
+                      style={{
+                        marginLeft: '10px',
+                        padding: '5px 10px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      Скачать
+                    </a>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 });

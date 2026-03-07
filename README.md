@@ -1,192 +1,219 @@
 # Chagourtee
 
-Самохостируемый мессенджер: владелец запускает сервер на своём компьютере, создаёт инвайты и верифицирует участников по кодовому слову. В перспективе — федерация между серверами.
+Self-hosted messenger: the owner runs the server on their computer, creates invites and verifies participants with a codeword. In perspective — federation between servers.
 
-## Стек
+[Версия на русском](./README.ru.md)
 
-- **Сервер:** Node.js, Fastify, SQLite (better-sqlite3), WebSocket (ws)
-- **Клиент:** React, TypeScript, Vite
+## Stack
 
-## Особенности
+- **Server:** Node.js, Fastify, SQLite (better-sqlite3), WebSocket (ws)
+- **Client:** React, TypeScript, Vite
 
-- **Самохостинг**: Полный контроль над своими данными, размещение на собственном сервере
-- **Верификация пользователей**: Возможность верификации участников по кодовому слову
-- **Реал-тайм чат**: Общение в режиме реального времени с поддержкой типинга и присутствия
-- **Управление пользователями**: Роли владельца, модератора и участника
-- **Безопасность**: Авторизация через сессии, хеширование паролей
-- **Администрирование**: Панель управления для создания комнат и инвайтов
-- **Редактирование сообщений**: Возможность редактировать и удалять свои сообщения
-- **Группировка сообщений**: Визуальное объединение сообщений одного пользователя
-- **Множественный выбор сообщений**: Для массового удаления
+## Features
 
-## Быстрый старт
+- **Self-hosting**: Full control over your data, deployment on your own server
+- **User verification**: Ability to verify participants with a codeword
+- **Real-time chat**: Real-time communication with typing and presence indicators
+- **User management**: Owner, moderator and member roles
+- **Security**: Authorization via sessions, password hashing
+- **Administration**: Control panel for creating rooms and invites
+- **Message editing**: Ability to edit and delete own messages
+- **Message grouping**: Visual grouping of messages from the same user
+- **Multi-message selection**: For bulk deletion
 
-### 1. Установка
+## Quick Start
+
+### 1. Installation
 
 ```bash
 npm install
 ```
 
-### 2. Запуск в режиме разработки
+### 2. Development mode
 
-В двух терминалах:
+In two terminals:
 
 ```bash
-# Сервер (порт 3000)
+# Server (port 3000)
 npm run dev:server
 
-# Клиент (порт 5173, проксирует /api и /ws на сервер)
+# Client (port 5173, proxies /api and /ws to server)
 npm run dev:client
 ```
 
-Или одной командой:
+Or with a single command:
 
 ```bash
 npm run dev
 ```
 
-Откройте http://localhost:5173
+Open http://localhost:5173
 
-**Доступ с телефона или другого устройства в той же Wi‑Fi:** откройте в браузере `http://ИМЯ_ИЛИ_IP_ВАШЕГО_КОМПЬЮТЕРА:5173` (например, `http://macbook-dana.local:5173`). Чтобы ссылки-инвайты вели на этот адрес (а не на localhost), создайте в корне проекта или в `client/` файл `.env` и добавьте строку:
+**Access from phone or other device on the same Wi-Fi:** open in browser `http://YOUR_COMPUTER_NAME_OR_IP:5173` (e.g., `http://macbook-dana.local:5173`). To make invite links point to this address (instead of localhost), create in the project root or in `client/` folder a `.env` file with:
 ```bash
-VITE_APP_PUBLIC_URL=http://<ВАШ_IP_АДРЕСС>:5173
+VITE_APP_PUBLIC_URL=http://<YOUR_IP_ADDRESS>:5173
 ```
-После изменения перезапустите клиент (`npm run dev:client`).
+After changing, restart the client (`npm run dev:client`).
 
-### 3. Первый владелец
+### 3. First owner
 
-Если в базе ещё нет пользователей, первого владельца можно создать так:
+If there are no users in the database yet, the first owner can be created as follows:
 
-1. Установите переменную окружения (или добавьте в `server/config.example.env` и переименуйте в `.env`):
+1. Set environment variable (or add to `server/config.example.env` and rename to `.env`):
    ```bash
-   export CHAGOURTEE_BOOTSTRAP_SECRET=ваш-секретный-ключ
+   export CHAGOURTEE_BOOTSTRAP_SECRET=your-secret-key
    ```
-2. На странице регистрации (/register) передайте в запросе (через devtools или отдельную форму) параметр `bootstrap` со значением этого секрета вместе с логином и паролем. Либо вызовите API:
+2. On the registration page (/register), pass in the request (via devtools or separate form) a `bootstrap` parameter with the value of this secret along with login and password. Or call the API:
    ```bash
    curl -X POST http://localhost:3000/api/auth/register \
      -H "Content-Type: application/json" \
-     -d '{"login":"admin","password":"ваш-пароль","bootstrap":"ваш-секретный-ключ"}'
+     -d '{"login":"admin","password":"your-password","bootstrap":"your-secret-key"}'
    ```
-3. После этого входите под созданным логином – вы владелец. Создайте инвайты в Админке и при необходимости комнаты.
+3. Then log in with the created login – you are the owner. Create invites in Admin and rooms if needed.
 
-### 4. Участники
+### 4. Participants
 
-- Владелец (или модератор) создаёт инвайт в Админке и передаёт ссылку вида:  
-  `https://ваш-адрес/register?invite=КОД_ИНВАЙТА`
-- Участник переходит по ссылке, вводит логин, пароль и при необходимости кодовое слово.
-- Если указано кодовое слово, аккаунт остаётся в статусе «ожидает верификации» до тех пор, пока владелец в Админке не проверит слово и не нажмёт «Подтвердить».
+- Owner (or moderator) creates an invite in Admin and shares the link like:  
+  `https://your-address/register?invite=INVITE_CODE`
+- Participant goes to the link, enters login, password and codeword if required.
+- If a codeword is specified, the account remains in "waiting for verification" status until the owner in Admin checks the word and clicks "Approve".
 
-## Деплой у владельца
+## Deployment at owner's premises
 
-### Продакшен-сборка
+### Production build
 
 ```bash
 npm run build
 ```
 
-Собранный клиент окажется в `client/dist`. Раздавайте его через любой HTTP-сервер (Nginx, Caddy и т.п.), указав корнем каталог `client/dist` и проксирование `/api` и `/ws` на процесс сервера.
+The built client will be in `client/dist`. Serve it through any HTTP server (Nginx, Caddy, etc.), setting `client/dist` as the root directory and proxying `/api` and `/ws` to the server process.
 
-### Запуск сервера
+### Running the server
 
 ```bash
 cd server
 PORT=3000 node src/index.js
 ```
 
-Рекомендуется задать переменные окружения (или файл `.env` в `server/`):
+Recommended environment variables (or `.env` file in `server/`):
 
-- `PORT` – порт (по умолчанию 3000)
-- `HOST` – хост (0.0.0.0 для доступа с других машин)
-- `CHAGOURTEE_DB_PATH` – путь к файлу SQLite (по умолчанию `./data/chagourtee.db`)
-- `CHAGOURTEE_SESSION_SECRET` – секрет для cookie (обязательно смените)
-- `CHAGOURTEE_BOOTSTRAP_SECRET` – секрет для создания первого владельца (см. выше)
+- `PORT` – port (default 3000)
+- `HOST` – host (0.0.0.0 for access from other machines)
+- `CHAGOURTEE_DB_PATH` – SQLite file path (default `./data/chagourtee.db`)
+- `CHAGOURTEE_SESSION_SECRET` – secret for cookies (must be changed)
+- `CHAGOURTEE_BOOTSTRAP_SECRET` – secret for creating the first owner (see above)
 
-### Доступ из интернета
+### Internet access
 
-Сервер за NAT/домашним роутером недоступен по внешнему IP без проброса портов. Варианты:
+A server behind NAT/home router is not accessible by external IP without port forwarding. Options:
 
-- **Проброс портов** на роутере на машину с сервером.
-- **Tailscale / ZeroTier** – участники подключаются по выданному адресу в VPN.
-- **Cloudflare Tunnel** – туннель с вашей машины в интернет по домену.
+- **Port forwarding** on the router to the machine with the server.
+- **Tailscale / ZeroTier** – participants connect via assigned VPN addresses.
+- **Cloudflare Tunnel** – tunnel from your machine to the internet via domain.
 
-Клиент должен открываться по тому же origin, что и API (или настроен CORS и cookie с правильным domain).
+The client must open on the same origin as the API (or CORS configured and cookies with the correct domain).
 
-### Резервное копирование БД
+### DB Backup
 
 ```bash
 npm run db:backup
 ```
 
-Копия SQLite сохраняется в `data/backups/` (или рядом с `CHAGOURTEE_DB_PATH` в подкаталоге `backups`).
+SQLite copy is saved to `data/backups/` (or alongside `CHAGOURTEE_DB_PATH` in subdirectory `backups`).
 
-## API (кратко)
+## API (briefly)
 
-- `POST /api/auth/login` – вход
-- `POST /api/auth/logout` – выход
-- `GET /api/auth/me` – текущий пользователь
-- `POST /api/auth/register` – регистрация (inviteId или bootstrap)
-- `GET/POST/PATCH/DELETE /api/rooms` – комнаты (CRUD для владельца/модератора)
-- `GET /api/rooms/:id/messages`, `POST /api/rooms/:id/messages` – сообщения
-- `GET/POST/DELETE /api/invites` – инвайты
-- `GET /api/verification/pending`, `POST /api/verification/approve`, `reject` – верификация по кодовому слову
-- `POST /api/profile/change-password`, `change-login`, `codeword` – профиль
-- WebSocket `/ws` – новые сообщения, типинг, присутствие (после входа по cookie)
+- `POST /api/auth/login` – login
+- `POST /api/auth/logout` – logout
+- `GET /api/auth/me` – current user
+- `POST /api/auth/register` – registration (inviteId or bootstrap)
+- `GET/POST/PATCH/DELETE /api/rooms` – rooms (CRUD for owner/moderator)
+- `GET /api/rooms/:id/messages`, `POST /api/rooms/:id/messages` – messages
+- `GET/POST/DELETE /api/invites` – invites
+- `GET /api/verification/pending`, `POST /api/verification/approve`, `reject` – verification by codeword
+- `POST /api/profile/change-password`, `change-login`, `codeword` – profile
+- WebSocket `/ws` – new messages, typing, presence (after login via cookie)
 
-## Архитектура
+## Architecture
 
-### Клиентская сторона
+### Client side
 
-Фронтенд реализован на React с использованием TypeScript и Vite. Приложение организовано по следующим компонентам:
+Frontend implemented with React using TypeScript and Vite. The application is organized into the following components:
 
-- **AuthContext**: Управление аутентификацией и состоянием пользователя
-- **Layout**: Основной макет приложения
-- **Pages**: Компоненты страниц (Login, Register, Chat, Profile, Admin, VerificationWaiting)
-- **API**: Модуль для взаимодействия с сервером
-- **WebSocket**: Реализация реал-тайм коммуникации
+- **AuthContext**: Authentication management and user state
+- **Layout**: Main application layout
+- **Pages**: Page components (Login, Register, Chat, Profile, Admin, VerificationWaiting)
+- **API**: Module for server communication
+- **WebSocket**: Real-time communication implementation
 
-### Серверная сторона
+### Server side
 
-Backend построен на Fastify с использованием SQLite для хранения данных:
+Backend built on Fastify using SQLite for data storage:
 
-- **DB**: Подключение к базе данных через better-sqlite3
-- **Auth**: Аутентификация и управление сессиями
-- **Routes**: REST API для работы с комнатами, сообщениями, инвайтами и т.д.
-- **WS**: WebSocket сервер для реал-тайм общения
+- **DB**: Database connection via better-sqlite3
+- **Auth**: Authentication and session management
+- **Routes**: REST API for working with rooms, messages, invites, etc.
+- **WS**: WebSocket server for real-time communication
 
-### Безопасность
+### Security
 
-- Хеширование паролей с помощью bcrypt
-- Защита сессий через cookies с настройками httpOnly и secure
-- Проверка прав доступа к защищенным маршрутам
-- Проверка верификации пользователя для определенных действий
-- Защита от несанкционированного доступа к комнатам
+- Password hashing with bcrypt
+- Session protection via cookies with httpOnly and secure settings
+- Permission checks for access to protected routes
+- User verification checks for specific actions
+- Protection against unauthorized room access
 
-## Функциональные возможности
+## Functional capabilities
 
-### Для пользователей:
-- Регистрация по инвайтам
-- Вход и выход из системы
-- Просмотр и фильтрация комнат
-- Отправка, редактирование и удаление своих сообщений
-- Показ статуса "печатает..."
-- Показ онлайн-статуса других пользователей
-- Изменение личных данных и пароля
+### For users:
+- Registration via invites
+- Login and logout
+- Viewing and filtering rooms
+- Sending, editing and deleting own messages
+- Showing "typing..." status
+- Showing online status of other users
+- Changing personal data and password
 
-### Для администраторов (владельца):
-- Создание и переименование комнат
-- Управление всеми пользователями (включая назначение ролей модераторов)
-- Создание инвайтов с ограничениями
-- Верификация пользователей по кодовому слову
-- Полный доступ к админ панели
-- Удаление любых сообщений
-- Редактирование информации о любых пользователях
+### For administrators (owner):
+- Creating and renaming rooms
+- Managing all users (including assigning moderator roles)
+- Creating invites with restrictions
+- Verifying users by codeword
+- Full access to admin panel
+- Deleting any messages
+- Editing information about any users
 
-### Для модераторов:
-- Создание и удаление инвайтов
-- Удаление сообщений других пользователей
-- Доступ к разделу управления инвайтами в админке
-- Редактирование информации о пользователях
+### For moderators:
+- Creating and deleting invites
+- Deleting messages from other users
+- Access to invite management section in admin
+- Editing user information
 
-## Лицензия
+## Media Support
+
+In recent updates, Chagourtee added support for sharing media files in chat. Users can share:
+
+- Images (JPG, PNG, GIF, WebP, SVG, BMP, TIFF)
+- Videos (MP4, WebM, OGG, MPEG, QuickTime)
+- Audio files (MP3, WAV, AAC, OGG, MIDI, WebM)
+- Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, ZIP, RAR)
+
+### Setup
+
+To enable media file encryption, you need to generate and configure an encryption key:
+
+1. Generate a new encryption key:
+   ```bash
+   cd server
+   npm run generate-encryption-key
+   ```
+
+2. Copy the generated key to your `.env` file as `CHAGOURTEE_MEDIA_ENCRYPTION_KEY`
+
+3. All uploaded media files are encrypted using AES-256-GCM encryption and stored in `server/data/media/`.
+
+**Important**: The encryption key must be exactly 32 bytes (64 hexadecimal characters) for AES-256 encryption.
+
+## License
 
 MIT

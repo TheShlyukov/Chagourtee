@@ -122,6 +122,40 @@ module.exports = function (fastify) {
             login: user?.login || userId 
           }, ws);
         }
+        
+        // Handle media file upload
+        if (msg.type === 'upload_media' && msg.roomId && msg.file) {
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.info(`Broadcasting media upload: ${msg.file.id} in room ${msg.roomId}`);
+          }
+          broadcastToRoom(Number(msg.roomId), { 
+            type: 'media_uploaded', 
+            file: msg.file,
+            userId, 
+            login: user?.login || userId 
+          }, ws);
+        }
+        
+        // Handle media file request
+        if (msg.type === 'request_media' && msg.fileId) {
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.info(`Media request: ${msg.fileId} from room ${msg.roomId}`);
+          }
+          // We don't broadcast this event, it's a point-to-point request
+        }
+        
+        // Handle media file sharing
+        if (msg.type === 'share_media' && msg.roomId && msg.file) {
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.info(`Broadcasting media share: ${msg.file.id} in room ${msg.roomId}`);
+          }
+          broadcastToRoom(Number(msg.roomId), { 
+            type: 'media_shared', 
+            file: msg.file,
+            userId, 
+            login: user?.login || userId 
+          }, ws);
+        }
       } catch (err) {
         // Логируем конкретную ошибку вместо игнорирования
         if (process.env.DEBUG_MODE === 'true') {
@@ -198,6 +232,38 @@ module.exports = function (fastify) {
     const payload = JSON.stringify({
       type: 'message_deleted',
       messageId,
+      userId,
+      login
+    });
+    
+    wss.clients.forEach((c) => {
+      if (c.readyState === WebSocket.OPEN && c.currentRoomId === roomId) {
+        c.send(payload);
+      }
+    });
+  }
+  
+  // Broadcast media file uploads to all users in the room
+  function broadcastMediaUploaded(roomId, fileId, fileName, fileSize, mimeType, userId, login) {
+    const payload = JSON.stringify({
+      type: 'media_uploaded',
+      file: { id: fileId, name: fileName, size: fileSize, mimeType },
+      userId,
+      login
+    });
+    
+    wss.clients.forEach((c) => {
+      if (c.readyState === WebSocket.OPEN && c.currentRoomId === roomId) {
+        c.send(payload);
+      }
+    });
+  }
+  
+  // Broadcast media file sharing to all users in the room
+  function broadcastMediaShared(roomId, fileId, fileName, fileSize, mimeType, userId, login) {
+    const payload = JSON.stringify({
+      type: 'media_shared',
+      file: { id: fileId, name: fileName, size: fileSize, mimeType },
       userId,
       login
     });
@@ -291,6 +357,16 @@ module.exports = function (fastify) {
   // Broadcast message deletions to all users in the room
   fastify.broadcastMessageDeleted = function (roomId, messageId, userId, login) {
     broadcastMessageDeleted(roomId, messageId, userId, login);
+  };
+  
+  // Broadcast media file uploads to all users in the room
+  fastify.broadcastMediaUploaded = function (roomId, fileId, fileName, fileSize, mimeType, userId, login) {
+    broadcastMediaUploaded(roomId, fileId, fileName, fileSize, mimeType, userId, login);
+  };
+  
+  // Broadcast media file sharing to all users in the room
+  fastify.broadcastMediaShared = function (roomId, fileId, fileName, fileSize, mimeType, userId, login) {
+    broadcastMediaShared(roomId, fileId, fileName, fileSize, mimeType, userId, login);
   };
   
   fastify.broadcastRoomDeletion = function (roomId) {

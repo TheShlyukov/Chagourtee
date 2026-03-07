@@ -14,6 +14,9 @@ const SESSION_COOKIE = 'chagourtee_sid';
 // Import version information from the dedicated version module
 const { getVersionInfo } = require('./version');
 
+// Import media plugin
+const mediaPlugin = require('./media');
+
 // Initialize Fastify server
 const server = fastify({
   logger: true
@@ -87,6 +90,9 @@ async function run() {
   require('./verification')(server);
   require('./users')(server);
   require('./settings')(server);
+  
+  // Register media plugin
+  await server.register(mediaPlugin);
   
   // Initialize WebSocket server
   require('./ws')(server);

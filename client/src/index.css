@@ -993,6 +993,135 @@ pre[class*="language-"] {
   border-radius: var(--radius-default);
   align-self: flex-end; /* Align button to the bottom of the container */
 }
+
+/* Attachment button wrapper */
+.attachment-button-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attach-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text);
+  margin-right: 0.5rem;
+}
+
+.attach-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+/* Selected files preview */
+.selected-files-preview {
+  padding: 0 1.25rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  width: 100%;
+}
+
+.selected-files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.selected-files-header h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.clear-all-files {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-default);
+}
+
+.clear-all-files:hover {
+  background: var(--bg-hover);
+}
+
+.selected-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.selected-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-default);
+  border: 1px solid var(--border);
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.25rem;
+}
+
+.file-size {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.remove-file-btn {
+  background: var(--danger);
+  color: white;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
+.remove-file-btn:hover {
+  opacity: 0.8;
+}
+
+/* Media container styles */
+.media-container {
+  margin-top: 0.5rem;
+}
+
+.media-item {
+  margin-bottom: 0.5rem;
+}
+
 .chat-back {
   display: none;
 }

@@ -19,10 +19,12 @@ module.exports = function (fastify) {
     if (before) {
       rows = db.prepare(`
         SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
-               CASE WHEN mr.user_id IS NULL THEN 0 ELSE 1 END AS is_read
+               CASE WHEN mr.user_id IS NULL THEN 0 ELSE 1 END AS is_read,
+               mf.id as media_id, mf.original_name, mf.encrypted_filename, mf.mime_type, mf.file_size
         FROM messages m
         JOIN users u ON u.id = m.user_id
         LEFT JOIN message_reads mr ON mr.message_id = m.id AND mr.user_id = ?
+        LEFT JOIN media_files mf ON mf.message_id = m.id
         WHERE m.room_id = ? AND m.id < ?
         ORDER BY m.id DESC
         LIMIT ?
@@ -30,16 +32,60 @@ module.exports = function (fastify) {
     } else {
       rows = db.prepare(`
         SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
-               CASE WHEN mr.user_id IS NULL THEN 0 ELSE 1 END AS is_read
+               CASE WHEN mr.user_id IS NULL THEN 0 ELSE 1 END AS is_read,
+               mf.id as media_id, mf.original_name, mf.encrypted_filename, mf.mime_type, mf.file_size
         FROM messages m
         JOIN users u ON u.id = m.user_id
         LEFT JOIN message_reads mr ON mr.message_id = m.id AND mr.user_id = ?
+        LEFT JOIN media_files mf ON mf.message_id = m.id
         WHERE m.room_id = ?
         ORDER BY m.id DESC
         LIMIT ?
       `).all(userId, roomId, limit);
     }
     rows.reverse();
+
+    // Group messages with their media files
+    const groupedRows = [];
+    for (let i = 0; i < rows.length; i++) {
+      const current = rows[i];
+      
+      // If this is the first occurrence of the message
+      if (i === 0 || current.id !== (groupedRows[groupedRows.length - 1]?.id)) {
+        // Add message with potentially empty media array
+        const messageWithMedia = {
+          ...current,
+          media: current.media_id ? [{
+            id: current.media_id,
+            original_name: current.original_name,
+            encrypted_filename: current.encrypted_filename,
+            mime_type: current.mime_type,
+            file_size: current.file_size
+          }] : []
+        };
+        
+        // Remove media-specific properties to avoid duplication
+        delete messageWithMedia.media_id;
+        delete messageWithMedia.original_name;
+        delete messageWithMedia.encrypted_filename;
+        delete messageWithMedia.mime_type;
+        delete messageWithMedia.file_size;
+        
+        groupedRows.push(messageWithMedia);
+      } else {
+        // Add media to the existing message
+        const lastMessage = groupedRows[groupedRows.length - 1];
+        if (current.media_id) {
+          lastMessage.media.push({
+            id: current.media_id,
+            original_name: current.original_name,
+            encrypted_filename: current.encrypted_filename,
+            mime_type: current.mime_type,
+            file_size: current.file_size
+          });
+        }
+      }
+    }
 
     const firstUnreadRow = db.prepare(`
       SELECT MIN(m.id) as first_unread_id
@@ -50,30 +96,69 @@ module.exports = function (fastify) {
 
     const first_unread_message_id = firstUnreadRow ? firstUnreadRow.first_unread_id : null;
 
-    return { messages: rows, first_unread_message_id };
+    return { messages: groupedRows, first_unread_message_id };
   });
 
   fastify.post('/api/rooms/:roomId/messages', {
     preHandler: [fastify.requireAuth],
   }, async (request, reply) => {
     const roomId = Number(request.params.roomId);
-    const { body } = request.body || {};
-    if (!body || !String(body).trim()) {
-      return reply.code(400).send({ error: 'Message body required' });
+    const { body, media_ids } = request.body || {};
+    
+    // Either body or media_ids must be present
+    if ((!body || !String(body).trim()) && (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0)) {
+      return reply.code(400).send({ error: 'Message body or media files required' });
     }
 
     const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(roomId);
     if (!room) return reply.code(404).send({ error: 'Room not found' });
 
+    // Insert the message
     const result = db.prepare(
       'INSERT INTO messages (room_id, user_id, body) VALUES (?, ?, ?)'
-    ).run(roomId, request.session.userId, String(body).trim());
+    ).run(roomId, request.session.userId, String(body || '').trim());
+    
+    const messageId = result.lastInsertRowid;
+    
+    // If media IDs were provided, link them to the message
+    if (media_ids && Array.isArray(media_ids) && media_ids.length > 0) {
+      const placeholders = media_ids.map(() => '?').join(',');
+      db.prepare(`
+        UPDATE media_files 
+        SET message_id = ? 
+        WHERE id IN (${placeholders}) AND uploaded_by = ?
+      `).run(messageId, ...media_ids, request.session.userId);
+    }
+    
+    // Get the created message with media
     const msg = db.prepare(`
-      SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login
+      SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
+             mf.id as media_id, mf.original_name, mf.encrypted_filename, mf.mime_type, mf.file_size
       FROM messages m
       JOIN users u ON u.id = m.user_id
+      LEFT JOIN media_files mf ON mf.message_id = m.id
       WHERE m.id = ?
-    `).get(result.lastInsertRowid);
+    `).get(messageId);
+
+    // Get all media files for this message
+    const mediaFiles = db.prepare(`
+      SELECT id, original_name, encrypted_filename, mime_type, file_size
+      FROM media_files
+      WHERE message_id = ?
+    `).all(messageId);
+
+    // Create final message object with all media files
+    const fullMessage = {
+      ...msg,
+      media: mediaFiles
+    };
+    
+    // Remove media-specific properties from the base message
+    delete fullMessage.media_id;
+    delete fullMessage.original_name;
+    delete fullMessage.encrypted_filename;
+    delete fullMessage.mime_type;
+    delete fullMessage.file_size;
 
     // Mark author's own message as read for them
     try {
@@ -88,13 +173,13 @@ module.exports = function (fastify) {
     }
 
     if (process.env.DEBUG_MODE === 'true') {
-      fastify.log.info(`About to broadcast new message to room ${roomId}:`, msg);
+      fastify.log.info(`About to broadcast new message to room ${roomId}:`, fullMessage);
     }
     if (fastify.broadcastRoom) {
       if (process.env.DEBUG_MODE === 'true') {
         fastify.log.info(`Calling broadcastRoom for room ${roomId}`);
       }
-      fastify.broadcastRoom(roomId, { type: 'message', message: msg });
+      fastify.broadcastRoom(roomId, { type: 'message', message: fullMessage });
       if (process.env.DEBUG_MODE === 'true') {
         fastify.log.info(`Called broadcastRoom for room ${roomId}`);
       }
@@ -105,20 +190,20 @@ module.exports = function (fastify) {
     }
     // Additionally broadcast lightweight notification about new message to all clients
     if (fastify.broadcastAll) {
-      const previewBody = String(msg.body || '');
+      const previewBody = String(fullMessage.body || '');
       const preview =
         previewBody.length > 120 ? `${previewBody.slice(0, 117)}...` : previewBody;
       fastify.broadcastAll({
         type: 'room_message',
         roomId,
-        messageId: msg.id,
-        userId: msg.user_id,
-        login: msg.login,
+        messageId: fullMessage.id,
+        userId: fullMessage.user_id,
+        login: fullMessage.login,
         preview,
-        created_at: msg.created_at,
+        created_at: fullMessage.created_at,
       });
     }
-    return msg;
+    return fullMessage;
   });
 
   // Endpoint to mark messages in a room as read up to a certain message
@@ -213,23 +298,45 @@ module.exports = function (fastify) {
       WHERE id = ?
     `).run(String(body).trim(), messageId);
 
-    // Get updated message
+    // Get updated message with media
     const updatedMsg = db.prepare(`
-      SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login
+      SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
+             mf.id as media_id, mf.original_name, mf.encrypted_filename, mf.mime_type, mf.file_size
       FROM messages m
       JOIN users u ON u.id = m.user_id
+      LEFT JOIN media_files mf ON mf.message_id = m.id
       WHERE m.id = ?
     `).get(messageId);
 
+    // Get all media files for this message
+    const mediaFiles = db.prepare(`
+      SELECT id, original_name, encrypted_filename, mime_type, file_size
+      FROM media_files
+      WHERE message_id = ?
+    `).all(messageId);
+
+    // Create final message object with all media files
+    const fullUpdatedMessage = {
+      ...updatedMsg,
+      media: mediaFiles
+    };
+    
+    // Remove media-specific properties from the base message
+    delete fullUpdatedMessage.media_id;
+    delete fullUpdatedMessage.original_name;
+    delete fullUpdatedMessage.encrypted_filename;
+    delete fullUpdatedMessage.mime_type;
+    delete fullUpdatedMessage.file_size;
+
     // Broadcast update to all room participants
     if (process.env.DEBUG_MODE === 'true') {
-      fastify.log.info(`About to broadcast message update to room ${roomId}:`, updatedMsg);
+      fastify.log.info(`About to broadcast message update to room ${roomId}:`, fullUpdatedMessage);
     }
     if (fastify.broadcastRoom) {
       if (process.env.DEBUG_MODE === 'true') {
         fastify.log.info(`Calling broadcastRoom for message update in room ${roomId}`);
       }
-      fastify.broadcastRoom(roomId, { type: 'message_updated', message: updatedMsg });
+      fastify.broadcastRoom(roomId, { type: 'message_updated', message: fullUpdatedMessage });
       if (process.env.DEBUG_MODE === 'true') {
         fastify.log.info(`Called broadcastRoom for message update in room ${roomId}`);
       }
@@ -239,7 +346,7 @@ module.exports = function (fastify) {
       }
     }
 
-    return updatedMsg;
+    return fullUpdatedMessage;
   });
 
   // Endpoint to delete a message
@@ -276,8 +383,37 @@ module.exports = function (fastify) {
       return reply.code(403).send({ error: 'Cannot delete another user\'s message' });
     }
 
-    // Delete the message
+    // Get message with media files before deletion
+    const messageWithMedia = db.prepare(`
+      SELECT m.id, m.room_id, m.user_id, m.body, u.login,
+             mf.encrypted_filename
+      FROM messages m
+      JOIN users u ON u.id = m.user_id
+      LEFT JOIN media_files mf ON mf.message_id = m.id
+      WHERE m.id = ?
+    `).get(messageId);
+
+    // Get media files to clean up
+    const mediaFiles = db.prepare(`
+      SELECT encrypted_filename
+      FROM media_files
+      WHERE message_id = ?
+    `).all(messageId);
+
+    // Delete the message (this will also delete related media_files entries due to CASCADE)
     db.prepare('DELETE FROM messages WHERE id = ?').run(messageId);
+
+    // Delete actual media files from filesystem
+    for (const mediaFile of mediaFiles) {
+      const filePath = require('path').join(__dirname, '../data/media', mediaFile.encrypted_filename);
+      if (require('fs').existsSync(filePath)) {
+        try {
+          require('fs').unlinkSync(filePath);
+        } catch (e) {
+          fastify.log.error(`Failed to delete media file ${filePath}:`, e);
+        }
+      }
+    }
 
     if (process.env.DEBUG_MODE === 'true') {
       fastify.log.info(`About to broadcast message deletion for message ${messageId} in room ${roomId}`);
@@ -344,11 +480,30 @@ module.exports = function (fastify) {
       }
     }
 
+    // Get media files that need to be cleaned up
+    const mediaFilesToDelete = db.prepare(`
+      SELECT mf.encrypted_filename
+      FROM media_files mf
+      WHERE mf.message_id IN (${placeholders})
+    `).all(messageIds);
+
     // Delete the messages using proper parameter binding
     try {
       const deleteQuery = `DELETE FROM messages WHERE id IN (${placeholders}) AND room_id = ?`;
       const deleteStmt = db.prepare(deleteQuery);
       const result = deleteStmt.run([...messageIds, roomId]); // Pass array of values to bind to placeholders
+      
+      // Delete actual media files from filesystem
+      for (const mediaFile of mediaFilesToDelete) {
+        const filePath = require('path').join(__dirname, '../data/media', mediaFile.encrypted_filename);
+        if (require('fs').existsSync(filePath)) {
+          try {
+            require('fs').unlinkSync(filePath);
+          } catch (e) {
+            fastify.log.error(`Failed to delete media file ${filePath}:`, e);
+          }
+        }
+      }
       
       // Broadcast deletion to all room participants
       if (fastify.broadcastRoom) {
@@ -362,10 +517,3 @@ module.exports = function (fastify) {
     }
   });
 };
-
-// Helper function to check if user is owner or moderator
-if (!module.parent) {
-  module.exports.plugin = require('fastify-plugin')(module.exports, {
-    name: 'messages',
-  });
-}

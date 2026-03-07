@@ -91,13 +91,26 @@ function createDb(dbPath) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
-
+    
+    CREATE TABLE IF NOT EXISTS media_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+      original_name TEXT NOT NULL,
+      encrypted_filename TEXT NOT NULL UNIQUE,
+      mime_type TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      uploaded_by INTEGER NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages(room_id);
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(room_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_updated_at ON messages(updated_at);
     CREATE INDEX IF NOT EXISTS idx_message_reads_user_id ON message_reads(user_id);
+    CREATE INDEX IF NOT EXISTS idx_media_files_message_id ON media_files(message_id);
+    CREATE INDEX IF NOT EXISTS idx_media_files_uploaded_by ON media_files(uploaded_by);
   `);
 
   return db;

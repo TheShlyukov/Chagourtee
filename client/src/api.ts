@@ -21,6 +21,14 @@ export type Room = {
   unread_count?: number;
 };
 
+export type MediaFile = {
+  id: number;
+  original_name: string;
+  encrypted_filename: string;
+  mime_type: string;
+  file_size: number;
+};
+
 export type Message = {
   id: number;
   room_id: number;
@@ -30,6 +38,7 @@ export type Message = {
   updated_at?: string; // Optional field for when message was last updated
   login: string;
   is_read?: 0 | 1;
+  media?: MediaFile[]; // Optional array of media files attached to the message
 };
 
 export type MessageListResponse = {
@@ -147,10 +156,10 @@ export const messages = {
       `/api/rooms/${roomId}/messages${q ? `?${q}` : ''}`
     );
   },
-  send: (roomId: number, body: string) =>
+  send: (roomId: number, body: string, media_ids?: number[]) =>
     api<Message>(`/api/rooms/${roomId}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, media_ids }),
     }),
   edit: (messageId: number, roomId: number, body: string) =>
     api<Message>(`/api/rooms/${roomId}/messages/${messageId}`, {
@@ -174,6 +183,29 @@ export const messages = {
         body: JSON.stringify({ lastReadMessageId }),
       }
     ),
+};
+
+export const media = {
+  upload: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return fetch('/api/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    });
+  },
+  
+  getMediaUrl: (filename: string) => {
+    return `/api/media/${filename}`;
+  }
 };
 
 export const invites = {

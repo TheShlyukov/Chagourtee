@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback} from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import type { Room, Message, User, MessageListResponse } from '../api';
-import { rooms as roomsApi, messages as messagesApi, auth as authApi, users } from '../api';
+import { rooms as roomsApi, messages as messagesApi, auth as authApi, users, media } from '../api';
 import { 
   getWebSocket, 
   addMessageHandler, 
@@ -83,6 +83,9 @@ export default function Chat() {
   const [mentionedMessages, setMentionedMessages] = useState<Set<number>>(new Set()); // Track messages where user is mentioned
   const [mentionedRooms, setMentionedRooms] = useState<Set<number>>(new Set()); // Track rooms where user is mentioned
   
+  // State for media uploads
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  
   // Track whether user wants to stay at bottom
   const shouldAutoScrollRef = useRef(true);
   const lastReadMessageIdRef = useRef<Record<number, number>>({});
@@ -99,7 +102,7 @@ export default function Chat() {
   // State to track if we're in the 768-876px range
   const [isTabletInRange, setIsTabletInRange] = useState(
     typeof window !== 'undefined' 
-      ? window.innerWidth >= 768 && window.innerWidth <= 876
+      ? window.matchMedia('(min-width: 768px) and (max-width: 876px)').matches
       : false
   );
 
@@ -125,7 +128,7 @@ export default function Chat() {
   // Update tablet range state when window resizes
   useEffect(() => {
     const handleResize = () => {
-      setIsTabletInRange(window.innerWidth >= 768 && window.innerWidth <= 876);
+      setIsTabletInRange(window.matchMedia('(min-width: 768px) and (max-width: 876px)').matches);
     };
 
     window.addEventListener('resize', handleResize);
@@ -883,13 +886,63 @@ export default function Chat() {
     }
   }, [typingUsers]);
 
+  // Function to handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  // Function to remove a selected file
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Function to upload a single file
+  const uploadFile = async (file: File): Promise<any> => {
+    try {
+      const result = await media.upload(file);
+      return result;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  };
+
+  // Function to upload all selected files
+  const uploadSelectedFiles = async (): Promise<number[]> => {
+    if (selectedFiles.length === 0) return [];
+
+    const uploadPromises = selectedFiles.map(file => uploadFile(file));
+    const results = await Promise.all(uploadPromises);
+    setSelectedFiles([]); // Clear selected files after successful upload
+    
+    return results.map(result => result.id);
+  };
+
+  // Modified handleSend to support both text and media
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!roomId || !sendText.trim()) return;
+    
+    if (!roomId || (!sendText.trim() && selectedFiles.length === 0)) return;
+    
     const text = sendText.trim();
+    const hasFiles = selectedFiles.length > 0;
+    
+    // Prevent sending empty messages when there are no files
+    if (!text && !hasFiles) return;
+    
+    // Temporarily disable input during sending
     setSendText('');
+    
     try {
-      const newMessage = await messagesApi.send(roomId, text);
+      // Upload files if any
+      const mediaIds = hasFiles ? await uploadSelectedFiles() : [];
+      
+      // Send message with or without media
+      const newMessage = await messagesApi.send(roomId, text, mediaIds);
+      
       // Optimistically add the new message so the author sees it immediately
       setMessages((prev) => {
         if (prev.some((m) => m.id === newMessage.id)) {
@@ -898,6 +951,7 @@ export default function Chat() {
         const msgWithRead: Message = { ...newMessage, is_read: 1 };
         return [...prev, msgWithRead];
       });
+      
       playSent();
       
       // Ensure we scroll to the bottom after adding the new message
@@ -1482,7 +1536,7 @@ export default function Chat() {
                               </div>
                             )}
                             <div className="chat-message-body">
-                              <MarkdownMessage content={m.body} />
+                              <MarkdownMessage content={m.body} media={m.media} />
                             </div>
                             
                             {isSelected && (
@@ -1619,6 +1673,23 @@ export default function Chat() {
               )}
               
               <form onSubmit={handleSend} className="chat-form" style={{ display: isSelecting ? 'none' : 'flex' }}>
+                {/* Attachment button */}
+                <div className="attachment-button-wrapper">
+                  <label htmlFor="file-upload" className="attach-button">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19" />
+                    </svg>
+                  </label>
+                  <input 
+                    id="file-upload" 
+                    type="file" 
+                    multiple 
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" 
+                    onChange={handleFileSelect} 
+                    style={{ display: 'none' }} 
+                  />
+                </div>
+                
                 <textarea
                   ref={textareaRef}
                   value={sendText}
@@ -1645,13 +1716,46 @@ export default function Chat() {
                     overflowY: 'hidden' // We control overflow in the function now
                   }}
                 />
-                <button type="submit" disabled={!roomId || !sendText.trim()}>
+                <button type="submit" disabled={!roomId || (!sendText.trim() && selectedFiles.length === 0)}>
                   <span className="send-text">Отправить</span>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               </form>
+              
+              {/* Selected files preview */}
+              {selectedFiles.length > 0 && (
+                <div className="selected-files-preview">
+                  <div className="selected-files-header">
+                    <h4>Выбранные файлы:</h4>
+                    <button 
+                      type="button" 
+                      className="clear-all-files"
+                      onClick={() => setSelectedFiles([])}
+                    >
+                      Очистить все
+                    </button>
+                  </div>
+                  <div className="selected-files-list">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="selected-file-item">
+                        <div className="file-info">
+                          <div className="file-name">{file.name}</div>
+                          <div className="file-size">{(file.size / 1024).toFixed(1)} KB</div>
+                        </div>
+                        <button 
+                          type="button" 
+                          className="remove-file-btn"
+                          onClick={() => removeSelectedFile(index)}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>

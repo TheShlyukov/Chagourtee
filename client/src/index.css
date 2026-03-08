@@ -1195,8 +1195,140 @@ pre[class*="language-"] {
   margin-bottom: 0.5rem;
 }
 
+/* Style for document/file banners in chat */
+.document-banner {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-default);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  max-width: 500px;
+  min-width: 300px;
+}
+
+.document-banner:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.document-banner-header {
+  padding: 0.75rem 1rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.document-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  color: white;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.document-icon svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.document-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-name {
+  font-weight: 600;
+  margin: 0;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-actions {
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--bg);
+  gap: 0.5rem;
+}
+
+.download-button {
+  padding: 0.5rem 1rem;
+  background: var(--accent) !important;
+  color: white !important;
+  border: none;
+  border-radius: var(--radius-default);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none; /* Remove any potential text decoration */
+  font-family: inherit;
+  text-align: center; /* Ensure text is centered */
+}
+
+.download-button:hover {
+  background: var(--accent-hover) !important;
+  color: white !important; /* Explicitly set text color to white on hover */
+}
+
+.download-button:active {
+  transform: scale(0.98);
+}
+
 .chat-back {
   display: none;
+}
+
+@media (max-width: 768px) {
+  .document-banner {
+    max-width: 100%;
+    min-width: auto;
+  }
+  
+  .document-banner-header {
+    padding: 0.6rem 0.8rem;
+  }
+  
+  .document-name {
+    font-size: 0.9rem;
+  }
+  
+  .document-meta {
+    font-size: 0.75rem;
+  }
+  
+  .document-actions {
+    padding: 0.6rem 0.8rem;
+  }
+  
+  .download-button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
 }
 
 @media (max-width: 768px) {

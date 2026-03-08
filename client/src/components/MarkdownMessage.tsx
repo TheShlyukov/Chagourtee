@@ -192,35 +192,41 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content, m
                   </audio>
                 ) : (
                   <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '10px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      backgroundColor: '#f9f9f9'
-                    }}
+                    className="document-banner"
                   >
-                    <div style={{ flex: 1 }}>
-                      <div><strong>{mediaFile.original_name}</strong></div>
-                      <div style={{ fontSize: '0.9em', color: '#666' }}>
-                        {(mediaFile.file_size / 1024).toFixed(1)} KB • {mediaFile.mime_type}
+                    <div className="document-banner-header">
+                      <div className="document-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                          <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                      </div>
+                      <div className="document-info">
+                        <div 
+                          className="document-name"
+                          title={mediaFile.original_name}
+                        >
+                          {mediaFile.original_name}
+                        </div>
+                        <div className="document-meta">
+                          {(mediaFile.file_size / 1024).toFixed(1)} KB • {mediaFile.mime_type.split('/')[1] || mediaFile.mime_type}
+                        </div>
                       </div>
                     </div>
-                    <a
-                      href={`/api/media/${mediaFile.encrypted_filename}`}
-                      download={mediaFile.original_name}
-                      style={{
-                        marginLeft: '10px',
-                        padding: '5px 10px',
-                        backgroundColor: '#007bff',
-                        color: 'white',
-                        textDecoration: 'none',
-                        borderRadius: '4px'
-                      }}
-                    >
-                      Скачать
-                    </a>
+                    <div className="document-actions">
+                      <a
+                        href={`/api/media/${mediaFile.encrypted_filename}`}
+                        download={mediaFile.original_name}
+                        className="download-button"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                          <polyline points="7 10 12 15 17 10"></polyline>
+                          <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Скачать
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>

@@ -999,6 +999,8 @@ pre[class*="language-"] {
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: flex-end; /* Align wrapper to the bottom of the container */
+  padding-top: 0.625rem; /* Add some top padding to align with the send button */
 }
 
 .attach-button {

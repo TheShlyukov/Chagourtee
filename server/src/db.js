@@ -49,6 +49,7 @@ function createDb(dbPath) {
       room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id),
       body TEXT NOT NULL,
+      media_position TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT
     );
@@ -118,12 +119,12 @@ function createDb(dbPath) {
 
   // Ensure new media_files columns exist on older databases
   try {
-    const columns = db
+    const mediaColumns = db
       .prepare('PRAGMA table_info(media_files)')
       .all()
       .map((c) => c.name);
 
-    const requiredColumns = [
+    const mediaRequiredColumns = [
       {
         name: 'transcoded_filename',
         ddl: 'ALTER TABLE media_files ADD COLUMN transcoded_filename TEXT',
@@ -138,13 +139,27 @@ function createDb(dbPath) {
       },
     ];
 
-    for (const col of requiredColumns) {
-      if (!columns.includes(col.name)) {
+    for (const col of mediaRequiredColumns) {
+      if (!mediaColumns.includes(col.name)) {
         db.exec(col.ddl);
       }
     }
   } catch (e) {
     console.error('Failed to ensure media_files schema is up to date:', e);
+  }
+
+  // Ensure new messages columns exist on older databases
+  try {
+    const messageColumns = db
+      .prepare('PRAGMA table_info(messages)')
+      .all()
+      .map((c) => c.name);
+
+    if (!messageColumns.includes('media_position')) {
+      db.exec('ALTER TABLE messages ADD COLUMN media_position TEXT');
+    }
+  } catch (e) {
+    console.error('Failed to ensure messages schema is up to date:', e);
   }
 
   return db;

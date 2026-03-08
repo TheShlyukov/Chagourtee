@@ -18,7 +18,7 @@ module.exports = function (fastify) {
     let rows;
     if (before) {
       rows = db.prepare(`
-        SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
+        SELECT m.id, m.room_id, m.user_id, m.body, m.media_position as mediaPosition, m.created_at, m.updated_at, u.login,
                CASE WHEN mr.user_id IS NULL THEN 0 ELSE 1 END AS is_read,
                mf.id as media_id, mf.original_name, mf.encrypted_filename, mf.mime_type, mf.file_size
         FROM messages m
@@ -31,7 +31,7 @@ module.exports = function (fastify) {
       `).all(userId, roomId, before, limit);
     } else {
       rows = db.prepare(`
-        SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
+        SELECT m.id, m.room_id, m.user_id, m.body, m.media_position as mediaPosition, m.created_at, m.updated_at, u.login,
                CASE WHEN mr.user_id IS NULL THEN 0 ELSE 1 END AS is_read,
                mf.id as media_id, mf.original_name, mf.encrypted_filename, mf.mime_type, mf.file_size
         FROM messages m
@@ -103,7 +103,7 @@ module.exports = function (fastify) {
     preHandler: [fastify.requireAuth],
   }, async (request, reply) => {
     const roomId = Number(request.params.roomId);
-    const { body, media_ids } = request.body || {};
+    const { body, media_ids, mediaPosition } = request.body || {};
     
     // Either body or media_ids must be present
     if ((!body || !String(body).trim()) && (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0)) {
@@ -115,8 +115,13 @@ module.exports = function (fastify) {
 
     // Insert the message
     const result = db.prepare(
-      'INSERT INTO messages (room_id, user_id, body) VALUES (?, ?, ?)'
-    ).run(roomId, request.session.userId, String(body || '').trim());
+      'INSERT INTO messages (room_id, user_id, body, media_position) VALUES (?, ?, ?, ?)'
+    ).run(
+      roomId,
+      request.session.userId,
+      String(body || '').trim(),
+      mediaPosition === 'above' || mediaPosition === 'below' ? mediaPosition : null
+    );
     
     const messageId = result.lastInsertRowid;
     
@@ -132,7 +137,7 @@ module.exports = function (fastify) {
     
     // Get the created message with media
     const msg = db.prepare(`
-      SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
+      SELECT m.id, m.room_id, m.user_id, m.body, m.media_position as mediaPosition, m.created_at, m.updated_at, u.login,
              mf.id as media_id, mf.original_name, mf.encrypted_filename, mf.mime_type, mf.file_size
       FROM messages m
       JOIN users u ON u.id = m.user_id
@@ -300,7 +305,7 @@ module.exports = function (fastify) {
 
     // Get updated message with media
     const updatedMsg = db.prepare(`
-      SELECT m.id, m.room_id, m.user_id, m.body, m.created_at, m.updated_at, u.login,
+      SELECT m.id, m.room_id, m.user_id, m.body, m.media_position as mediaPosition, m.created_at, m.updated_at, u.login,
              mf.id as media_id, mf.original_name, mf.encrypted_filename, mf.mime_type, mf.file_size
       FROM messages m
       JOIN users u ON u.id = m.user_id

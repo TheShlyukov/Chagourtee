@@ -85,6 +85,8 @@ export default function Chat() {
   
   // State for media uploads
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  // State for per-message media position (above or below text)
+  const [mediaPositionDraft, setMediaPositionDraft] = useState<'above' | 'below'>('below');
   
   // Track whether user wants to stay at bottom
   const shouldAutoScrollRef = useRef(true);
@@ -933,15 +935,14 @@ export default function Chat() {
     // Prevent sending empty messages when there are no files
     if (!text && !hasFiles) return;
     
-    // Temporarily disable input during sending
-    setSendText('');
-    
     try {
+      // Temporarily clear text so UI feels responsive
+      setSendText('');
       // Upload files if any
       const mediaIds = hasFiles ? await uploadSelectedFiles() : [];
       
-      // Send message with or without media
-      const newMessage = await messagesApi.send(roomId, text, mediaIds);
+      // Send message with or without media and chosen media position
+      const newMessage = await messagesApi.send(roomId, text, mediaIds, mediaPositionDraft);
       
       // Optimistically add the new message so the author sees it immediately
       setMessages((prev) => {
@@ -1536,7 +1537,11 @@ export default function Chat() {
                               </div>
                             )}
                             <div className="chat-message-body">
-                              <MarkdownMessage content={m.body} media={m.media} />
+                              <MarkdownMessage
+                                content={m.body}
+                                media={m.media}
+                                mediaPosition={m.mediaPosition ?? 'below'}
+                              />
                             </div>
                             
                             {isSelected && (
@@ -1675,6 +1680,26 @@ export default function Chat() {
               {/* Selected files preview - moved above the form */}
               {selectedFiles.length > 0 && (
                 <div className="selected-files-preview">
+                  {/* Media position toggle */}
+                  <div className="media-position-toggle">
+                    <button
+                      type="button"
+                      className={`media-position-button ${mediaPositionDraft === 'above' ? 'active' : ''}`}
+                      onClick={() => setMediaPositionDraft('above')}
+                      title="Показывать медиа над текстом сообщения"
+                    >
+                      Медиа сверху
+                    </button>
+                    <button
+                      type="button"
+                      className={`media-position-button ${mediaPositionDraft === 'below' ? 'active' : ''}`}
+                      onClick={() => setMediaPositionDraft('below')}
+                      title="Показывать медиа под текстом сообщения"
+                    >
+                      Медиа снизу
+                    </button>
+                  </div>
+                  
                   <div className="selected-files-header">
                     <h4>Выбранные файлы:</h4>
                     <button 

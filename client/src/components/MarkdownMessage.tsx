@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -7,6 +7,9 @@ import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { MediaFile } from '../api';
+import AudioPlayer from './AudioPlayer';
+import VideoPlayer from './VideoPlayer';
+import MediaViewer from './MediaViewer';
 
 // Импортируем KaTeX CSS
 import 'katex/dist/katex.min.css';
@@ -14,11 +17,16 @@ import 'katex/dist/katex.min.css';
 interface MarkdownMessageProps {
   content: string;
   media?: MediaFile[];
+  mediaPosition?: 'above' | 'below';
 }
 
-const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content, media }) => {
-  return (
-    <div className="markdown-container">
+const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
+  ({ content, media, mediaPosition = 'below' }) => {
+    const [viewerState, setViewerState] = useState<{
+      file: MediaFile;
+      mode: 'image' | 'video';
+    } | null>(null);
+    const markdownElement = (
       <ReactMarkdown
         children={content}
         remarkPlugins={[remarkGfm, remarkMath]}
@@ -140,15 +148,16 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content, m
           )
         }}
       />
-      
-      {/* Render media files if any */}
-      {media && media.length > 0 && (
+    );
+
+    const mediaElement =
+      media && media.length > 0 ? (
         <div className="media-container" style={{ marginTop: '10px' }}>
           {media.map((mediaFile) => {
             const isImage = mediaFile.mime_type.startsWith('image/');
             const isVideo = mediaFile.mime_type.startsWith('video/');
             const isAudio = mediaFile.mime_type.startsWith('audio/');
-            
+
             return (
               <div key={mediaFile.id} className="media-item" style={{ marginBottom: '10px' }}>
                 {isImage ? (
@@ -159,57 +168,45 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content, m
                       maxWidth: '100%',
                       maxHeight: '300px',
                       borderRadius: '4px',
-                      objectFit: 'contain'
+                      objectFit: 'contain',
+                      cursor: 'zoom-in',
                     }}
+                    onClick={() =>
+                      setViewerState({ file: mediaFile, mode: 'image' })
+                    }
                   />
                 ) : isVideo ? (
-                  <video
-                    controls
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '400px',
-                      borderRadius: '4px'
-                    }}
-                  >
-                    <source
-                      src={`/api/media/${mediaFile.encrypted_filename}`}
-                      type={mediaFile.mime_type}
-                    />
-                    Your browser does not support the video tag.
-                  </video>
+                  <VideoPlayer
+                    file={mediaFile}
+                    onOpenFullscreen={() =>
+                      setViewerState({ file: mediaFile, mode: 'video' })
+                    }
+                  />
                 ) : isAudio ? (
-                  <audio
-                    controls
-                    style={{
-                      width: '100%'
-                    }}
-                  >
-                    <source
-                      src={`/api/media/${mediaFile.encrypted_filename}`}
-                      type={mediaFile.mime_type}
-                    />
-                    Your browser does not support the audio element.
-                  </audio>
+                  <AudioPlayer file={mediaFile} />
                 ) : (
-                  <div
-                    className="document-banner"
-                  >
+                  <div className="document-banner">
                     <div className="document-banner-header">
                       <div className="document-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
                           <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
                           <polyline points="14 2 14 8 20 8"></polyline>
                         </svg>
                       </div>
                       <div className="document-info">
-                        <div 
-                          className="document-name"
-                          title={mediaFile.original_name}
-                        >
+                        <div className="document-name" title={mediaFile.original_name}>
                           {mediaFile.original_name}
                         </div>
                         <div className="document-meta">
-                          {(mediaFile.file_size / 1024).toFixed(1)} KB • {mediaFile.mime_type.split('/')[1] || mediaFile.mime_type}
+                          {(mediaFile.file_size / 1024).toFixed(1)} KB •{' '}
+                          {mediaFile.mime_type.split('/')[1] || mediaFile.mime_type}
                         </div>
                       </div>
                     </div>
@@ -219,7 +216,14 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content, m
                         download={mediaFile.original_name}
                         className="download-button"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                           <polyline points="7 10 12 15 17 10"></polyline>
                           <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -233,9 +237,23 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(({ content, m
             );
           })}
         </div>
-      )}
-    </div>
-  );
-});
+      ) : null;
+
+    return (
+      <div className="markdown-container">
+        {mediaPosition === 'above' && mediaElement}
+        {markdownElement}
+        {mediaPosition !== 'above' && mediaElement}
+        {viewerState && (
+          <MediaViewer
+            file={viewerState.file}
+            mode={viewerState.mode}
+            onClose={() => setViewerState(null)}
+          />
+        )}
+      </div>
+    );
+  }
+);
 
 export default MarkdownMessage;

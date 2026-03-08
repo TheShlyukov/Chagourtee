@@ -34,6 +34,7 @@ export type Message = {
   room_id: number;
   user_id: number;
   body: string;
+  mediaPosition?: 'above' | 'below';
   created_at: string;
   updated_at?: string; // Optional field for when message was last updated
   login: string;
@@ -156,10 +157,10 @@ export const messages = {
       `/api/rooms/${roomId}/messages${q ? `?${q}` : ''}`
     );
   },
-  send: (roomId: number, body: string, media_ids?: number[]) =>
+  send: (roomId: number, body: string, media_ids?: number[], mediaPosition?: 'above' | 'below') =>
     api<Message>(`/api/rooms/${roomId}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ body, media_ids }),
+      body: JSON.stringify({ body, media_ids, mediaPosition }),
     }),
   edit: (messageId: number, roomId: number, body: string) =>
     api<Message>(`/api/rooms/${roomId}/messages/${messageId}`, {

@@ -1350,7 +1350,6 @@ pre[class*="language-"] {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.75rem;
-  max-width: fit-content;
 }
 
 .media-player-video-wrapper {

@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import type { MediaFile } from '../api';
 import { media as mediaApi } from '../api';
 
@@ -6,7 +6,6 @@ type VideoPlayerProps = {
   file: MediaFile;
   src?: string;
   onOpenFullscreen?: () => void;
-  showDownloadButton?: boolean;
 };
 
 function formatSize(bytes: number): string {
@@ -21,13 +20,34 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   file,
   src,
   onOpenFullscreen,
-  showDownloadButton = true,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-
+  const [duration, setDuration] = useState<string>('0:00');
+  const [isHovering, setIsHovering] = useState(false);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
 
   const finalSrc = src ?? mediaApi.getMediaUrl(file.encrypted_filename);
 
+  // Get video duration when metadata loads
+  useEffect(() => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = finalSrc;
+    const handleLoadedMetadata = () => {
+      const minutes = Math.floor(video.duration / 60);
+      const seconds = Math.floor(video.duration % 60);
+      setDuration(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [finalSrc]);
+
+  // Handle video loaded event
+  const handleVideoLoad = () => {
+    setIsVideoLoaded(true);
+  };
 
   // Toggle fullscreen when clicking the video
   const handleVideoClick = useCallback(() => {
@@ -48,34 +68,80 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [onOpenFullscreen]);
 
   return (
-    <div className="media-player video-player">
-      <div className="media-player-video-wrapper">
-        <video
-          ref={videoRef}
-          src={finalSrc}
+    <div 
+      className="video-thumbnail-container"
+      style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      <video
+        ref={videoRef}
+        src={finalSrc}
+        onClick={handleVideoClick}
+        controls={false}
+        className="video-thumbnail-element"
+        style={{ 
+          maxWidth: '100%', 
+          maxHeight: '300px', 
+          borderRadius: '4px', 
+          objectFit: 'cover',
+          cursor: 'pointer'
+        }}
+        onLoadedMetadata={handleVideoLoad}
+      />
+      <div 
+        className="video-overlay" 
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: isHovering || !isVideoLoaded ? 1 : 0.2,  // Show when hovering or initially loading
+          transition: 'opacity 0.2s ease',
+          borderRadius: '4px',
+          pointerEvents: 'none'  // Allow clicks to pass through when not hovering over the play button
+        }}
+      >
+        <div 
+          className="play-button" 
+          style={{
+            width: '60px',
+            height: '60px',
+            borderRadius: '50%',
+            background: 'rgba(255,123,0,0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            pointerEvents: 'all'  // Enable interactions with the play button itself
+          }}
           onClick={handleVideoClick}
-          controls={false} // Show native video controls only in fullscreen
-          className="media-player-video"
-        />
+          aria-label="Play video"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </div>
       </div>
-      <div className="media-player-meta">
-        <div className="media-player-title" title={file.original_name}>
-          {file.original_name}
-        </div>
-        <div className="media-player-sub">
-          {formatSize(file.file_size) && <span>{formatSize(file.file_size)}</span>}
-        </div>
-        <div className="media-player-actions">
-          {showDownloadButton && (
-            <a
-              href={finalSrc}
-              download={file.original_name}
-              className="download-button media-download-button"
-            >
-              Скачать
-            </a>
-          )}
-        </div>
+      <div 
+        className="video-duration" 
+        style={{
+          position: 'absolute',
+          bottom: '8px',
+          right: '8px',
+          background: 'rgba(0,0,0,0.7)',
+          color: 'white',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '12px',
+        }}
+      >
+        {duration} • {formatSize(file.file_size)}
       </div>
     </div>
   );

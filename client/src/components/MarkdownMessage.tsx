@@ -181,7 +181,9 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
                     onOpenFullscreen={() =>
                       setViewerState({ file: mediaFile, mode: 'video' })
                     }
+                    showDownloadButton={false}
                   />
+
                 ) : isAudio ? (
                   <AudioPlayer file={mediaFile} />
                 ) : (

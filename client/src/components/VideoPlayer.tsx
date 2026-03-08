@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useCallback } from 'react';
 import type { MediaFile } from '../api';
 import { media as mediaApi } from '../api';
 
@@ -24,15 +24,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   showDownloadButton = true,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [duration, setDuration] = useState<number | null>(null);
+
 
   const finalSrc = src ?? mediaApi.getMediaUrl(file.encrypted_filename);
 
-  const handleLoadedMetadata = useCallback(() => {
-    if (videoRef.current && Number.isFinite(videoRef.current.duration)) {
-      setDuration(videoRef.current.duration);
-    }
-  }, []);
 
   // Toggle fullscreen when clicking the video
   const handleVideoClick = useCallback(() => {
@@ -58,7 +53,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <video
           ref={videoRef}
           src={finalSrc}
-          onLoadedMetadata={handleLoadedMetadata}
           onClick={handleVideoClick}
           controls={false} // Show native video controls only in fullscreen
           style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px', cursor: 'pointer' }}
@@ -70,11 +64,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
         <div className="media-player-sub">
           {formatSize(file.file_size) && <span>{formatSize(file.file_size)}</span>}
-          {duration != null && (
-            <span>
-              {formatSize(file.file_size)}
-            </span>
-          )}
         </div>
         <div className="media-player-actions">
           {showDownloadButton && (

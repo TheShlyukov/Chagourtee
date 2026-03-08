@@ -395,7 +395,7 @@ module.exports = function (fastify) {
 
     // Get media files to clean up
     const mediaFiles = db.prepare(`
-      SELECT encrypted_filename
+      SELECT encrypted_filename, transcoded_filename
       FROM media_files
       WHERE message_id = ?
     `).all(messageId);
@@ -405,12 +405,29 @@ module.exports = function (fastify) {
 
     // Delete actual media files from filesystem
     for (const mediaFile of mediaFiles) {
-      const filePath = require('path').join(__dirname, '../data/media', mediaFile.encrypted_filename);
-      if (require('fs').existsSync(filePath)) {
+      const baseDir = require('path').join(__dirname, '../data/media');
+      const fs = require('fs');
+
+      const originalPath = require('path').join(baseDir, mediaFile.encrypted_filename);
+      if (fs.existsSync(originalPath)) {
         try {
-          require('fs').unlinkSync(filePath);
+          fs.unlinkSync(originalPath);
         } catch (e) {
-          fastify.log.error(`Failed to delete media file ${filePath}:`, e);
+          fastify.log.error(`Failed to delete media file ${originalPath}:`, e);
+        }
+      }
+
+      if (mediaFile.transcoded_filename) {
+        const transcodedPath = require('path').join(baseDir, mediaFile.transcoded_filename);
+        if (fs.existsSync(transcodedPath)) {
+          try {
+            fs.unlinkSync(transcodedPath);
+          } catch (e) {
+            fastify.log.error(
+              `Failed to delete transcoded media file ${transcodedPath}:`,
+              e
+            );
+          }
         }
       }
     }
@@ -482,7 +499,7 @@ module.exports = function (fastify) {
 
     // Get media files that need to be cleaned up
     const mediaFilesToDelete = db.prepare(`
-      SELECT mf.encrypted_filename
+      SELECT mf.encrypted_filename, mf.transcoded_filename
       FROM media_files mf
       WHERE mf.message_id IN (${placeholders})
     `).all(messageIds);
@@ -495,12 +512,29 @@ module.exports = function (fastify) {
       
       // Delete actual media files from filesystem
       for (const mediaFile of mediaFilesToDelete) {
-        const filePath = require('path').join(__dirname, '../data/media', mediaFile.encrypted_filename);
-        if (require('fs').existsSync(filePath)) {
+        const baseDir = require('path').join(__dirname, '../data/media');
+        const fs = require('fs');
+
+        const originalPath = require('path').join(baseDir, mediaFile.encrypted_filename);
+        if (fs.existsSync(originalPath)) {
           try {
-            require('fs').unlinkSync(filePath);
+            fs.unlinkSync(originalPath);
           } catch (e) {
-            fastify.log.error(`Failed to delete media file ${filePath}:`, e);
+            fastify.log.error(`Failed to delete media file ${originalPath}:`, e);
+          }
+        }
+
+        if (mediaFile.transcoded_filename) {
+          const transcodedPath = require('path').join(baseDir, mediaFile.transcoded_filename);
+          if (fs.existsSync(transcodedPath)) {
+            try {
+              fs.unlinkSync(transcodedPath);
+            } catch (e) {
+              fastify.log.error(
+                `Failed to delete transcoded media file ${transcodedPath}:`,
+                e
+              );
+            }
           }
         }
       }

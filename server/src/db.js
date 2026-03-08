@@ -100,7 +100,10 @@ function createDb(dbPath) {
       mime_type TEXT NOT NULL,
       file_size INTEGER NOT NULL,
       uploaded_by INTEGER NOT NULL REFERENCES users(id),
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      transcoded_filename TEXT,
+      transcoded_mime_type TEXT,
+      transcoded_created_at INTEGER
     );
     
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
@@ -112,6 +115,37 @@ function createDb(dbPath) {
     CREATE INDEX IF NOT EXISTS idx_media_files_message_id ON media_files(message_id);
     CREATE INDEX IF NOT EXISTS idx_media_files_uploaded_by ON media_files(uploaded_by);
   `);
+
+  // Ensure new media_files columns exist on older databases
+  try {
+    const columns = db
+      .prepare('PRAGMA table_info(media_files)')
+      .all()
+      .map((c) => c.name);
+
+    const requiredColumns = [
+      {
+        name: 'transcoded_filename',
+        ddl: 'ALTER TABLE media_files ADD COLUMN transcoded_filename TEXT',
+      },
+      {
+        name: 'transcoded_mime_type',
+        ddl: 'ALTER TABLE media_files ADD COLUMN transcoded_mime_type TEXT',
+      },
+      {
+        name: 'transcoded_created_at',
+        ddl: 'ALTER TABLE media_files ADD COLUMN transcoded_created_at INTEGER',
+      },
+    ];
+
+    for (const col of requiredColumns) {
+      if (!columns.includes(col.name)) {
+        db.exec(col.ddl);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to ensure media_files schema is up to date:', e);
+  }
 
   return db;
 }

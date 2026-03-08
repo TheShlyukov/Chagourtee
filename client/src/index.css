@@ -1309,7 +1309,7 @@ pre[class*="language-"] {
   cursor: pointer;
   font-weight: 500;
   transition: background 0.2s ease;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   text-decoration: none; /* Remove any potential text decoration */

@@ -18,6 +18,8 @@ import Marquee from '../components/Marquee'; // Import Marquee component
 import { playIncoming, playMention, playSent } from '../sounds';
 import { ensureNotificationPermission, showMessageNotification } from '../notifications';
 import { useUserListPanel } from '../UserListPanelContext';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 type TypingUser = {
   userId: number;
@@ -1289,6 +1291,46 @@ export default function Chat() {
       }
     }
   };
+  
+  // Function to download all media files from a message as a ZIP archive
+  const downloadAllMediaFromMessage = async (message: Message) => {
+    if (!message.media || message.media.length === 0) {
+      console.log("Сообщение не содержит медиафайлов");
+      return;
+    }
+    
+    try {
+      const zip = new JSZip();
+      const promises: Promise<void>[] = [];
+      
+      message.media.forEach(mediaFile => {
+        const promise = fetch(`/api/media/${mediaFile.encrypted_filename}`)
+          .then(response => response.blob())
+          .then(blob => {
+            // Add the file to the ZIP archive with the original filename
+            zip.file(mediaFile.original_name, blob);
+          })
+          .catch(error => {
+            console.error(`Ошибка при загрузке файла ${mediaFile.original_name}:`, error);
+          });
+        
+        promises.push(promise);
+      });
+      
+      // Wait for all files to be downloaded and added to the ZIP
+      await Promise.all(promises);
+      
+      // Generate the ZIP file and trigger the download
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const fileName = `media_${message.id}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.zip`;
+      saveAs(zipBlob, fileName);
+      
+      hideContextMenu();
+    } catch (error) {
+      console.error('Ошибка при создании ZIP-архива:', error);
+      alert('Ошибка при создании ZIP-архива');
+    }
+  };
 
   // Clear selections when room changes
   useEffect(() => {
@@ -1621,6 +1663,20 @@ export default function Chat() {
                   >
                     Копировать
                   </button>
+                  
+                  {/* Кнопка загрузки всех медиафайлов, если они есть в сообщении */}
+                  {contextMenu.message && contextMenu.message.media && contextMenu.message.media.length > 0 && (
+                    <button 
+                      className="context-menu-item"
+                      onClick={() => {
+                        if (contextMenu.message) {
+                          downloadAllMediaFromMessage(contextMenu.message);
+                        }
+                      }}
+                    >
+                      Сохранить всё
+                    </button>
+                  )}
                   
                   {/* Редактировать можно только свои сообщения */}
                   {canEditMessage(contextMenu.message) && (

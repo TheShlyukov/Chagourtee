@@ -1334,11 +1334,19 @@ pre[class*="language-"] {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.75rem;
+  max-width: fit-content;
 }
 
 .media-player-video-wrapper {
   position: relative;
-  width: 100%;
+  width: fit-content;
+}
+
+.video-player video {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .media-player-meta {

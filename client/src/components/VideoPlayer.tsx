@@ -55,7 +55,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           src={finalSrc}
           onClick={handleVideoClick}
           controls={false} // Show native video controls only in fullscreen
-          style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px', cursor: 'pointer' }}
+          className="media-player-video"
         />
       </div>
       <div className="media-player-meta">

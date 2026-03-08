@@ -414,42 +414,49 @@ async function mediaPlugin(fastify, options) {
                 return reply.code(400).send({ error: 'No file uploaded' });
             }
             
-            // Check file type
-            if (!isFileTypeAllowed(data.mimetype, data.filename)) {
+            // Override MIME type for .aif/.aiff to treat as documents
+            let mimeTypeToUse = data.mimetype;
+            const lowerName = data.filename.toLowerCase();
+            if (lowerName.endsWith('.aif') || lowerName.endsWith('.aiff')) {
+                mimeTypeToUse = 'application/octet-stream';
+            }
+
+            // Check file type with potentially overridden MIME type
+            if (!isFileTypeAllowed(mimeTypeToUse, data.filename)) {
                 return reply.code(400).send({ error: 'File type not allowed' });
             }
-            
+
             // Check file size (already limited by multipart config)
             if (data.file.truncated) {
                 return reply.code(400).send({ error: 'File too large' });
             }
-            
+
             // Read file buffer
             const buffer = await data.toBuffer();
-            
+
             // Generate encrypted filename
             const encryptedFilename = generateEncryptedFilename(data.filename);
             const filePath = path.join(MEDIA_DIR, encryptedFilename);
-            
+
             // Get encryption key from environment
             const encryptionKey = process.env.CHAGOURTEE_MEDIA_ENCRYPTION_KEY;
             if (!encryptionKey) {
                 console.error('CHAGOURTEE_MEDIA_ENCRYPTION_KEY is not set!');
                 return reply.code(500).send({ error: 'Encryption key not configured' });
             }
-            
+
             // Convert hex string to buffer
             const keyBuffer = Buffer.from(encryptionKey, 'hex');
-            
+
             if (keyBuffer.length !== 32) {
                 console.error('CHAGOURTEE_MEDIA_ENCRYPTION_KEY must be 32 bytes for AES-256 (64 hex characters)');
                 return reply.code(500).send({ error: 'Invalid encryption key configuration' });
             }
-            
+
             // Encrypt and save file
             const encryptedBuffer = encryptFile(buffer, keyBuffer);
             fs.writeFileSync(filePath, encryptedBuffer);
-            
+
             // Save metadata to database
             const db = fastify.db;
             const stmt = db.prepare(`
@@ -465,17 +472,17 @@ async function mediaPlugin(fastify, options) {
             const result = stmt.run(
                 data.filename,
                 encryptedFilename,
-                data.mimetype,
+                mimeTypeToUse,
                 buffer.length,
                 req.user.id
             );
-            
+
             // Return file info
             reply.send({
                 id: result.lastInsertRowid,
                 original_name: data.filename,
                 encrypted_filename: encryptedFilename,
-                mime_type: data.mimetype,
+                mime_type: mimeTypeToUse,
                 file_size: buffer.length
             });
         } catch (error) {

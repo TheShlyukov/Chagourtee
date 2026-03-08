@@ -87,6 +87,8 @@ export default function Chat() {
   
   // State for media uploads
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
+
   // State for per-message media position (above or below text)
   const [mediaPositionDraft, setMediaPositionDraft] = useState<'above' | 'below'>('below');
   
@@ -904,9 +906,14 @@ export default function Chat() {
   };
 
   // Function to upload a single file
-  const uploadFile = async (file: File): Promise<any> => {
+  const uploadFile = async (file: File, index: number): Promise<any> => {
     try {
-      const result = await media.upload(file);
+      const result = await media.upload(file, (progress) => {
+        setUploadProgress(prev => ({
+          ...prev,
+          [index]: progress
+        }));
+      });
       return result;
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -918,9 +925,20 @@ export default function Chat() {
   const uploadSelectedFiles = async (): Promise<number[]> => {
     if (selectedFiles.length === 0) return [];
 
-    const uploadPromises = selectedFiles.map(file => uploadFile(file));
+    // Initialize progress for all files in a single state update
+    setUploadProgress(
+      selectedFiles.reduce((acc, _, index) => {
+        acc[index] = 0;
+        return acc;
+      }, {} as Record<number, number>)
+    );
+
+    const uploadPromises = selectedFiles.map((file, index) => 
+      uploadFile(file, index)
+    );
     const results = await Promise.all(uploadPromises);
     setSelectedFiles([]); // Clear selected files after successful upload
+    setUploadProgress({}); // Clear progress
     
     return results.map(result => result.id);
   };
@@ -1808,6 +1826,14 @@ export default function Chat() {
                           <div className="file-size">
                             {formattedSize}
                           </div>
+                          {uploadProgress[index] !== undefined && (
+                            <div className="upload-progress">
+                              <div 
+                                className="progress-bar" 
+                                style={{ width: `${uploadProgress[index]}%` }} 
+                              />
+                            </div>
+                          )}
                           <button 
                             type="button" 
                             className="remove-file-btn"

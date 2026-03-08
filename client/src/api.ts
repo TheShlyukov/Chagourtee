@@ -187,20 +187,35 @@ export const messages = {
 };
 
 export const media = {
-  upload: (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    return fetch('/api/upload', {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
-    }).then(async (res) => {
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || `HTTP ${res.status}`);
-      }
-      return res.json();
+  upload: (file: File, onProgress?: (progress: number) => void) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', file);
+
+      xhr.open('POST', '/api/upload', true);
+      xhr.withCredentials = true;
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          onProgress?.(percentComplete);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Network error'));
+      };
+
+      xhr.send(formData);
     });
   },
   

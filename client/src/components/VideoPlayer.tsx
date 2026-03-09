@@ -32,7 +32,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     const video = document.createElement('video');
     video.preload = 'metadata';
-    video.src = finalSrc;
+    // Append a timestamp to the URL to bypass cache in Safari
+    const tempSrc = `${finalSrc}?t=${Date.now()}`;
+    video.src = tempSrc;
+    
     const handleLoadedMetadata = () => {
       const minutes = Math.floor(video.duration / 60);
       const seconds = Math.floor(video.duration % 60);
@@ -44,10 +47,44 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [finalSrc]);
 
-  // Handle video loaded event
+  // Handle video loaded event and force load in Safari
   const handleVideoLoad = () => {
     setIsVideoLoaded(true);
   };
+
+  // Effect to load the video element properly in Safari
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      // Detect Safari browser
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      
+      if (isSafari) {
+        // For Safari, reload the video source to ensure proper loading
+        const loadVideo = () => {
+          // Set the source again to force a reload
+          video.src = finalSrc;
+          video.load();
+        };
+        
+        // Load immediately and add event listeners
+        loadVideo();
+        
+        // Add a timeout to ensure the video loads properly in Safari
+        const timer = setTimeout(() => {
+          if (video.networkState === HTMLMediaElement.NETWORK_EMPTY) {
+            loadVideo();
+          }
+        }, 100);
+        
+        return () => clearTimeout(timer);
+      } else {
+        // For non-Safari browsers, just set the source
+        video.src = finalSrc;
+        video.load();
+      }
+    }
+  }, [finalSrc]);
 
   // Toggle fullscreen when clicking the video
   const handleVideoClick = useCallback(() => {
@@ -76,7 +113,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     >
       <video
         ref={videoRef}
-        src={finalSrc}
+        // Remove the src from the JSX to prevent auto-loading, 
+        // instead we'll load it in the useEffect
         onClick={handleVideoClick}
         controls={false}
         className="video-thumbnail-element"

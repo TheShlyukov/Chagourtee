@@ -1,12 +1,13 @@
 {
   "name": "chagourtee",
-  "version": "pre-v0.3.0-alpha",
+  "version": "v0.3.0-alpha",
   "scripts": {
     "dev": "concurrently \"npm:dev:*\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "build": "npm run build --workspaces",
-    "start": "cd server && npm start"
+    "start": "cd server && npm start",
+    "update": "cd server && npm run update-service"
   },
   "workspaces": [
     "client",

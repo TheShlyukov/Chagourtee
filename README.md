@@ -123,6 +123,32 @@ npm run db:backup
 
 SQLite copy is saved to `data/backups/` (or alongside `CHAGOURTEE_DB_PATH` in subdirectory `backups`).
 
+## Update the Service
+
+To update your Chagourtee installation to the latest available version:
+
+### From the project root:
+```bash
+npm run update
+```
+
+### Or run directly from the server:
+```bash
+cd server && npm run update-service
+```
+
+The update script will:
+1. Check the current version of your installation
+2. Fetch the latest available tags from the remote repository
+3. Compare your current version with the latest available version
+4. Prompt you to update if a newer version is available
+5. Perform the update by:
+   - Fetching the latest changes
+   - Checking out the target version tag
+   - Installing dependencies for all workspaces
+
+> **Note**: Make sure you have committed any local changes before running the update, as the script will switch to a specific tag which may overwrite uncommitted changes.
+
 ## API (briefly)
 
 - `POST /api/auth/login` – login

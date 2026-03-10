@@ -1238,8 +1238,13 @@ export default function Chat() {
     if (!editingMessage || !roomId) return;
     
     // Проверяем, изменилось ли сообщение по сравнению с исходным
-    if (editingMessage.body.trim() === editingMessage.originalBody.trim() && 
-        JSON.stringify(editingMessage.media || []) === JSON.stringify(selectedFiles)) {
+    const hasTextChanged = editingMessage.body.trim() !== editingMessage.originalBody.trim();
+    
+    // Check if media changed by comparing the count of original media with selected files
+    // Since we can't directly compare MediaFile objects with File objects, we compare counts
+    const hasMediaChanged = (editingMessage.media?.length || 0) !== selectedFiles.length;
+    
+    if (!hasTextChanged && !hasMediaChanged) {
       // Если сообщение не изменилось, просто отменяем редактирование
       setEditingMessage(null);
       setSelectedFiles([]);
@@ -2075,7 +2080,9 @@ export default function Chat() {
                 />
                 <button type="submit" disabled={!!(!roomId || 
                   (!editingMessage && !sendText.trim() && selectedFiles.length === 0) ||
-                  (editingMessage && !editingMessage.body.trim()))}>
+                  (editingMessage && !editingMessage.body.trim() && 
+                   (!editingMessage.media || editingMessage.media.length === 0) && 
+                   selectedFiles.length === 0))}>
                   <span className="send-text">{editingMessage ? 'Сохранить' : 'Отправить'}</span>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

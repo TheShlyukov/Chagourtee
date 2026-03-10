@@ -126,6 +126,12 @@ async function run() {
     if (!login || !password) {
       return reply.code(400).send({ error: 'Login and password required' });
     }
+    
+    // Additional validation for password_hash integrity
+    if (typeof password !== 'string' || password.trim().length === 0) {
+      return reply.code(400).send({ error: 'Password must be a non-empty string' });
+    }
+    
     const loginTrim = login.trim();
     
     // Validate login format: only alphanumeric characters, length between 2 and 32

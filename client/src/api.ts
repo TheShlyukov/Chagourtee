@@ -162,10 +162,10 @@ export const messages = {
       method: 'POST',
       body: JSON.stringify({ body, media_ids, mediaPosition }),
     }),
-  edit: (messageId: number, roomId: number, body: string) =>
+  edit: (messageId: number, roomId: number, body: string, media_ids?: number[], mediaPosition?: 'above' | 'below') =>
     api<Message>(`/api/rooms/${roomId}/messages/${messageId}`, {
       method: 'PATCH',
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, media_ids, mediaPosition }),
     }),
   delete: (messageId: number, roomId: number) =>
     api<{ ok: boolean }>(`/api/rooms/${roomId}/messages/${messageId}`, { 

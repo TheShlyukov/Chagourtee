@@ -263,10 +263,10 @@ module.exports = function (fastify) {
   }, async (request, reply) => {
     const roomId = Number(request.params.roomId);
     const messageId = Number(request.params.messageId);
-    const { body } = request.body || {};
+    const { body, media_ids, mediaPosition } = request.body || {};
 
-    if (!body || !String(body).trim()) {
-      return reply.code(400).send({ error: 'Message body required' });
+    if ((!body || !String(body).trim()) && (!media_ids || !Array.isArray(media_ids))) {
+      return reply.code(400).send({ error: 'Message body or media files required' });
     }
 
     // Check if room exists
@@ -297,11 +297,49 @@ module.exports = function (fastify) {
     }
 
     // Update the message
-    const result = db.prepare(`
-      UPDATE messages 
-      SET body = ?, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `).run(String(body).trim(), messageId);
+    const updateFields = [];
+    const updateParams = [];
+    
+    if (body !== undefined) {
+      updateFields.push('body = ?');
+      updateParams.push(String(body).trim());
+    }
+    
+    if (mediaPosition !== undefined && (mediaPosition === 'above' || mediaPosition === 'below')) {
+      updateFields.push('media_position = ?');
+      updateParams.push(mediaPosition);
+    }
+    
+    updateFields.push('updated_at = CURRENT_TIMESTAMP');
+    updateParams.push(messageId);
+
+    const updateQuery = `UPDATE messages SET ${updateFields.join(', ')} WHERE id = ?`;
+    const result = db.prepare(updateQuery).run(...updateParams);
+
+    // If media_ids were provided, update media associations
+    if (media_ids && Array.isArray(media_ids) && media_ids.length > 0) {
+      // First unlink all existing media from this message
+      db.prepare(`
+        UPDATE media_files 
+        SET message_id = NULL 
+        WHERE message_id = ?
+      `).run(messageId);
+      
+      // Then link the specified media files to this message
+      const placeholders = media_ids.map(() => '?').join(',');
+      db.prepare(`
+        UPDATE media_files 
+        SET message_id = ? 
+        WHERE id IN (${placeholders}) AND uploaded_by = ?
+      `).run(messageId, ...media_ids, request.session.userId);
+    } else if (media_ids && Array.isArray(media_ids)) {
+      // If empty array was provided, unlink all media from this message
+      db.prepare(`
+        UPDATE media_files 
+        SET message_id = NULL 
+        WHERE message_id = ?
+      `).run(messageId);
+    }
 
     // Get updated message with media
     const updatedMsg = db.prepare(`

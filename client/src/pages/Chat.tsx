@@ -1230,14 +1230,9 @@ export default function Chat() {
     // Set the media position draft to the message's current position, or default to 'below'
     setMediaPositionDraft(message.mediaPosition || 'below');
     
-    // Pre-populate selected files with the message's media files
-    // For now, we'll handle this as a special state for editing
-    if (message.media && message.media.length > 0) {
-      // We need to somehow create File objects from the media, but for editing we'll just track media IDs
-      // The actual media handling will happen differently during update
-    }
+    // Clear any previously selected files for new uploads during editing
+    setSelectedFiles([]);
   };
-
   // Save edited message
   const saveEditedMessage = async () => {
     if (!editingMessage || !roomId) return;
@@ -1260,8 +1255,8 @@ export default function Chat() {
         ...(editingMessage.media || []).map(m => m.id),
         ...mediaIds
       ];
-      
-      const updated = await messagesApi.edit(editingMessage.id, roomId, editingMessage.body);
+
+      const updated = await messagesApi.edit(editingMessage.id, roomId, editingMessage.body, allMediaIds, mediaPositionDraft);
       
       // Optimistically update the message locally
       setMessages((prev) =>
@@ -1707,8 +1702,8 @@ export default function Chat() {
                     <button onClick={cancelEditing}>Отмена</button>
                   </div>
                   
-                  {/* Selected files preview for editing */}
-                  {selectedFiles.length > 0 && (
+                  {/* Selected files preview for editing - showing both original and new files */}
+                  {(selectedFiles.length > 0 || (editingMessage.media && editingMessage.media.length > 0)) && (
                     <div className="selected-files-preview">
                       {/* Media position toggle */}
                       <div className="media-position-toggle">
@@ -1731,16 +1726,114 @@ export default function Chat() {
                       </div>
                       
                       <div className="selected-files-header">
-                        <h4>Выбранные файлы:</h4>
-                        <button 
-                          type="button" 
-                          className="clear-all-files"
-                          onClick={() => setSelectedFiles([])}
-                        >
-                          Очистить все
-                        </button>
+                        <h4>Файлы сообщения:</h4>
+                        {editingMessage.media && editingMessage.media.length > 0 && (
+                          <button 
+                            type="button" 
+                            className="clear-all-files"
+                            onClick={() => {
+                              // Remove all original media by setting editingMessage.media to an empty array
+                              setEditingMessage({...editingMessage, media: []});
+                            }}
+                          >
+                            Очистить оригинальные
+                          </button>
+                        )}
+                        {selectedFiles.length > 0 && (
+                          <button 
+                            type="button" 
+                            className="clear-all-files"
+                            onClick={() => setSelectedFiles([])}
+                          >
+                            Очистить новые
+                          </button>
+                        )}
                       </div>
+                      
                       <div className="selected-files-grid">
+                        {/* Render original media files */}
+                        {editingMessage.media && editingMessage.media.length > 0 && editingMessage.media.map((mediaFile) => {
+                          // Determine file type and show appropriate preview
+                          let previewElement;
+                          if (mediaFile.mime_type.startsWith('image/')) {
+                            // For images, show a thumbnail
+                            previewElement = (
+                              <div className="file-preview">
+                                <img 
+                                  src={`/api/media/${mediaFile.encrypted_filename}`} 
+                                  alt={mediaFile.original_name} 
+                                />
+                              </div>
+                            );
+                          } else if (mediaFile.mime_type.startsWith('video/')) {
+                            // For videos, show a placeholder with a play icon
+                            previewElement = (
+                              <div className="file-preview video-preview">
+                                <div className="video-placeholder">
+                                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                                  </svg>
+                                </div>
+                              </div>
+                            );
+                          } else if (mediaFile.mime_type.startsWith('audio/')) {
+                            // For audio, show a music note icon
+                            previewElement = (
+                              <div className="file-preview audio-preview">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M9 18V5l12-2v13"></path>
+                                  <circle cx="6" cy="18" r="3"></circle>
+                                  <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                              </div>
+                            );
+                          } else {
+                            // For other files, show the first 3 letters of the extension
+                            const ext = mediaFile.original_name.split('.').pop()?.substring(0, 3) || 'FILE';
+                            previewElement = (
+                              <div className="file-preview other">
+                                {ext.toUpperCase()}
+                              </div>
+                            );
+                          }
+                          
+                          // Format file size for display
+                          const formattedSize = mediaFile.file_size > 1024 * 1024 
+                            ? `${(mediaFile.file_size / (1024 * 1024)).toFixed(1)} MB` 
+                            : `${(mediaFile.file_size / 1024).toFixed(1)} KB`;
+                          
+                          return (
+                            <div 
+                              key={`original-${mediaFile.id}`} 
+                              className="selected-file-item"
+                            >
+                              {previewElement}
+                              <div 
+                                className="file-name" 
+                                title={`${mediaFile.original_name} (${formattedSize})`}
+                              >
+                                {mediaFile.original_name.length > 15 ? `${mediaFile.original_name.substring(0, 15)}...` : mediaFile.original_name}
+                              </div>
+                              <div className="file-size">
+                                {formattedSize}
+                              </div>
+                              <button 
+                                type="button" 
+                                className="remove-file-btn"
+                                onClick={() => {
+                                  // Remove this specific original media file
+                                  const updatedMedia = editingMessage.media?.filter(m => m.id !== mediaFile.id) || [];
+                                  setEditingMessage({...editingMessage, media: updatedMedia});
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })}
+                        
+                        {/* Render newly selected files */}
                         {selectedFiles.map((file, index) => {
                           // Determine file type and show appropriate preview
                           let previewElement;
@@ -1750,6 +1843,29 @@ export default function Chat() {
                             previewElement = (
                               <div className="file-preview">
                                 <img src={fileUrl} alt="Preview" />
+                              </div>
+                            );
+                          } else if (file.type.startsWith('video/')) {
+                            // For videos, show a placeholder with a play icon
+                            previewElement = (
+                              <div className="file-preview video-preview">
+                                <div className="video-placeholder">
+                                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                                  </svg>
+                                </div>
+                              </div>
+                            );
+                          } else if (file.type.startsWith('audio/')) {
+                            // For audio, show a music note icon
+                            previewElement = (
+                              <div className="file-preview audio-preview">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M9 18V5l12-2v13"></path>
+                                  <circle cx="6" cy="18" r="3"></circle>
+                                  <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
                               </div>
                             );
                           } else {
@@ -1769,7 +1885,7 @@ export default function Chat() {
                           
                           return (
                             <div 
-                              key={index} 
+                              key={`new-${index}`} 
                               className="selected-file-item"
                             >
                               {previewElement}

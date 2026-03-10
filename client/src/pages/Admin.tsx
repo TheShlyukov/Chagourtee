@@ -63,22 +63,22 @@ export default function Admin() {
     if (user.role === 'owner') {
       verificationApi.settings()
         .then(data => setVerificationEnabled(!!data.enabled))
-        .catch(console.error);
+        .catch(err => DEBUG_MODE && console.error('Error fetching verification settings:', err));
       
       // Load users
       usersApi.list().then((data) => {
         setUsers(data.users);
-      }).catch(console.error);
+      }).catch(err => DEBUG_MODE && console.error('Error loading users:', err));
       
       // Load pending verifications
       verificationApi.pending().then((data) => {
         setPending(data.pending);
-      }).catch(console.error);
+      }).catch(err => DEBUG_MODE && console.error('Error loading pending verifications:', err));
       
       // Load verification codes
       verificationApi.listCodes().then((data) => {
         setCodes(data.codes);
-      }).catch(console.error);
+      }).catch(err => DEBUG_MODE && console.error('Error loading verification codes:', err));
     }
 
     load();
@@ -410,7 +410,7 @@ export default function Admin() {
       setMessage(`Система верификации ${response.enabled ? 'включена' : 'отключена'}`);
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      console.error('Failed to toggle verification:', error);
+      DEBUG_MODE && console.error('Failed to toggle verification:', error);
       alert('Ошибка при изменении настроек верификации');
     }
   };
@@ -427,7 +427,7 @@ export default function Admin() {
       setMessage('Пользователь верифицирован');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (error) {
-      console.error('Failed to approve user:', error);
+      DEBUG_MODE && console.error('Failed to approve user:', error);
       alert('Ошибка при подтверждении пользователя');
     }
   };
@@ -444,7 +444,7 @@ export default function Admin() {
       setMessage('Пользователь отклонён');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (error) {
-      console.error('Failed to reject user:', error);
+      DEBUG_MODE && console.error('Failed to reject user:', error);
       alert('Ошибка при отклонении пользователя');
     }
   };
@@ -475,7 +475,7 @@ export default function Admin() {
       setCustomCode(''); // Очищаем поле ввода после успешного создания
       setTimeout(() => setMessage(''), 15000); // Показываем сообщение 15 секунд
     } catch (error) {
-      console.error('Failed to create verification code:', error);
+      DEBUG_MODE && console.error('Failed to create verification code:', error);
       alert('Ошибка при создании кода: ' + (error as Error).message);
     }
   };
@@ -493,7 +493,7 @@ export default function Admin() {
       setMessage('Код удален');
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      console.error('Failed to delete verification code:', error);
+      DEBUG_MODE && console.error('Failed to delete verification code:', error);
       alert('Ошибка при удалении кода');
     }
   };
@@ -1148,3 +1148,5 @@ export default function Admin() {
     </div>
   );
 }
+
+const DEBUG_MODE = import.meta.env.DEV || false;

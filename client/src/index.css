@@ -1727,8 +1727,6 @@ a:hover {
   background: rgba(239, 68, 68, 0.1);
 }
 
-/* Message selection styles */
-
 /* Message editing form */
 .edit-message-form {
   padding: 0.5rem 0;
@@ -1752,6 +1750,52 @@ a:hover {
   padding: 0.5rem;
   font-size: 0.9rem;
   border-radius: var(--radius-default);
+}
+
+/* Editing panel styles */
+.editing-panel {
+  padding: 0.75rem 1.25rem 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  width: 100%;
+}
+
+.editing-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0 0.75rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--accent);
+}
+
+.editing-panel-header span {
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.editing-panel-header button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  border-radius: var(--radius-default);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.editing-panel-header button:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.edit-message-placeholder {
+  font-style: italic;
+  color: var(--text-muted);
+  padding: 0.5rem 0;
+  text-align: center;
 }
 
 /* Removed header actions for desktop since "Выбрать" button was removed */

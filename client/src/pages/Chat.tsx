@@ -70,7 +70,7 @@ export default function Chat() {
     message: Message | null;
   }>({ visible: false, x: 0, y: 0, message: null });
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
-  const [editingMessage, setEditingMessage] = useState<{id: number, body: string, originalBody: string} | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{id: number, body: string, originalBody: string, media?: any[]} | null>(null);
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -1219,43 +1219,57 @@ export default function Chat() {
   // Handle editing message
   const startEditingMessage = (message: Message | null) => {
     if (!message) return;
-    setEditingMessage({ id: message.id, body: message.body, originalBody: message.body });
+    setEditingMessage({ 
+      id: message.id, 
+      body: message.body, 
+      originalBody: message.body,
+      media: message.media || []
+    });
     setContextMenu({ visible: false, x: 0, y: 0, message: null });
     
-    // Adjust the height of the editing textarea after setting the value
-    setTimeout(() => {
-      if (editMessageTextareaRef.current) {
-        editMessageTextareaRef.current.style.height = 'auto';
-        
-        const lineHeight = 24;
-        const maxHeight = lineHeight * 10; // 10 lines max like the main input
-        
-        const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
-        editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
-        
-        editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
-      }
-    }, 0);
+    // Set the media position draft to the message's current position, or default to 'below'
+    setMediaPositionDraft(message.mediaPosition || 'below');
+    
+    // Pre-populate selected files with the message's media files
+    // For now, we'll handle this as a special state for editing
+    if (message.media && message.media.length > 0) {
+      // We need to somehow create File objects from the media, but for editing we'll just track media IDs
+      // The actual media handling will happen differently during update
+    }
   };
 
   // Save edited message
   const saveEditedMessage = async () => {
-    if (!editingMessage || !editingMessage.body.trim() || !roomId) return;
+    if (!editingMessage || !roomId) return;
     
     // Проверяем, изменилось ли сообщение по сравнению с исходным
-    if (editingMessage.body.trim() === editingMessage.originalBody.trim()) {
+    if (editingMessage.body.trim() === editingMessage.originalBody.trim() && 
+        JSON.stringify(editingMessage.media || []) === JSON.stringify(selectedFiles)) {
       // Если сообщение не изменилось, просто отменяем редактирование
       setEditingMessage(null);
+      setSelectedFiles([]);
       return;
     }
     
     try {
+      // Upload any new files that were selected during editing
+      const mediaIds = selectedFiles.length > 0 ? await uploadSelectedFiles() : [];
+      
+      // Combine existing media IDs with new ones
+      const allMediaIds = [
+        ...(editingMessage.media || []).map(m => m.id),
+        ...mediaIds
+      ];
+      
       const updated = await messagesApi.edit(editingMessage.id, roomId, editingMessage.body);
+      
       // Optimistically update the message locally
       setMessages((prev) =>
         prev.map((msg) => (msg.id === updated.id ? updated : msg))
       );
+      
       setEditingMessage(null);
+      setSelectedFiles([]);
     } catch (error) {
       console.error('Error editing message:', error);
       alert('Ошибка при редактировании сообщения');
@@ -1265,6 +1279,7 @@ export default function Chat() {
   // Cancel editing
   const cancelEditing = () => {
     setEditingMessage(null);
+    setSelectedFiles([]);
     
     // Return focus to the main input field
     if (textareaRef.current) {
@@ -1482,76 +1497,9 @@ export default function Chat() {
                         onMouseDown={handleTouchEnd} // Также очищаем таймер при клике мышью
                       >
                         {isEditable ? (
-                          <div className="edit-message-form">
-                            <textarea
-                              ref={editMessageTextareaRef}
-                              value={editingMessage.body}
-                              onChange={(e) => {
-                                setEditingMessage({...editingMessage, body: e.target.value});
-                                
-                                // Adjust height of the editing textarea
-                                if (editMessageTextareaRef.current) {
-                                  editMessageTextareaRef.current.style.height = 'auto';
-                                  
-                                  const lineHeight = 24;
-                                  const maxHeight = lineHeight * 10; // 10 lines max like the main input
-                                  
-                                  const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
-                                  editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
-                                  
-                                  editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
-                                }
-                              }}
-                              onInput={() => {
-                                // Adjust height when content changes
-                                if (editMessageTextareaRef.current) {
-                                  editMessageTextareaRef.current.style.height = 'auto';
-                                  
-                                  const lineHeight = 24;
-                                  const maxHeight = lineHeight * 10; // 10 lines max like the main input
-                                  
-                                  const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
-                                  editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
-                                  
-                                  editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
-                                }
-                              }}
-                              onPaste={() => {
-                                // Adjust height after paste event
-                                setTimeout(() => {
-                                  if (editMessageTextareaRef.current) {
-                                    editMessageTextareaRef.current.style.height = 'auto';
-                                    
-                                    const lineHeight = 24;
-                                    const maxHeight = lineHeight * 10; // 10 lines max like the main input
-                                    
-                                    const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
-                                    editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
-                                    
-                                    editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
-                                  }
-                                }, 10);
-                              }}
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  saveEditedMessage();
-                                } else if (e.key === 'Escape') {
-                                  cancelEditing();
-                                }
-                              }}
-                              style={{
-                                minHeight: '54px',
-                                maxHeight: '240px', // 10 lines * 24px per line
-                                resize: 'none',
-                                overflowY: 'hidden'
-                              }}
-                            />
-                            <div className="edit-message-actions">
-                              <button onClick={saveEditedMessage}>✓ Сохранить</button>
-                              <button onClick={cancelEditing}>✗ Отмена</button>
-                            </div>
+                          <div className="edit-message-placeholder">
+                            {/* Placeholder to show that this message is being edited in the main form */}
+                            <em>Сообщение редактируется в поле ввода внизу...</em>
                           </div>
                         ) : (
                           <>
@@ -1751,8 +1699,115 @@ export default function Chat() {
                 </div>
               )}
               
-              {/* Selected files preview - moved above the form */}
-              {selectedFiles.length > 0 && (
+              {/* Editing panel - shown when editing a message */}
+              {editingMessage && (
+                <div className="editing-panel">
+                  <div className="editing-panel-header">
+                    <span>Редактирование: {editingMessage.body.substring(0, 10)}{editingMessage.body.length > 10 ? '...' : ''}</span>
+                    <button onClick={cancelEditing}>Отмена</button>
+                  </div>
+                  
+                  {/* Selected files preview for editing */}
+                  {selectedFiles.length > 0 && (
+                    <div className="selected-files-preview">
+                      {/* Media position toggle */}
+                      <div className="media-position-toggle">
+                        <button
+                          type="button"
+                          className={`media-position-button ${mediaPositionDraft === 'above' ? 'active' : ''}`}
+                          onClick={() => setMediaPositionDraft('above')}
+                          title="Показывать медиа над текстом сообщения"
+                        >
+                          Медиа сверху
+                        </button>
+                        <button
+                          type="button"
+                          className={`media-position-button ${mediaPositionDraft === 'below' ? 'active' : ''}`}
+                          onClick={() => setMediaPositionDraft('below')}
+                          title="Показывать медиа под текстом сообщения"
+                        >
+                          Медиа снизу
+                        </button>
+                      </div>
+                      
+                      <div className="selected-files-header">
+                        <h4>Выбранные файлы:</h4>
+                        <button 
+                          type="button" 
+                          className="clear-all-files"
+                          onClick={() => setSelectedFiles([])}
+                        >
+                          Очистить все
+                        </button>
+                      </div>
+                      <div className="selected-files-grid">
+                        {selectedFiles.map((file, index) => {
+                          // Determine file type and show appropriate preview
+                          let previewElement;
+                          if (file.type.startsWith('image/')) {
+                            // For images, show a thumbnail
+                            const fileUrl = URL.createObjectURL(file);
+                            previewElement = (
+                              <div className="file-preview">
+                                <img src={fileUrl} alt="Preview" />
+                              </div>
+                            );
+                          } else {
+                            // For other files, show the first 3 letters of the extension
+                            const ext = file.name.split('.').pop()?.substring(0, 3) || 'FILE';
+                            previewElement = (
+                              <div className="file-preview other">
+                                {ext.toUpperCase()}
+                              </div>
+                            );
+                          }
+                          
+                          // Format file size for display
+                          const formattedSize = file.size > 1024 * 1024 
+                            ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
+                            : `${(file.size / 1024).toFixed(1)} KB`;
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              className="selected-file-item"
+                            >
+                              {previewElement}
+                              <div 
+                                className="file-name" 
+                                title={`${file.name} (${formattedSize})`}
+                              >
+                                {file.name.length > 15 ? `${file.name.substring(0, 15)}...` : file.name}
+                              </div>
+                              <div className="file-size">
+                                {formattedSize}
+                              </div>
+                              {uploadProgress[index] !== undefined && (
+                                <div className="upload-progress">
+                                  <div 
+                                    className="progress-bar" 
+                                    style={{ width: `${uploadProgress[index]}%` }} 
+                                  />
+                                </div>
+                              )}
+                              <button 
+                                type="button" 
+                                className="remove-file-btn"
+                                onClick={() => removeSelectedFile(index)}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Selected files preview - moved above the form, but only when not editing */}
+              {!editingMessage && selectedFiles.length > 0 && (
                 <div className="selected-files-preview">
                   {/* Media position toggle */}
                   <div className="media-position-toggle">
@@ -1848,7 +1903,14 @@ export default function Chat() {
                 </div>
               )}
               
-              <form onSubmit={handleSend} className="chat-form" style={{ display: isSelecting ? 'none' : 'flex' }}>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (editingMessage) {
+                  saveEditedMessage();
+                } else {
+                  handleSend(e);
+                }
+              }} className="chat-form" style={{ display: isSelecting ? 'none' : 'flex' }}>
                 {/* Attachment button */}
                 <div className="attachment-button-wrapper">
                   <label htmlFor="file-upload" className="attach-button">
@@ -1867,9 +1929,13 @@ export default function Chat() {
                 
                 <textarea
                   ref={textareaRef}
-                  value={sendText}
+                  value={editingMessage ? editingMessage.body : sendText}
                   onChange={(e) => {
-                    setSendText(e.target.value);
+                    if (editingMessage) {
+                      setEditingMessage({...editingMessage, body: e.target.value});
+                    } else {
+                      setSendText(e.target.value);
+                    }
                   }}
                   onInput={() => {
                     handleTyping();
@@ -1879,7 +1945,7 @@ export default function Chat() {
                     // Adjust height after paste event (with slight delay to ensure content is processed)
                     setTimeout(adjustTextareaHeight, 10);
                   }}
-                  placeholder="Сообщение…"
+                  placeholder={editingMessage ? "Редактировать сообщение…" : "Сообщение…"}
                   autoComplete="off"
                   autoFocus
                   rows={1}
@@ -1891,8 +1957,10 @@ export default function Chat() {
                     overflowY: 'hidden' // We control overflow in the function now
                   }}
                 />
-                <button type="submit" disabled={!roomId || (!sendText.trim() && selectedFiles.length === 0)}>
-                  <span className="send-text">Отправить</span>
+                <button type="submit" disabled={!!(!roomId || 
+                  (!editingMessage && !sendText.trim() && selectedFiles.length === 0) ||
+                  (editingMessage && !editingMessage.body.trim()))}>
+                  <span className="send-text">{editingMessage ? 'Сохранить' : 'Отправить'}</span>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>

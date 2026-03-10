@@ -191,6 +191,36 @@ export default function Admin() {
     };
   }, [user, setRawNameLocal]);
 
+  // Helper function for copying text to clipboard with fallback
+  const copyToClipboard = async (text: string) => {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error('Clipboard API not supported');
+      }
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'absolute';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (!successful) {
+          throw new Error('Fallback copy failed');
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+        throw fallbackErr;
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    }
+  };
+
   // Functions for invites (available to both owners and moderators)
   async function createInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -206,58 +236,13 @@ export default function Admin() {
       setLastInviteUrl(url);
       setMessage('Инвайт создан. Ссылка скопирована в буфер.');
 
-      // Проверяем наличие API clipboard и безопасного контекста
-      if (navigator && navigator.clipboard && 'writeText' in navigator.clipboard && window.isSecureContext) {
-        // Попытка скопировать в буфер обмена
-        navigator.clipboard.writeText(url)
-          .then(() => {
-            setMessage('Инвайт создан. Ссылка скопирована в буфер.');
-          })
-          .catch(err => {
-            console.error('Failed to copy invite link to clipboard: ', err);
-            // Показываем пользователю инструкции по ручному копированию
-            createInviteDisplayAndCopyPrompt(url);
-          });
-      } else {
-        // Альтернативный метод копирования
-        createInviteDisplayAndCopyPrompt(url);
-      }
+      // Use the new copyToClipboard helper
+      await copyToClipboard(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка');
     }
   }
 
-  // Вспомогательная функция для отображения ссылки инвайта и запроса на копирование
-  const createInviteDisplayAndCopyPrompt = (url: string) => {
-    // Показываем пользователю, что ссылка создана
-    setMessage('Инвайт создан. Для копирования нажмите Ctrl+C или Cmd+C.');
-    
-    // Создаем временный элемент для выбора текста
-    const textArea = document.createElement("textarea");
-    textArea.value = url;
-    textArea.setAttribute('readonly', '');
-    textArea.style.position = 'absolute';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    
-    // Выделяем и копируем текст
-    textArea.focus();
-    textArea.select();
-    
-    try {
-      const successful = document.execCommand('copy');
-      if (successful) {
-        setMessage('Инвайт создан. Ссылка скопирована в буфер.');
-      } else {
-        setMessage('Инвайт создан. Для копирования нажмите Ctrl+C или Cmd+C.');
-      }
-    } catch (err) {
-      console.error('Fallback: Could not copy invite link', err);
-      setMessage('Инвайт создан. Пожалуйста, скопируйте ссылку вручную.');
-    } finally {
-      document.body.removeChild(textArea);
-    }
-  };
 
   async function deleteInvite(id: string) {
     setError(null);
@@ -484,22 +469,8 @@ export default function Admin() {
       };
       setCodes([fullCode, ...codes]);
 
-      // Проверяем наличие API clipboard и безопасного контекста
-      if (navigator && navigator.clipboard && 'writeText' in navigator.clipboard && window.isSecureContext) {
-        // Попытка скопировать в буфер обмена
-        navigator.clipboard.writeText(newCode.code)
-          .then(() => {
-            setMessage(`Новый код создан: ${newCode.code} и скопирован в буфер обмена!`);
-          })
-          .catch(err => {
-            console.error('Failed to copy code to clipboard: ', err);
-            // Показываем код пользователю даже если копирование не удалось
-            createCodeDisplayAndCopyPrompt(newCode.code);
-          });
-      } else {
-        // Альтернативный метод копирования
-        createCodeDisplayAndCopyPrompt(newCode.code);
-      }
+      // Use the new copyToClipboard helper
+      await copyToClipboard(newCode.code);
 
       setCustomCode(''); // Очищаем поле ввода после успешного создания
       setTimeout(() => setMessage(''), 15000); // Показываем сообщение 15 секунд
@@ -509,37 +480,6 @@ export default function Admin() {
     }
   };
 
-  // Вспомогательная функция для отображения кода и запроса на копирование
-  const createCodeDisplayAndCopyPrompt = (code: string) => {
-    // Показываем код и инструкции пользователю
-    setMessage(`Новый код создан: ${code}. Нажмите Ctrl+C или Cmd+C для копирования.`);
-    
-    // Создаем временный элемент для выбора текста
-    const textArea = document.createElement("textarea");
-    textArea.value = code;
-    textArea.setAttribute('readonly', '');
-    textArea.style.position = 'absolute';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    
-    // Выделяем и копируем текст
-    textArea.focus();
-    textArea.select();
-    
-    try {
-      const successful = document.execCommand('copy');
-      if (successful) {
-        setMessage(`Новый код создан: ${code} и скопирован в буфер обмена!`);
-      } else {
-        setMessage(`Новый код создан: ${code}. Нажмите Ctrl+C или Cmd+C для копирования.`);
-      }
-    } catch (err) {
-      console.error('Fallback: Could not copy text', err);
-      setMessage(`Новый код создан: ${code}. Пожалуйста, скопируйте его вручную.`);
-    } finally {
-      document.body.removeChild(textArea);
-    }
-  };
 
   const deleteVerificationCode = async (id: number) => {
     if (user?.role !== 'owner') {

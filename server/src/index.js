@@ -26,6 +26,23 @@ async function run() {
   const db = getDb();
   server.decorate('db', db);
 
+  // START: Corrected bootstrap validation
+  try {
+    const userCount = db.prepare('SELECT COUNT(*) as n FROM users').get();
+    
+    // Only validate if there are users
+    if (userCount.n > 0) {
+      const firstUser = db.prepare('SELECT id, login, password_hash FROM users ORDER BY id ASC LIMIT 1').get();
+      if (!firstUser.password_hash || firstUser.password_hash.trim() === '') {
+        throw new Error(`Missing password_hash for bootstrap user (ID: ${firstUser.id}, login: ${firstUser.login})`);
+      }
+    }
+  } catch (err) {
+    server.log.error('Bootstrap validation failed:', err);
+    process.exit(1);
+  }
+  // END: Corrected bootstrap validation
+
   server.decorate('getUser', function (userId) {
     const row = db.prepare('SELECT id, login, role, verified, codeword_hash FROM users WHERE id = ?').get(userId);
     return row ? { ...row, verified: Boolean(row.verified) } : null;

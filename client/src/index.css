@@ -8,6 +8,7 @@
   --accent: #ff7b00;
   --accent-hover: #ff8c22;
   --accent-light: rgba(255, 123, 0, 0.1);
+  --text-on-accent: #ffffff;
   --danger: #ff4757;
   --success: #2ed573;
   --gradient-primary: linear-gradient(135deg, #ff7b00 0%, #ffaa33 100%);
@@ -1389,6 +1390,8 @@ pre[class*="language-"] {
 .media-download-button {
   padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
+  background: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .media-fullscreen-button {

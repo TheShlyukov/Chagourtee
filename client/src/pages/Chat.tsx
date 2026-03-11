@@ -1520,71 +1520,77 @@ export default function Chat() {
                         onTouchMove={handleTouchEnd}
                         onMouseDown={handleTouchEnd} // Также очищаем таймер при клике мышью
                       >
-                        {isEditable ? (
-                          <div className="edit-message-placeholder">
-                            {/* Placeholder to show that this message is being edited in the main form */}
-                            <em>Сообщение редактируется в поле ввода внизу...</em>
-                          </div>
-                        ) : (
-                          <>
-                            {!shouldHideAuthor && (
-                              <div className="chat-message-header">
-                                <div className="chat-message-author-wrapper">
-                                  <span className={`user-status-indicator ${onlineUserIds.has(m.user_id) ? 'online' : 'offline'}`} 
-                                        title={onlineUserIds.has(m.user_id) ? 'Онлайн' : 'Оффлайн'}>
-                                    •
-                                  </span>
-                                  <Marquee className="chat-message-author" animationDuration={8}>
-                                    {allUsers.find(u => u.id === m.user_id)?.login || m.login}
-                                  </Marquee>
-                                </div>
-                                <span className="chat-message-time">
-                                  {new Date(m.created_at).toLocaleString()}
-                                  {m.updated_at && m.updated_at !== m.created_at && (
-                                    <span title="Редактировалось"> ✎</span>
-                                  )}
-                                  {/* Display role label if user is moderator or owner and it's not the current user */}
-                                  {user && allUsers.length > 0 && (() => {
-                                    const userRole = getUserRoleById(m.user_id, allUsers);
-                                    const isCurrentUser = user.id === m.user_id;
-                                    
-                                    if ((userRole === 'moderator' || userRole === 'owner') && !isCurrentUser) {
-                                      return (
-                                        <span className="user-role-label" style={{ fontStyle: 'italic', marginLeft: '8px' }}>
-                                          {userRole === 'moderator' ? 'Модератор' : 'Владелец'}
-                                        </span>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
+                        {/* During editing, still show the original message content with an indicator */}
+                        <>
+                          {!shouldHideAuthor && (
+                            <div className="chat-message-header">
+                              <div className="chat-message-author-wrapper">
+                                <span className={`user-status-indicator ${onlineUserIds.has(m.user_id) ? 'online' : 'offline'}`} 
+                                      title={onlineUserIds.has(m.user_id) ? 'Онлайн' : 'Оффлайн'}>
+                                  •
                                 </span>
+                                <Marquee className="chat-message-author" animationDuration={8}>
+                                  {allUsers.find(u => u.id === m.user_id)?.login || m.login}
+                                </Marquee>
                               </div>
-                            )}
-                            {shouldHideAuthor && (
-                              <div className="chat-message-time-alone">
+                              <span className="chat-message-time">
                                 {new Date(m.created_at).toLocaleString()}
                                 {m.updated_at && m.updated_at !== m.created_at && (
                                   <span title="Редактировалось"> ✎</span>
                                 )}
-                              </div>
-                            )}
-                            <div className="chat-message-body">
-                              <MarkdownMessage
-                                content={m.body}
-                                media={m.media}
-                                mediaPosition={m.mediaPosition ?? 'below'}
-                              />
+                                {/* Display role label if user is moderator or owner and it's not the current user */}
+                                {user && allUsers.length > 0 && (() => {
+                                  const userRole = getUserRoleById(m.user_id, allUsers);
+                                  const isCurrentUser = user.id === m.user_id;
+                                  
+                                  if ((userRole === 'moderator' || userRole === 'owner') && !isCurrentUser) {
+                                    return (
+                                      <span className="user-role-label" style={{ fontStyle: 'italic', marginLeft: '8px' }}>
+                                        {userRole === 'moderator' ? 'Модератор' : 'Владелец'}
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                                
+                                {isEditable && (
+                                  <span className="editing-indicator" title="Сообщение редактируется">
+                                    &nbsp;(редактируется)
+                                  </span>
+                                )}
+                              </span>
                             </div>
-                            
-                            {isSelected && (
-                              <div className="message-selected-indicator">✓</div>
-                            )}
-                            {/* Add selection indicator for messages that can be selected */}
-                            {isSelecting && !canDeleteMessage(m) && (
-                              <div className="message-not-selectable-indicator">○</div>
-                            )}
-                          </>
-                        )}
+                          )}
+                          {shouldHideAuthor && (
+                            <div className="chat-message-time-alone">
+                              {new Date(m.created_at).toLocaleString()}
+                              {m.updated_at && m.updated_at !== m.created_at && (
+                                <span title="Редактировалось"> ✎</span>
+                              )}
+                              
+                              {isEditable && (
+                                <span className="editing-indicator" title="Сообщение редактируется">
+                                  &nbsp;(редактируется)
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div className="chat-message-body">
+                            <MarkdownMessage
+                              content={m.body}
+                              media={m.media}
+                              mediaPosition={m.mediaPosition ?? 'below'}
+                            />
+                          </div>
+                          
+                          {isSelected && (
+                            <div className="message-selected-indicator">✓</div>
+                          )}
+                          {/* Add selection indicator for messages that can be selected */}
+                          {isSelecting && !canDeleteMessage(m) && (
+                            <div className="message-not-selectable-indicator">○</div>
+                          )}
+                        </>
                       </div>
                       </div>
                     );

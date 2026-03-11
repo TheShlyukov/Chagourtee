@@ -70,7 +70,7 @@ export default function Chat() {
     message: Message | null;
   }>({ visible: false, x: 0, y: 0, message: null });
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
-  const [editingMessage, setEditingMessage] = useState<{id: number, body: string, originalBody: string, media?: any[]} | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{id: number, body: string, originalBody: string, media?: any[], mediaPosition?: string} | null>(null);
   const [originalMediaOnEditStart, setOriginalMediaOnEditStart] = useState<any[] | null>(null);  // Track original media when editing starts
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
@@ -1224,7 +1224,8 @@ export default function Chat() {
       id: message.id, 
       body: message.body, 
       originalBody: message.body,
-      media: message.media || []
+      media: message.media || [],
+      mediaPosition: message.mediaPosition || 'below'  // Store the original media position
     });
     // Set the original media when editing starts
     setOriginalMediaOnEditStart([...(message.media || [])]);
@@ -1260,9 +1261,12 @@ export default function Chat() {
     const currentMediaIds = (editingMessage.media || []).map(m => m.id);
     const hasMediaChanged = JSON.stringify(originalMediaIds.sort()) !== JSON.stringify(currentMediaIds.sort()) || 
                            selectedFiles.length > 0;
-    
+                           
+    // Check if media position changed compared to the original message
+    const hasMediaPositionChanged = mediaPositionDraft !== editingMessage.mediaPosition;
+
     // If nothing has changed, skip saving
-    if (!hasTextChanged && !hasMediaChanged) {
+    if (!hasTextChanged && !hasMediaChanged && !hasMediaPositionChanged) {
       setEditingMessage(null);
       setSelectedFiles([]);
       return;

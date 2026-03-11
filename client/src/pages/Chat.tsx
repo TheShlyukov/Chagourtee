@@ -71,6 +71,7 @@ export default function Chat() {
   }>({ visible: false, x: 0, y: 0, message: null });
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
   const [editingMessage, setEditingMessage] = useState<{id: number, body: string, originalBody: string, media?: any[]} | null>(null);
+  const [originalMediaOnEditStart, setOriginalMediaOnEditStart] = useState<any[] | null>(null);  // Track original media when editing starts
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -1225,6 +1226,8 @@ export default function Chat() {
       originalBody: message.body,
       media: message.media || []
     });
+    // Set the original media when editing starts
+    setOriginalMediaOnEditStart([...(message.media || [])]);
     setContextMenu({ visible: false, x: 0, y: 0, message: null });
     
     // Set the media position draft to the message's current position, or default to 'below'
@@ -1237,15 +1240,29 @@ export default function Chat() {
   const saveEditedMessage = async () => {
     if (!editingMessage || !roomId) return;
     
-    // Проверяем, изменилось ли сообщение по сравнению с исходным
+    // Check if there's content to save (text or media files)
+    const hasText = editingMessage.body.trim() !== '';
+    const hasOriginalMedia = editingMessage.media && editingMessage.media.length > 0;
+    const hasNewFiles = selectedFiles.length > 0;
+    
+    // If there's no content at all, warn the user
+    if (!hasText && !hasOriginalMedia && !hasNewFiles) {
+      alert('Сообщение должно содержать текст или медиафайлы');
+      return;
+    }
+    
+    // Check if anything actually changed compared to when editing started
     const hasTextChanged = editingMessage.body.trim() !== editingMessage.originalBody.trim();
     
-    // Check if media changed by comparing the count of original media with selected files
-    // Since we can't directly compare MediaFile objects with File objects, we compare counts
-    const hasMediaChanged = (editingMessage.media?.length || 0) !== selectedFiles.length;
+    // Check if media changed by comparing the original media (when editing started) 
+    // with the current state (remaining original media + new files)
+    const originalMediaIds = (originalMediaOnEditStart || []).map(m => m.id);
+    const currentMediaIds = (editingMessage.media || []).map(m => m.id);
+    const hasMediaChanged = JSON.stringify(originalMediaIds.sort()) !== JSON.stringify(currentMediaIds.sort()) || 
+                           selectedFiles.length > 0;
     
+    // If nothing has changed, skip saving
     if (!hasTextChanged && !hasMediaChanged) {
-      // Если сообщение не изменилось, просто отменяем редактирование
       setEditingMessage(null);
       setSelectedFiles([]);
       return;
@@ -1269,6 +1286,8 @@ export default function Chat() {
       );
       
       setEditingMessage(null);
+      // Reset the original media tracking
+      setOriginalMediaOnEditStart(null);
       setSelectedFiles([]);
     } catch (error) {
       console.error('Error editing message:', error);
@@ -1276,10 +1295,11 @@ export default function Chat() {
     }
   };
 
-  // Cancel editing
+  // Handle cancelling message editing
   const cancelEditing = () => {
     setEditingMessage(null);
     setSelectedFiles([]);
+    setOriginalMediaOnEditStart(null); // Reset the original media tracking
     
     // Return focus to the main input field
     if (textareaRef.current) {

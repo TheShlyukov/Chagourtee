@@ -1727,7 +1727,7 @@ export default function Chat() {
               {editingMessage && (
                 <div className="editing-panel">
                   <div className="editing-panel-header">
-                    <span>Редактирование: {editingMessage.body.substring(0, 10)}{editingMessage.body.length > 10 ? '...' : ''}</span>
+                    <span>Редактирование: {editingMessage.originalBody.substring(0, 10)}{editingMessage.originalBody.length > 10 ? '...' : ''}</span>
                     <button onClick={cancelEditing}>Отмена</button>
                   </div>
                   

@@ -853,6 +853,63 @@ export default function Chat() {
     };
   }, [roomId]); // Add roomId as a dependency so the effect re-runs when room changes
 
+  // Function to adjust the position of the scroll-to-bottom button based on panel visibility
+  const adjustScrollButtonPosition = useCallback(() => {
+    requestAnimationFrame(() => {
+      const scrollButton = document.querySelector('.scroll-to-bottom-btn') as HTMLElement;
+      if (!scrollButton) return;
+
+      // Start with the base position
+      let bottomPosition = 80; // Base position for desktop
+      
+      // Check if we're on mobile and adjust base position accordingly
+      if (window.innerWidth <= 768) {
+        bottomPosition = 100; // Mobile base position
+      }
+
+      // Check if editing-panel is visible - if so, only consider its total height
+      // (since selected-files-preview is nested inside it)
+      const editingPanel = document.querySelector('.editing-panel') as HTMLElement;
+      if (editingPanel && editingPanel.children.length > 0) {
+        bottomPosition += editingPanel.offsetHeight;
+      } 
+      // If not in editing mode, check for selected-files-preview separately
+      else {
+        const selectedFilesPreview = document.querySelector('.selected-files-preview') as HTMLElement;
+        if (selectedFilesPreview && selectedFilesPreview.children.length > 0) {
+          bottomPosition += selectedFilesPreview.offsetHeight;
+        }
+      }
+
+      // Apply the calculated position
+      scrollButton.style.bottom = `${bottomPosition}px`;
+    });
+  }, []);
+
+  // Effect to update scroll button position when panels appear/disappear
+  useEffect(() => {
+    // Run the adjustment when components render
+    adjustScrollButtonPosition();
+    
+    // Check if ResizeObserver is available in the browser
+    if (!window.ResizeObserver) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      adjustScrollButtonPosition();
+    });
+
+    const selectedFilesPreview = document.querySelector('.selected-files-preview');
+    const editingPanel = document.querySelector('.editing-panel');
+    
+    if (selectedFilesPreview) resizeObserver.observe(selectedFilesPreview);
+    if (editingPanel) resizeObserver.observe(editingPanel);
+
+    // Clean up observer on unmount
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [adjustScrollButtonPosition, selectedFiles.length, editingMessage]);
+
   // Scroll to bottom function
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -861,6 +918,7 @@ export default function Chat() {
     setShowScrollButton(false);
     setTimeout(() => {
       markRoomAsRead();
+
     }, 200);
   };
 

@@ -1994,16 +1994,6 @@ a:hover {
   padding: 0;
 }
 
-.scroll-to-bottom-btn:hover {
-  background: var(--accent-hover);
-  transform: scale(1.05);
-  box-shadow: var(--shadow-md);
-}
-
-.scroll-to-bottom-btn:active {
-  transform: scale(0.95);
-}
-
 @media (max-width: 768px) {
   .scroll-to-bottom-btn {
     bottom: 100px;

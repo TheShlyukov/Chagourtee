@@ -1820,6 +1820,7 @@ export default function Chat() {
                       
                       <div className="selected-files-header">
                         <h4>Файлы сообщения:</h4>
+                        <div className="clear-buttons-container">
                         {editingMessage.media && editingMessage.media.length > 0 && (
                           <button 
                             type="button" 
@@ -1841,6 +1842,7 @@ export default function Chat() {
                             <Marquee>Очистить новые</Marquee>
                           </button>
                         )}
+                        </div>
                       </div>
                       
                       <div className="selected-files-grid">

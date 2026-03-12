@@ -1829,7 +1829,7 @@ export default function Chat() {
                               setEditingMessage({...editingMessage, media: []});
                             }}
                           >
-                            Очистить оригинальные
+                            <Marquee>Очистить оригинальные</Marquee>
                           </button>
                         )}
                         {selectedFiles.length > 0 && (
@@ -1838,7 +1838,7 @@ export default function Chat() {
                             className="clear-all-files"
                             onClick={() => setSelectedFiles([])}
                           >
-                            Очистить новые
+                            <Marquee>Очистить новые</Marquee>
                           </button>
                         )}
                       </div>

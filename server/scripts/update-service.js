@@ -9,13 +9,50 @@ const path = require('path');
  * Checks for the latest available tag and offers to update if there's a newer version
  */
 
+// Color codes for console output
+const colors = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  bgRed: '\x1b[41m',
+  bgYellow: '\x1b[43m',
+  bgBlue: '\x1b[44m'
+};
+
+function colorize(color, text) {
+  return colors[color] + text + colors.reset;
+}
+
 function runCommand(command, cwd = process.cwd()) {
   try {
     return execSync(command, { encoding: 'utf8', cwd });
   } catch (error) {
-    console.error(`Error executing command: ${command}`);
-    console.error(error.message);
+    console.error(`${colorize('red', 'Error executing command:')} ${command}`);
+    console.error(`${colorize('red', error.message)}`);
     throw error;
+  }
+}
+
+function isServerRunning() {
+  try {
+    // Detect platform and run appropriate command to check for running server
+    if (process.platform === 'win32') {
+      const result = runCommand('netstat -ano | findstr :3000');
+      return result.includes('LISTENING');
+    } else {
+      // Unix-like systems (Linux/macOS)
+      const result = execSync('lsof -i :3000', { encoding: 'utf8' });
+      return result.includes('LISTEN');
+    }
+  } catch (error) {
+    // If the command fails (e.g., no process on port 3000), we assume the server is not running
+    return false;
   }
 }
 
@@ -37,7 +74,7 @@ function getCurrentVersion() {
 }
 
 function getLatestRemoteTags() {
-  console.log('Fetching latest remote tags...');
+  console.log(colorize('cyan', 'Fetching latest remote tags...'));
   const output = runCommand('git ls-remote --tags origin');
   
   // Parse the output to extract tags
@@ -73,10 +110,26 @@ function compareSemverVersions(v1, v2) {
   if (!v2) return 1;
 
   // Normalize versions by removing leading 'v' if present
-  const normalize = (version) => version.replace(/^v/i, '');
+  const normalize = (version) => {
+    // Handle pre- versions specially - they indicate development versions
+    if (version.startsWith('pre-v')) {
+      // Remove 'pre-' prefix but remember it was a pre version
+      return { version: version.substring(4), isPre: true }; // remove 'pre-' prefix
+    }
+    
+    // Regular version without pre- prefix
+    return { version: version.replace(/^v/i, ''), isPre: false };
+  };
   
-  const cleanV1 = normalize(v1);
-  const cleanV2 = normalize(v2);
+  const normV1 = normalize(v1);
+  const normV2 = normalize(v2);
+  
+  // If one is a pre- version and the other isn't, the pre- version is greater
+  if (normV1.isPre && !normV2.isPre) return 1;
+  if (!normV1.isPre && normV2.isPre) return -1;
+  
+  const cleanV1 = normV1.version;
+  const cleanV2 = normV2.version;
 
   // Split by dots to get major.minor.patch
   const [v1Core, v1PreRelease] = cleanV1.split('-');
@@ -151,24 +204,24 @@ function isUpdateAvailable(currentVersion, latestVersion) {
 
 function performUpdate(targetVersion) {
   try {
-    console.log(`Updating to version: ${targetVersion}...`);
+    console.log(colorize('blue', `\nUpdating to version: ${targetVersion}...`));
     
     // Check if we're on a clean working directory
     const statusOutput = runCommand('git status --porcelain');
     if (statusOutput.trim() !== '') {
-      console.error('Error: Your working directory is not clean. Please commit or stash your changes before updating.');
+      console.error(colorize('red', 'Error: Your working directory is not clean. Please commit or stash your changes before updating.'));
       return false;
     }
     
     // Ensure we're on the main branch
     const currentBranch = runCommand('git rev-parse --abbrev-ref HEAD').trim();
     if (currentBranch !== 'main' && currentBranch !== 'master') {
-      console.log(`Switching to main branch...`);
+      console.log(colorize('yellow', `Switching to main branch...`));
       runCommand('git checkout main || git checkout master');
     }
     
     // Pull the latest changes
-    console.log('Pulling latest changes...');
+    console.log(colorize('green', 'Pulling latest changes...'));
     runCommand('git pull origin ' + (currentBranch === 'master' ? 'master' : 'main'));
     
     // Check if the tag exists locally
@@ -182,16 +235,16 @@ function performUpdate(targetVersion) {
     
     // Fetch the latest changes if tag doesn't exist locally
     if (!localTagExists) {
-      console.log('Fetching latest tags...');
+      console.log(colorize('green', 'Fetching latest tags...'));
       runCommand('git fetch --all --tags');
     }
     
     // Checkout the target tag
-    console.log(`Checking out ${targetVersion}...`);
+    console.log(colorize('blue', `Checking out ${targetVersion}...`));
     runCommand(`git checkout ${targetVersion}`);
     
     // Install dependencies
-    console.log('Installing root dependencies...');
+    console.log(colorize('green', 'Installing root dependencies...'));
     runCommand('npm install');
     
     // If workspaces exist, install dependencies in workspaces too
@@ -199,21 +252,21 @@ function performUpdate(targetVersion) {
     if (fs.existsSync(rootPackagePath)) {
       const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
       if (rootPackage.workspaces) {
-        console.log('Installing workspace dependencies...');
+        console.log(colorize('green', 'Installing workspace dependencies...'));
         rootPackage.workspaces.forEach(workspace => {
           const workspacePath = path.join(__dirname, '../../', workspace);
           if (fs.existsSync(workspacePath)) {
-            console.log(`Installing dependencies for ${workspace}...`);
+            console.log(colorize('green', `Installing dependencies for ${workspace}...`));
             runCommand('npm install', workspacePath);
           }
         });
       }
     }
     
-    console.log(`Successfully updated to version: ${targetVersion}`);
+    console.log(colorize('bold', colorize('green', `\nSuccessfully updated to version: ${targetVersion}`)));
     return true;
   } catch (error) {
-    console.error('Update failed:', error.message);
+    console.error(colorize('red', 'Update failed:'), colorize('red', error.message));
     // Try to return to the original state
     try {
       runCommand('git checkout -'); // Return to previous branch
@@ -225,25 +278,63 @@ function performUpdate(targetVersion) {
 }
 
 function main() {
-  console.log('Chagourtee Service Update Script');
-  console.log('===============================');
+  console.log(colorize('bold', colorize('bgBlue', ' '.repeat(54))));
+  console.log(colorize('bold', colorize('bgBlue', '           CHAGOURTEE SERVICE UPDATE SCRIPT           ')));
+  console.log(colorize('bold', colorize('bgBlue', ' '.repeat(54))));
+  console.log('');
   
   try {
     // Verify we're in a git repository
     runCommand('git status');
     
     const currentVersion = getCurrentVersion();
-    console.log(`Current version: ${currentVersion}`);
+    console.log(colorize('cyan', `Current version:`) + ' ' + colorize('bold', currentVersion));
     
+    // Check if server is currently running
+    if (isServerRunning()) {
+      console.log('\n' + colorize('bgYellow', ' WARNING '));
+      console.log(colorize('yellow', 'Server appears to be running! There is a risk that npm install may fail or cause issues.'));
+      console.log(colorize('yellow', 'It is recommended to stop the server before updating.'));
+      
+      const readline = require('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+      
+      rl.question(
+        colorize('magenta', 'Do you want to continue anyway? (This is safe if the update contains only minor changes without new dependencies) (y/N): '),
+        (answer) => {
+          if (!answer.toLowerCase().startsWith('y')) {
+            console.log(colorize('red', 'Update cancelled by user.'));
+            rl.close();
+            return;
+          }
+          
+          rl.close();
+          performUpdateCheck(currentVersion);
+        }
+      );
+    } else {
+      performUpdateCheck(currentVersion);
+    }
+  } catch (error) {
+    console.error(colorize('red', 'Error during update check:'), colorize('red', error.message));
+    process.exit(1);
+  }
+}
+
+function performUpdateCheck(currentVersion) {
+  try {
     const remoteTags = getLatestRemoteTags();
     const latestVersion = getLatestAvailableVersion(remoteTags);
     
     if (!latestVersion) {
-      console.log('No remote tags found.');
+      console.log(colorize('yellow', 'No remote tags found.'));
       return;
     }
     
-    console.log(`Latest available version: ${latestVersion}`);
+    console.log(colorize('cyan', `Latest available version:`) + ' ' + colorize('bold', latestVersion));
     
     if (isUpdateAvailable(currentVersion, latestVersion)) {
       const readline = require('readline');
@@ -253,28 +344,28 @@ function main() {
       });
       
       rl.question(
-        `A new version (${latestVersion}) is available. Would you like to update? (y/N): `,
+        colorize('green', `\nA new version (${colorize('bold', latestVersion)}) is available. Would you like to update? (y/N): `),
         (answer) => {
           if (answer.toLowerCase().startsWith('y')) {
             const success = performUpdate(latestVersion);
             
             if (success) {
-              console.log('Update completed successfully!');
+              console.log(colorize('bold', colorize('green', '\nUpdate completed successfully!')));
             } else {
-              console.log('Update failed. Please check the errors above.');
+              console.log(colorize('red', 'Update failed. Please check the errors above.'));
             }
           } else {
-            console.log('Update cancelled by user.');
+            console.log(colorize('yellow', 'Update cancelled by user.'));
           }
           
           rl.close();
         }
       );
     } else {
-      console.log('You are already on the latest version or a development version newer than the latest release.');
+      console.log(colorize('green', 'You are already on the latest version or a development version newer than the latest release.'));
     }
   } catch (error) {
-    console.error('Error during update check:', error.message);
+    console.error(colorize('red', 'Error during update check:'), colorize('red', error.message));
     process.exit(1);
   }
 }

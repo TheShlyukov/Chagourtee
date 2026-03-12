@@ -959,6 +959,47 @@ export default function Chat() {
     }
   };
 
+  // Drag and drop handlers
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only set drag over to false if we're leaving the main chat area
+    const target = e.target as HTMLElement;
+    if (!target.closest('.chat-messages-wrap')) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy'; // Show copy cursor effect
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // Convert FileList to array and add to selected files
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      setSelectedFiles(prev => [...prev, ...droppedFiles]);
+    }
+  };
+
   // Function to remove a selected file
   const removeSelectedFile = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
@@ -1534,7 +1575,13 @@ export default function Chat() {
               <div className="chat-header-desktop">
                 {roomList.find((r) => r.id === roomId)?.name ?? 'Чат'}
               </div>
-              <div className="chat-messages-wrap">
+              <div 
+                className={`chat-messages-wrap ${isDragOver ? 'drag-over' : ''}`}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
                 {loading ? (
                   <div style={{ color: 'var(--text-muted)' }}>Загрузка…</div>
                 ) : (

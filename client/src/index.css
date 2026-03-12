@@ -560,6 +560,14 @@ input:focus, textarea:focus {
   overscroll-behavior: contain;
 }
 
+/* Drag and drop styles */
+.chat-messages-wrap.drag-over {
+  outline: 3px dashed var(--accent);
+  outline-offset: -3px;
+  background-color: rgba(var(--accent-rgb), 0.05);
+  transition: all 0.2s ease;
+}
+
 .chat-users-panel {
   position: absolute;
   top: 0;

@@ -1,3 +1,4 @@
+import React, { useRef } from 'react';
 import { Route, Navigate, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ServerNameProvider } from './ServerNameContext';
@@ -21,12 +22,35 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Загрузка…</div>;
-  if (user) return <Navigate to="/" replace />;
+  const hasDecided = useRef<'unknown' | 'redirect' | 'show-form'>('unknown');
+  const renderDecision = useRef<'redirect' | 'show-form' | 'loading'>('loading');
+  
+  // Only make the decision once, early in the component lifecycle
+  if (hasDecided.current === 'unknown' && !loading) {
+    if (user) {
+      hasDecided.current = 'redirect';
+      renderDecision.current = 'redirect';
+    } else {
+      hasDecided.current = 'show-form';
+      renderDecision.current = 'show-form';
+    }
+  }
+  
+  // If decided to redirect, do it regardless of current user state
+  if (renderDecision.current === 'redirect') {
+    return <Navigate to="/" replace />;
+  }
+  
+  // If still determining initial state
+  if (renderDecision.current === 'loading') {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Загрузка…</div>;
+  }
+  
+  // Otherwise, show the form
   return <>{children}</>;
-}
+};
 
 function VerificationCheckRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();

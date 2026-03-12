@@ -4,20 +4,20 @@ import type { Room, Invite, User } from '../api';
 import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi, serverSettings as serverSettingsApi } from '../api';
 import { useServerName } from '../ServerNameContext';
 import { initializeWebSocket, addMessageHandler, removeMessageHandler } from '../websocket';
+import { useToast } from '../ToastContext';
 
 type PendingUser = { id: number; login: string; created_at: string };
 type UserWithDate = User & { created_at: string };
 
 export default function Admin() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [pending, setPending] = useState<PendingUser[]>([]);
   const [users, setUsers] = useState<UserWithDate[]>([]);
   const [newRoomName, setNewRoomName] = useState('');
   const [inviteOpts, setInviteOpts] = useState({ maxUses: '', expiresInHours: '' });
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const [verificationEnabled, setVerificationEnabled] = useState(false);
   const [codes, setCodes] = useState<{id: number, created_by_login: string, used: number, created_at: string, expires_at: string}[]>([]);
@@ -48,9 +48,9 @@ export default function Admin() {
         setUsers(uRes.users);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка загрузки');
+      showToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error');
     }
-  }, [user]);
+  }, [user, showToast]);
 
   useEffect(() => {
     setServerNameInput(rawName ?? '');
@@ -224,7 +224,6 @@ export default function Admin() {
   // Functions for invites (available to both owners and moderators)
   async function createInvite(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     try {
       const inv = await invitesApi.create({
         maxUses: inviteOpts.maxUses ? Number(inviteOpts.maxUses) : undefined,
@@ -234,31 +233,30 @@ export default function Admin() {
       const baseUrl = import.meta.env.VITE_APP_PUBLIC_URL || location.origin;
       const url = `${baseUrl.replace(/\/$/, '')}/register?invite=${inv.id}`;
       setLastInviteUrl(url);
-      setMessage('Инвайт создан. Ссылка скопирована в буфер.');
+      showToast('Инвайт создан. Ссылка скопирована в буфер.', 'success');
 
       // Use the new copyToClipboard helper
       await copyToClipboard(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
 
   async function deleteInvite(id: string) {
-    setError(null);
     try {
       await invitesApi.delete(id);
       await load();
-      setMessage('Инвайт удалён');
+      showToast('Инвайт удалён', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
   // Functions for other sections (only for owners)
   async function createRoom(e: React.FormEvent) {
     if (user?.role !== 'owner') {
-      setError('Только владелец может создавать комнаты');
+      showToast('Только владелец может создавать комнаты', 'error');
       return;
     }
     
@@ -266,39 +264,37 @@ export default function Admin() {
     const trimmedName = newRoomName.trim();
     
     if (!trimmedName) {
-      alert('Введите название комнаты');
+      showToast('Введите название комнаты', 'error');
       return;
     }
     
     if (trimmedName.length > 15) {
-      alert('Название комнаты не может превышать 15 символов');
+      showToast('Название комнаты не может превышать 15 символов', 'error');
       return;
     }
     
-    setError(null);
     try {
       await roomsApi.create(trimmedName);
       setNewRoomName('');
-      setMessage('Комната создана');
+      showToast('Комната создана', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
   async function saveServerName(e: React.FormEvent) {
     if (user?.role !== 'owner') {
-      setError('Только владелец может изменять имя сервера');
+      showToast('Только владелец может изменять имя сервера', 'error');
       return;
     }
     
     e.preventDefault();
-    setError(null);
     const trimmed = serverNameInput.trim();
     
     // Apply 32 character limit
     if (trimmed.length > 32) {
-      setError('Имя сервера слишком длинное (максимум 32 символа)');
+      showToast('Имя сервера слишком длинное (максимум 32 символа)', 'error');
       return;
     }
     
@@ -306,9 +302,9 @@ export default function Admin() {
     try {
       const res = await serverSettingsApi.update(trimmed);
       setRawNameLocal(res.server_name ?? null);
-      setMessage('Имя сервера обновлено');
+      showToast('Имя сервера обновлено', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка при сохранении имени сервера');
+      showToast(err instanceof Error ? err.message : 'Ошибка при сохранении имени сервера', 'error');
     } finally {
       setServerNameSaving(false);
     }
@@ -316,142 +312,136 @@ export default function Admin() {
 
   async function deleteRoom(id: number) {
     if (user?.role !== 'owner') {
-      setError('Только владелец может удалять комнаты');
+      showToast('Только владелец может удалять комнаты', 'error');
       return;
     }
     
     if (!confirm('Удалить комнату и все сообщения?')) return;
-    setError(null);
     try {
       await roomsApi.delete(id);
-      setMessage('Комната удалена');
+      showToast('Комната удалена', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
   async function clearRoomMessages(id: number) {
     if (user?.role !== 'owner') {
-      setError('Только владелец может очищать сообщения в комнатах');
+      showToast('Только владелец может очищать сообщения в комнатах', 'error');
       return;
     }
     
     if (!confirm('Очистить все сообщения в комнате?')) return;
-    setError(null);
     try {
       await roomsApi.clearMessages(id);
-      setMessage('Сообщения в комнате очищены');
+      showToast('Сообщения в комнате очищены', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
   async function approve(userId: number) {
     if (user?.role !== 'owner') {
-      setError('Только владелец может верифицировать пользователей');
+      showToast('Только владелец может верифицировать пользователей', 'error');
       return;
     }
     
-    setError(null);
     try {
       // Using the correct API endpoint for approving users
       await usersApi.disableCodewordCheck(userId);
-      setMessage('Пользователь верифицирован');
+      showToast('Пользователь верифицирован', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
   async function reject(userId: number) {
     if (user?.role !== 'owner') {
-      setError('Только владелец может отклонять пользователей');
+      showToast('Только владелец может отклонять пользователей', 'error');
       return;
     }
     
     if (!confirm('Отклонить и удалить пользователя?')) return;
-    setError(null);
     try {
       // Rejecting by deleting the user with a rejection reason
       await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
-      setMessage('Пользователь отклонён');
+      showToast('Пользователь отклонён', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
   async function changeUserRole(userId: number, role: 'owner' | 'moderator' | 'member') {
     if (user?.role !== 'owner') {
-      setError('Только владелец может изменять роли пользователей');
+      showToast('Только владелец может изменять роли пользователей', 'error');
       return;
     }
     
-    setError(null);
     try {
       await usersApi.changeRole(userId, role);
-      setMessage('Роль изменена');
+      showToast('Роль изменена', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
   const toggleVerification = async () => {
     if (user?.role !== 'owner') {
-      setError('Только владелец может изменять настройки верификации');
+      showToast('Только владелец может изменять настройки верификации', 'error');
       return;
     }
     
     try {
       const response = await verificationApi.updateSettings(!verificationEnabled);
       setVerificationEnabled(response.enabled);
-      setMessage(`Система верификации ${response.enabled ? 'включена' : 'отключена'}`);
-      setTimeout(() => setMessage(''), 3000);
+      showToast(`Система верификации ${response.enabled ? 'включена' : 'отключена'}`, 'success');
     } catch (error) {
       DEBUG_MODE && console.error('Failed to toggle verification:', error);
-      alert('Ошибка при изменении настроек верификации');
+      showToast('Ошибка при изменении настроек верификации', 'error');
     }
   };
 
   const approveUser = async (userId: number) => {
     if (user?.role !== 'owner') {
-      setError('Только владелец может верифицировать пользователей');
+      showToast('Только владелец может верифицировать пользователей', 'error');
       return;
     }
     
     try {
       // Using the correct API endpoint for approving users
       await usersApi.disableCodewordCheck(userId);
-      setMessage('Пользователь верифицирован');
+      showToast('Пользователь верифицирован', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (error) {
       DEBUG_MODE && console.error('Failed to approve user:', error);
-      alert('Ошибка при подтверждении пользователя');
+      showToast('Ошибка при подтверждении пользователя', 'error');
     }
   };
 
   const rejectUser = async (userId: number) => {
     if (user?.role !== 'owner') {
-      setError('Только владелец может отклонять пользователей');
+      showToast('Только владелец может отклонять пользователей', 'error');
       return;
     }
     
     try {
       // Rejecting by deleting the user with a rejection reason
       await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
-      setMessage('Пользователь отклонён');
+      showToast('Пользователь отклонён', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (error) {
       DEBUG_MODE && console.error('Failed to reject user:', error);
-      alert('Ошибка при отклонении пользователя');
+      showToast('Ошибка при отклонении пользователя', 'error');
     }
   };
 
   const createVerificationCode = async () => {
     if (user?.role !== 'owner') {
-      setError('Только владелец может создавать коды верификации');
+      showToast('Только владелец может создавать коды верификации', 'error');
       return;
     }
     
@@ -473,28 +463,27 @@ export default function Admin() {
       await copyToClipboard(newCode.code);
 
       setCustomCode(''); // Очищаем поле ввода после успешного создания
-      setTimeout(() => setMessage(''), 15000); // Показываем сообщение 15 секунд
+      showToast('Код верификации создан и скопирован в буфер', 'success');
     } catch (error) {
       DEBUG_MODE && console.error('Failed to create verification code:', error);
-      alert('Ошибка при создании кода: ' + (error as Error).message);
+      showToast('Ошибка при создании кода: ' + (error as Error).message, 'error');
     }
   };
 
 
   const deleteVerificationCode = async (id: number) => {
     if (user?.role !== 'owner') {
-      setError('Только владелец может удалять коды верификации');
+      showToast('Только владелец может удалять коды верификации', 'error');
       return;
     }
     
     try {
       await verificationApi.deleteCode(id);
       setCodes(codes.filter(code => code.id !== id));
-      setMessage('Код удален');
-      setTimeout(() => setMessage(''), 3000);
+      showToast('Код удален', 'success');
     } catch (error) {
       DEBUG_MODE && console.error('Failed to delete verification code:', error);
-      alert('Ошибка при удалении кода');
+      showToast('Ошибка при удалении кода', 'error');
     }
   };
 
@@ -505,7 +494,7 @@ export default function Admin() {
   // Add a new function to handle user deletion with reason
   const handleDeleteUserWithReason = async (userId: number) => {
     if (user?.role !== 'owner') {
-      setError('Только владелец может удалять пользователей');
+      showToast('Только владелец может удалять пользователей', 'error');
       return;
     }
     
@@ -516,7 +505,7 @@ export default function Admin() {
   // Add a new function to confirm user deletion with reason
   const confirmDeleteUser = async () => {
     if (user?.role !== 'owner') {
-      setError('Только владелец может удалять пользователей');
+      showToast('Только владелец может удалять пользователей', 'error');
       setDeletingUserId(null);
       return;
     }
@@ -530,8 +519,9 @@ export default function Admin() {
       try {
         await usersApi.delete(deletingUserId, deletionReason);
         await refreshUsers();
+        showToast('Пользователь удален', 'success');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Ошибка при удалении пользователя');
+        showToast(err instanceof Error ? err.message : 'Ошибка при удалении пользователя', 'error');
       } finally {
         setDeletingUserId(null);
         setDeletionReason('');
@@ -542,7 +532,7 @@ export default function Admin() {
   // Add a new function to refresh users list
   const refreshUsers = async () => {
     if (user?.role !== 'owner') {
-      setError('Только владелец может обновлять список пользователей');
+      showToast('Только владелец может обновлять список пользователей', 'error');
       return;
     }
     
@@ -550,65 +540,39 @@ export default function Admin() {
       const uRes = await usersApi.list();
       setUsers(uRes.users);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка загрузки');
+      showToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error');
     }
   };
 
   async function renameRoom(id: number, name: string) {
     if (user?.role !== 'owner') {
-      setError('Только владелец может переименовывать комнаты');
+      showToast('Только владелец может переименовывать комнаты', 'error');
       return;
     }
     
     if (!name.trim()) {
-      alert('Введите название комнаты');
+      showToast('Введите название комнаты', 'error');
       return;
     }
     
     if (name.length > 15) {
-      alert('Название комнаты не может превышать 15 символов');
+      showToast('Название комнаты не может превышать 15 символов', 'error');
       return;
     }
     
-    setError(null);
     try {
       await roomsApi.update(id, name.trim());
-      setMessage('Комната переименована');
+      showToast('Комната переименована', 'success');
       setRenamingRoomId(null);
       setRenamingInputValue(''); // Reset renaming input value
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
     }
   }
 
   return (
     <div className="page-content" style={{ maxWidth: 800 }}>
-      {error && (
-        <div style={{ 
-          padding: '1rem 1.25rem', 
-          marginBottom: '1.5rem', 
-          background: 'rgba(239, 68, 68, 0.1)', 
-          border: '1px solid var(--danger)',
-          borderRadius: '8px',
-          color: 'var(--danger)'
-        }}>
-          {error}
-        </div>
-      )}
-      {message && (
-        <div style={{ 
-          padding: '1rem 1.25rem', 
-          marginBottom: '1.5rem', 
-          background: 'rgba(16, 185, 129, 0.1)', 
-          border: '1px solid var(--success)',
-          borderRadius: 'var(--radius-medium)', // Используем переменную
-          color: 'var(--success)'
-        }}>
-          ✓ {message}
-        </div>
-      )}
-
       {/* Invites section - available to both owners and moderators */}
       <div className="card">
         <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🎫 Инвайты</h3>

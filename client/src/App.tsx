@@ -2,6 +2,7 @@ import { Route, Navigate, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ServerNameProvider } from './ServerNameContext';
 import { UserListPanelProvider } from './UserListPanelContext';
+import { ToastProvider } from './ToastContext';
 import Layout from './Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -87,7 +88,9 @@ export default function App() {
     <AuthProvider>
       <ServerNameProvider>
         <UserListPanelProvider>
-          <AppRoutes />
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
         </UserListPanelProvider>
       </ServerNameProvider>
     </AuthProvider>

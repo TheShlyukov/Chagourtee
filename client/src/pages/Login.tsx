@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useServerName } from '../ServerNameContext';
+import { errorTranslations } from '../localization/errors';
 import logoImage from '../assets/Images/Chagourtee_512px.png'; // Import the logo
 import Marquee from '../components/Marquee'; // Import Marquee component
 
@@ -22,7 +23,9 @@ export default function Login() {
       await doLogin(login.trim(), password);
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка входа');
+      const errorMessage = err instanceof Error ? err.message : 'Ошибка входа';
+      const translatedError = errorTranslations[errorMessage] || errorMessage;
+      setError(translatedError);
     } finally {
       setLoading(false);
     }

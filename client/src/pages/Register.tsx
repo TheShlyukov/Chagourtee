@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { auth, verification } from '../api';
 import { useAuth } from '../AuthContext';
 import { useServerName } from '../ServerNameContext';
+import { errorTranslations } from '../localization/errors';
 import logoImage from '../assets/Images/Chagourtee_512px.png'; // Import the logo
 import Marquee from '../components/Marquee'; // Import Marquee component
 
@@ -49,7 +50,9 @@ export default function Register() {
         navigate('/', { replace: true });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка регистрации');
+      const errorMessage = err instanceof Error ? err.message : 'Ошибка регистрации';
+      const translatedError = errorTranslations[errorMessage] || errorMessage;
+      setError(translatedError);
     } finally {
       setLoading(false);
     }

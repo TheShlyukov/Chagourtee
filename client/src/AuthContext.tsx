@@ -9,6 +9,7 @@ import {
   isWebSocketConnected 
 } from './websocket';
 import { logger } from './utils/logger'; // Import our logger
+import { errorTranslations } from './localization/errors';
 
 type AuthContextType = {
   user: User | null;
@@ -161,6 +162,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setUser(response.user);
       navigate('/');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка входа';
+      const translatedError = errorTranslations[errorMessage] || errorMessage;
+      throw new Error(translatedError);
     } finally {
       setLoading(false);
     }

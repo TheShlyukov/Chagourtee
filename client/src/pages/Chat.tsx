@@ -975,9 +975,13 @@ export default function Chat() {
     e.preventDefault();
     e.stopPropagation();
     
-    // Only set drag over to false if we're leaving the main chat area
-    const target = e.target as HTMLElement;
-    if (!target.closest('.chat-messages-wrap')) {
+    // Получаем элемент, над которым находится курсор после ухода с текущего элемента
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    const chatWrapElement = e.currentTarget as HTMLElement;
+    
+    // Проверяем, находится ли курсор над элементом, который является потомком области чата
+    // или сам является областью чата - если нет, значит мы действительно покидаем область
+    if (!chatWrapElement.contains(relatedTarget)) {
       setIsDragOver(false);
     }
   };
@@ -999,6 +1003,23 @@ export default function Chat() {
       setSelectedFiles(prev => [...prev, ...droppedFiles]);
     }
   };
+
+  // Global handlers to reset drag state when drag leaves the entire window
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      setIsDragOver(false);
+    };
+
+    // Listen for global drag events to reset the state when dragging stops anywhere
+    document.addEventListener('dragend', handleGlobalDragEnd);
+    document.addEventListener('drop', handleGlobalDragEnd);
+
+    // Cleanup listeners
+    return () => {
+      document.removeEventListener('dragend', handleGlobalDragEnd);
+      document.removeEventListener('drop', handleGlobalDragEnd);
+    };
+  }, []);
 
   // Function to remove a selected file
   const removeSelectedFile = (index: number) => {

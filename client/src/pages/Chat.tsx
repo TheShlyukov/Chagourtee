@@ -2252,7 +2252,7 @@ export default function Chat() {
             </>
           ) : (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Выберите чат или создайте новый
+              {user?.role === 'owner' ? 'Выберите чат или создайте новый, чтобы начать общаться' : 'Выберите чат, чтобы начать общаться'}
             </div>
           )}
         </div>

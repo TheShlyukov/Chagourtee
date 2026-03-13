@@ -5,9 +5,15 @@ import { rooms as roomsApi, invites as invitesApi, verification as verificationA
 import { useServerName } from '../ServerNameContext';
 import { initializeWebSocket, addMessageHandler, removeMessageHandler } from '../websocket';
 import { useToast } from '../ToastContext';
+import { errorTranslations } from '../localization/errors';
 
-type PendingUser = { id: number; login: string; created_at: string };
-type UserWithDate = User & { created_at: string };
+// Function to translate error messages
+function translateErrorMessage(errorMsg: string): string {
+  return errorTranslations[errorMsg] || errorMsg;
+}
+
+type PendingUser = { id: number; login: string; created_at: string; };
+type UserWithDate = User & { created_at: string; };
 
 export default function Admin() {
   const { user } = useAuth();
@@ -48,7 +54,7 @@ export default function Admin() {
         setUsers(uRes.users);
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка загрузки', 'error');
     }
   }, [user, showToast]);
 
@@ -238,7 +244,7 @@ export default function Admin() {
       // Use the new copyToClipboard helper
       await copyToClipboard(url);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 
@@ -249,7 +255,7 @@ export default function Admin() {
       await load();
       showToast('Инвайт удалён', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 
@@ -279,7 +285,7 @@ export default function Admin() {
       showToast('Комната создана', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 
@@ -304,7 +310,7 @@ export default function Admin() {
       setRawNameLocal(res.server_name ?? null);
       showToast('Имя сервера обновлено', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка при сохранении имени сервера', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка при сохранении имени сервера', 'error');
     } finally {
       setServerNameSaving(false);
     }
@@ -322,7 +328,7 @@ export default function Admin() {
       showToast('Комната удалена', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 
@@ -337,7 +343,7 @@ export default function Admin() {
       await roomsApi.clearMessages(id);
       showToast('Сообщения в комнате очищены', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 
@@ -353,7 +359,7 @@ export default function Admin() {
       showToast('Пользователь верифицирован', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 
@@ -370,7 +376,7 @@ export default function Admin() {
       showToast('Пользователь отклонён', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 
@@ -385,7 +391,7 @@ export default function Admin() {
       showToast('Роль изменена', 'success');
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 
@@ -521,7 +527,7 @@ export default function Admin() {
         await refreshUsers();
         showToast('Пользователь удален', 'success');
       } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Ошибка при удалении пользователя', 'error');
+        showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка при удалении пользователя', 'error');
       } finally {
         setDeletingUserId(null);
         setDeletionReason('');
@@ -540,7 +546,7 @@ export default function Admin() {
       const uRes = await usersApi.list();
       setUsers(uRes.users);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка загрузки', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка загрузки', 'error');
     }
   };
 
@@ -567,7 +573,7 @@ export default function Admin() {
       setRenamingInputValue(''); // Reset renaming input value
       // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
   }
 

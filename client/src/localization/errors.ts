@@ -23,4 +23,14 @@ export const errorTranslations: Record<string, string> = {
   
   // Network errors
   'Network error': 'Ошибка сети',
+  
+  // Room-related errors
+  'Room name required': 'Название комнаты обязательно',
+  'Room name cannot be empty': 'Название комнаты не может быть пустым',
+  'Room name cannot exceed 15 characters': 'Название комнаты не может превышать 15 символов',
+  'Room with this name already exists': 'Комната с таким названием уже существует',
+  'Main room cannot be renamed': 'Основную комнату нельзя переименовать',
+  'Main room cannot be deleted': 'Основную комнату нельзя удалить',
+  'Room not found': 'Комната не найдена',
+  'Only owner or moderator can perform this action': 'Только владелец или модератор может выполнить это действие',
 };

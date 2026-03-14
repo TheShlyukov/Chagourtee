@@ -1,3 +1,5 @@
+![Chagourtee Logo](Chagourtee_logo.png)
+
 # Chagourtee
 
 Self-hosted messenger: the owner runs the server on their computer, creates invites and verifies participants with a codeword. In perspective — federation between servers.

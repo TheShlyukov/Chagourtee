@@ -1159,6 +1159,12 @@ export default function Chat() {
     return () => clearTimeout(timeoutId);
   }, [sendText, adjustTextareaHeight]);
 
+  // Effect to adjust textarea height when switching between editing and non-editing modes
+  useEffect(() => {
+    const timeoutId = setTimeout(adjustTextareaHeight, 0);
+    return () => clearTimeout(timeoutId);
+  }, [editingMessage, adjustTextareaHeight]);
+
   // Check if user can edit a message (only own messages)
   const canEditMessage = (message: Message) => {
     if (!user) return false;
@@ -1419,18 +1425,6 @@ export default function Chat() {
     }
   };
 
-  // Handle cancelling message editing
-  const cancelEditing = () => {
-    setEditingMessage(null);
-    setSelectedFiles([]);
-    setOriginalMediaOnEditStart(null); // Reset the original media tracking
-    
-    // Return focus to the main input field
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  };
-
   // Update the height of the editing textarea when the editing message changes
   useEffect(() => {
     if (editingMessage && editMessageTextareaRef.current) {
@@ -1450,6 +1444,22 @@ export default function Chat() {
       }, 0);
     }
   }, [editingMessage]);
+
+  // Handle cancelling message editing
+  const cancelEditing = () => {
+    setEditingMessage(null);
+    setSelectedFiles([]);
+    setOriginalMediaOnEditStart(null); // Reset the original media tracking
+    
+    // Return focus to the main input field and adjust its height
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      // Trigger height adjustment after returning to the main input
+      setTimeout(() => {
+        adjustTextareaHeight();
+      }, 0);
+    }
+  };
 
   // Handle deleting a single message
   const deleteSingleMessage = async (messageId: number) => {
@@ -2212,13 +2222,33 @@ export default function Chat() {
                   onChange={(e) => {
                     if (editingMessage) {
                       setEditingMessage({...editingMessage, body: e.target.value});
+                      // Adjust height when editing message text changes
+                      setTimeout(() => {
+                        if (editMessageTextareaRef.current) {
+                          editMessageTextareaRef.current.style.height = 'auto';
+                          
+                          const lineHeight = 24;
+                          const maxHeight = lineHeight * 10;
+                          
+                          const scrollHeight = Math.min(editMessageTextareaRef.current.scrollHeight, maxHeight);
+                          editMessageTextareaRef.current.style.height = `${scrollHeight}px`;
+                          
+                          editMessageTextareaRef.current.style.overflowY = editMessageTextareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
+                        } else {
+                          // If we're still in the main textarea (not editing), adjust normally
+                          adjustTextareaHeight();
+                        }
+                      }, 0);
                     } else {
                       setSendText(e.target.value);
+                      adjustTextareaHeight();
                     }
                   }}
                   onInput={() => {
-                    handleTyping();
-                    adjustTextareaHeight();
+                    if (!editingMessage) {
+                      handleTyping();
+                      adjustTextareaHeight();
+                    }
                   }}
                   onPaste={() => {
                     // Adjust height after paste event (with slight delay to ensure content is processed)

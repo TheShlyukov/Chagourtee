@@ -131,15 +131,25 @@ function compareSemverVersions(v1, v2) {
   const cleanV1 = normV1.version;
   const cleanV2 = normV2.version;
 
-  // Split by dots to get major.minor.patch
+  // Split by '-' to separate core version and pre-release identifiers
   const [v1Core, v1PreRelease] = cleanV1.split('-');
   const [v2Core, v2PreRelease] = cleanV2.split('-');
   
-  const v1Parts = v1Core.split('.').map(Number);
-  const v2Parts = v2Core.split('.').map(Number);
+  // Split core version by dots and parse each part as a number
+  const v1Parts = v1Core.split('.').map(part => {
+    const num = parseInt(part, 10);
+    return isNaN(num) ? 0 : num;
+  });
   
-  // Compare major.minor.patch numerically
-  for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
+  const v2Parts = v2Core.split('.').map(part => {
+    const num = parseInt(part, 10);
+    return isNaN(num) ? 0 : num;
+  });
+  
+  // Compare major.minor.patch... numerically (supporting extended version formats)
+  const maxLen = Math.max(v1Parts.length, v2Parts.length);
+  
+  for (let i = 0; i < maxLen; i++) {
     const val1 = i < v1Parts.length ? v1Parts[i] : 0;
     const val2 = i < v2Parts.length ? v2Parts[i] : 0;
     

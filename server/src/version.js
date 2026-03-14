@@ -22,7 +22,7 @@ const APP_NAME = 'Chagourtee';
 
 /**
  * Parses the version string to extract release type
- * @param {string} version - The version string (e.g. "0.1.1-alpha", "1.0.0", "v0.3.1-alpha")
+ * @param {string} version - The version string (e.g. "0.1.1-alpha", "1.0.0", "v0.3.1.1-alpha")
  * @returns {string} The release type ('alpha', 'beta', 'rc', 'pre', 'stable')
  */
 function getReleaseType(version) {

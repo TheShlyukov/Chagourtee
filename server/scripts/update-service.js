@@ -193,9 +193,10 @@ function compareSemverVersions(v1, v2) {
 
 function getLatestAvailableVersion(remoteTags) {
   // Filter out invalid tags and return the latest one
+  // Updated regex to match version patterns with 3+ numeric segments like v0.3.1.1-alpha
   const validTags = remoteTags.filter(tag => 
-    /^v\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/.test(tag) || 
-    /^pre-v\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/.test(tag)
+    /^v\d+\.\d+\.\d+(\.\d+)*(-[a-zA-Z0-9.-]+)?$/.test(tag) || 
+    /^pre-v\d+\.\d+\.\d+(\.\d+)*(-[a-zA-Z0-9.-]+)?$/.test(tag)
   );
   
   // Since the tags are sorted in ascending order, the last one is the greatest

@@ -202,7 +202,7 @@ function isUpdateAvailable(currentVersion, latestVersion) {
   return comparisonResult < 0;
 }
 
-function performUpdate(targetVersion) {
+function performUpdate(targetVersion, skipDependencies = false) {
   try {
     console.log(colorize('blue', `\nUpdating to version: ${targetVersion}...`));
     
@@ -243,24 +243,28 @@ function performUpdate(targetVersion) {
     console.log(colorize('blue', `Checking out ${targetVersion}...`));
     runCommand(`git checkout ${targetVersion}`);
     
-    // Install dependencies
-    console.log(colorize('green', 'Installing root dependencies...'));
-    runCommand('npm install');
-    
-    // If workspaces exist, install dependencies in workspaces too
-    const rootPackagePath = path.join(__dirname, '../../package.json');
-    if (fs.existsSync(rootPackagePath)) {
-      const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
-      if (rootPackage.workspaces) {
-        console.log(colorize('green', 'Installing workspace dependencies...'));
-        rootPackage.workspaces.forEach(workspace => {
-          const workspacePath = path.join(__dirname, '../../', workspace);
-          if (fs.existsSync(workspacePath)) {
-            console.log(colorize('green', `Installing dependencies for ${workspace}...`));
-            runCommand('npm install', workspacePath);
-          }
-        });
+    // Install dependencies unless explicitly skipped
+    if (!skipDependencies) {
+      console.log(colorize('green', 'Installing root dependencies...'));
+      runCommand('npm install');
+      
+      // If workspaces exist, install dependencies in workspaces too
+      const rootPackagePath = path.join(__dirname, '../../package.json');
+      if (fs.existsSync(rootPackagePath)) {
+        const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
+        if (rootPackage.workspaces) {
+          console.log(colorize('green', 'Installing workspace dependencies...'));
+          rootPackage.workspaces.forEach(workspace => {
+            const workspacePath = path.join(__dirname, '../../', workspace);
+            if (fs.existsSync(workspacePath)) {
+              console.log(colorize('green', `Installing dependencies for ${workspace}...`));
+              runCommand('npm install', workspacePath);
+            }
+          });
+        }
       }
+    } else {
+      console.log(colorize('yellow', '⚠️  Dependency installation skipped. This could break functionality if dependencies have changed!\nBut you can still manually install the dependencies if needed with `npm install` in root directory and in each workspace directory.'));
     }
     
     console.log(colorize('bold', colorize('green', `\nSuccessfully updated to version: ${targetVersion}`)));
@@ -347,13 +351,27 @@ function performUpdateCheck(currentVersion) {
         colorize('green', `\nA new version (${colorize('bold', latestVersion)}) is available. Would you like to update? (y/N): `),
         (answer) => {
           if (answer.toLowerCase().startsWith('y')) {
-            const success = performUpdate(latestVersion);
-            
-            if (success) {
-              console.log(colorize('bold', colorize('green', '\nUpdate completed successfully!')));
-            } else {
-              console.log(colorize('red', 'Update failed. Please check the errors above.'));
-            }
+            rl.question(
+              colorize('yellow', `\nSkip dependency installation? (Only do this for minor updates that you're sure don't require dependency changes)\nSkipping dependencies can break functionality if dependencies have changed!\nType 'YES' in all caps to confirm skipping dependencies: `),
+              (skipAnswer) => {
+                const skipDependencies = skipAnswer === 'YES';
+                
+                if (skipDependencies) {
+                  console.log(colorize('red', '\n⚠️  You have chosen to skip dependency installation.'));
+                  console.log(colorize('red', 'This may cause issues if the update requires new dependencies or changes existing ones.'));
+                }
+                
+                const success = performUpdate(latestVersion, skipDependencies);
+                
+                if (success) {
+                  console.log(colorize('bold', colorize('green', '\nUpdate completed successfully!')));
+                } else {
+                  console.log(colorize('red', 'Update failed. Please check the errors above.'));
+                }
+                
+                rl.close();
+              }
+            );
           } else {
             console.log(colorize('yellow', 'Update cancelled by user.'));
           }

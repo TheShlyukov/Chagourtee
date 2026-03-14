@@ -4,12 +4,16 @@ interface MessageInputProps {
   sendText: string;
   setSendText: (text: string) => void;
   handleSend: (e: React.FormEvent) => void;
+  saveEditedMessage?: () => void;
+  isEditing?: boolean;
 }
 
 export const useMessageInputBehavior = ({ 
   sendText, 
   setSendText, 
-  handleSend 
+  handleSend,
+  saveEditedMessage,
+  isEditing
 }: MessageInputProps) => {
   // Function to detect if the user is on a mobile device
   const isMobileDevice = useCallback((): boolean => {
@@ -39,9 +43,13 @@ export const useMessageInputBehavior = ({
     } else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !isMobile) {
       // Submit form when only Enter is pressed without modifiers on non-mobile devices
       e.preventDefault();
-      handleSend(e);
+      if (isEditing && saveEditedMessage) {
+        saveEditedMessage();
+      } else {
+        handleSend(e);
+      }
     }
-  }, [sendText, setSendText, handleSend, isMobileDevice]);
+  }, [sendText, setSendText, handleSend, saveEditedMessage, isEditing, isMobileDevice]);
 
   return {
     handleKeyDown,

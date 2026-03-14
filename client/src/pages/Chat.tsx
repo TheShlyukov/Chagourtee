@@ -1106,13 +1106,6 @@ export default function Chat() {
     }
   }
 
-  // Using the custom hook for message input behavior
-  const { handleKeyDown } = useMessageInputBehavior({
-    sendText,
-    setSendText,
-    handleSend
-  });
-
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -1424,6 +1417,15 @@ export default function Chat() {
       alert('Ошибка при редактировании сообщения');
     }
   };
+
+  // Using the custom hook for message input behavior
+  const { handleKeyDown } = useMessageInputBehavior({
+    sendText,
+    setSendText,
+    handleSend,
+    saveEditedMessage,
+    isEditing: !!editingMessage
+  });
 
   // Update the height of the editing textarea when the editing message changes
   useEffect(() => {

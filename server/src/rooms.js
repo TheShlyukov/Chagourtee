@@ -40,8 +40,8 @@ module.exports = function (fastify) {
     if (trimmedName.length < 1) {
       return reply.code(400).send({ error: 'Room name cannot be empty' });
     }
-    if (trimmedName.length > 15) {
-      return reply.code(400).send({ error: 'Room name cannot exceed 15 characters' });
+    if (trimmedName.length > 32) {
+      return reply.code(400).send({ error: 'Room name cannot exceed 32 characters' });
     }
     
     // Check if a room with this name already exists
@@ -91,8 +91,8 @@ module.exports = function (fastify) {
     if (trimmedName.length < 1) {
       return reply.code(400).send({ error: 'Room name cannot be empty' });
     }
-    if (trimmedName.length > 15) {
-      return reply.code(400).send({ error: 'Room name cannot exceed 15 characters' });
+    if (trimmedName.length > 32) {
+      return reply.code(400).send({ error: 'Room name cannot exceed 32 characters' });
     }
     
     // Check if a room with this name already exists (excluding current room)

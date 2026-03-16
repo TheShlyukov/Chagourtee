@@ -77,7 +77,11 @@ export default function Layout() {
           </Link>
         )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <span>{getPageTitle()}</span>
+          <span>
+            <Marquee>
+              {getPageTitle()}
+            </Marquee>
+          </span>
           {/* Conditionally render server name and tagline only if not on mobile in a specific room */}
           {!(isMobile && isInSpecificRoom) ? (
             <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>

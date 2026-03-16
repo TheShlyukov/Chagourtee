@@ -13,7 +13,7 @@ export interface VersionInfo {
 
 /**
  * Parses the version string to extract release type
- * @param version The version string (e.g. "0.1.1-alpha", "1.0.0", "v0.3.1.1-alpha")
+ * @param version The version string (e.g. "0.1.1-alpha", "1.0.0", "pre-v0.3.2-alpha")
  * @returns The release type ('alpha', 'beta', 'rc', 'pre', 'stable')
  */
 export function getReleaseType(version: string): string {

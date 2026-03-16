@@ -274,8 +274,8 @@ export default function Admin() {
       return;
     }
     
-    if (trimmedName.length > 15) {
-      showToast('Название комнаты не может превышать 15 символов', 'error');
+    if (trimmedName.length > 32) {
+      showToast('Название комнаты не может превышать 32 символа', 'error');
       return;
     }
     
@@ -561,8 +561,8 @@ export default function Admin() {
       return;
     }
     
-    if (name.length > 15) {
-      showToast('Название комнаты не может превышать 15 символов', 'error');
+    if (name.length > 32) {
+      showToast('Название комнаты не может превышать 32 символа', 'error');
       return;
     }
     
@@ -687,10 +687,10 @@ export default function Admin() {
             <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
               <input
                 value={newRoomName}
-                onChange={(e) => setNewRoomName(e.target.value.slice(0, 15))}
-                placeholder="Название комнаты (макс. 15 символов)"
+                onChange={(e) => setNewRoomName(e.target.value.slice(0, 32))}
+                placeholder="Название комнаты (макс. 32 символа)"
                 style={{ flex: '1 1 200px', minWidth: 0 }}
-                maxLength={15}
+                maxLength={32}
               />
               <button type="submit" style={{ flex: '0 0 auto' }}>➕ Создать</button>
             </form>
@@ -714,9 +714,9 @@ export default function Admin() {
                         <input
                           type="text"
                           value={renamingInputValue}
-                          onChange={(e) => setRenamingInputValue(e.target.value.slice(0, 15))}
+                          onChange={(e) => setRenamingInputValue(e.target.value.slice(0, 32))}
                           placeholder="Новое название комнаты"
-                          maxLength={15}
+                          maxLength={32}
                           autoFocus
                           style={{ 
                             flex: '1 1 150px', 

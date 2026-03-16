@@ -1566,7 +1566,9 @@ export default function Chat() {
               }}
             >
               <span className="chat-room-link-name">
-                {r.name}
+                <Marquee>
+                  {r.name}
+                </Marquee>
               </span>
               <div className="chat-room-indicators">
                 {mentionedRooms.has(r.id) && roomId !== r.id && (
@@ -1606,7 +1608,9 @@ export default function Chat() {
           {roomId ? (
             <>
               <div className="chat-header-desktop">
-                {roomList.find((r) => r.id === roomId)?.name ?? 'Чат'}
+                <Marquee>
+                  {roomList.find((r) => r.id === roomId)?.name ?? 'Чат'}
+                </Marquee>
               </div>
               <div 
                 className={`chat-messages-wrap ${isDragOver ? 'drag-over' : ''}`}

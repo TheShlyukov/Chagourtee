@@ -166,14 +166,50 @@ input:focus, textarea:focus {
   font-size: 1.05rem;
 }
 
+/* Container for layout with banner */
+.layout-root-with-banner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto; 
+  overflow-x: hidden;
+}
+
+/* Disconnection Banner Styles */
+.disconnection-banner {
+  background: linear-gradient(to right, #4a0000, #800000);
+  color: #f8d7da;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border, #ccc);
+  z-index: 1000;
+  width: 100%;
+  flex: 0 0 auto; /* Don't grow or shrink, but allow to be sized automatically */
+}
+
+.disconnection-banner svg {
+  flex-shrink: 0;
+}
+
 /* Layout: десктоп — боковая панель, мобильные — нижняя навигация (breakpoint 768px) */
 .layout-root {
   display: flex;
   flex-direction: row;
   width: 100%;
-  height: 100dvh;
-  height: 100dvh;
-  overflow-y: auto; overflow-x: hidden;
+  flex: 1 1 auto; /* Take remaining space after banner */
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto; 
+  overflow-x: hidden;
 }
 .layout-header-top {
   display: none;

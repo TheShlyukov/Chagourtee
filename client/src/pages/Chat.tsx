@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback} from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import type { Room, Message, User, MessageListResponse } from '../api';
+import type { Room, Message, User, MessageListResponse, MediaFile } from '../api';
 import { rooms as roomsApi, messages as messagesApi, auth as authApi, users, media } from '../api';
 import { 
   getWebSocket, 
@@ -20,6 +20,34 @@ import { ensureNotificationPermission, showMessageNotification } from '../notifi
 import { useUserListPanel } from '../UserListPanelContext';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+
+// Extend the HTMLInputElement interface to include webkitdirectory
+declare global {
+  interface HTMLInputElement {
+    webkitdirectory: boolean;
+  }
+  
+  interface FileSystemEntry {
+    readonly isFile: boolean;
+    readonly isDirectory: boolean;
+    readonly name: string;
+  }
+
+  interface FileSystemFileEntry extends FileSystemEntry {
+    file(successCallback: (file: File) => void, errorCallback?: (error: Error) => void): void;
+  }
+
+  interface FileSystemDirectoryEntry extends FileSystemEntry {
+    createReader(): FileSystemDirectoryReader;
+  }
+
+  interface FileSystemDirectoryReader {
+    readEntries(
+      successCallback: (entries: FileSystemEntry[]) => void,
+      errorCallback?: (error: Error) => void
+    ): void;
+  }
+}
 
 type TypingUser = {
   userId: number;
@@ -959,6 +987,50 @@ export default function Chat() {
     }
   };
 
+  // Function to convert a folder to a ZIP file
+  const folderToZip = async (folderEntry: any): Promise<File> => {
+    const zip = new JSZip();
+    
+    // Recursive function to add entries to zip
+    const addEntryToZip = async (entry: any, path: string = ''): Promise<void> => {
+      if (entry.isFile) {
+        const fileEntry = entry as FileSystemFileEntry;
+        return new Promise<void>((innerResolve, innerReject) => {
+          fileEntry.file(
+            (file) => {
+              const fullPath = path + file.name;
+              zip.file(fullPath, file);
+              innerResolve();
+            },
+            (error) => {
+              console.error('Error reading file:', error);
+              innerReject(error);
+            }
+          );
+        });
+      } else if (entry.isDirectory) {
+        const dirEntry = entry as FileSystemDirectoryEntry;
+        const reader = dirEntry.createReader();
+        
+        const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+          reader.readEntries((items) => {
+            resolve(items);
+          }, reject);
+        });
+        
+        const promises = entries.map(subEntry => 
+          addEntryToZip(subEntry, path + entry.name + '/')
+        );
+        await Promise.all(promises);
+      }
+    };
+
+    await addEntryToZip(folderEntry);
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const zipFile = new File([zipBlob], `${folderEntry.name}.zip`, { type: 'application/zip' });
+    return zipFile;
+  };
+
   // Drag and drop handlers
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -992,13 +1064,46 @@ export default function Chat() {
     e.dataTransfer.dropEffect = 'copy'; // Show copy cursor effect
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      // Convert FileList to array and add to selected files
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const files: File[] = [];
+      const items = Array.from(e.dataTransfer.items);
+      
+      for (const item of items) {
+        if (item.kind === 'file') {
+          // Use type assertion to access webkitGetAsEntry
+          const dataTransferItem = item as any;
+          const entry = dataTransferItem.webkitGetAsEntry ? dataTransferItem.webkitGetAsEntry() : null;
+          
+          if (entry) {
+            if (entry.isDirectory) {
+              // It's a folder, convert it to a zip file
+              try {
+                const zipFile = await folderToZip(entry);
+                files.push(zipFile);
+              } catch (error) {
+                console.error('Error converting folder to zip:', error);
+              }
+            } else {
+              // Regular file
+              files.push(item.getAsFile() as File);
+            }
+          } else {
+            // Fallback to regular file if webkitGetAsEntry is not available
+            files.push(item.getAsFile() as File);
+          }
+        }
+      }
+      
+      if (files.length > 0) {
+        setSelectedFiles(prev => [...prev, ...files]);
+      }
+    } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // Fallback to regular file handling
       const droppedFiles = Array.from(e.dataTransfer.files);
       setSelectedFiles(prev => [...prev, ...droppedFiles]);
     }
@@ -2217,10 +2322,49 @@ export default function Chat() {
                     id="file-upload" 
                     type="file" 
                     multiple
+                    {...{ webkitdirectory: true }}
                     onChange={handleFileSelect} 
                     style={{ display: 'none' }} 
                   />
                 </div>
+                
+                {/* File input for editing message */}
+                <input 
+                  id="edit-file-upload" 
+                  type="file" 
+                  multiple
+                  {...{ webkitdirectory: true }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      const files = Array.from(e.target.files);
+                      
+                      // Upload each file and add to the editing message
+                      files.forEach(file => {
+                        media.upload(file).then((result: any) => {
+                          const newMediaFile: MediaFile = {
+                            id: result.id,
+                            original_name: result.original_name,
+                            encrypted_filename: result.encrypted_filename,
+                            mime_type: result.mime_type,
+                            file_size: result.file_size
+                          };
+                          
+                          setEditingMessage(prev => {
+                            if (!prev) return prev;
+                            return {
+                              ...prev,
+                              media: [...(prev.media || []), newMediaFile]
+                            };
+                          });
+                        }).catch(error => {
+                          console.error('Error uploading file for editing:', error);
+                          alert(`Ошибка при загрузке файла: ${error.message}`);
+                        });
+                      });
+                    }
+                  }}
+                  style={{ display: 'none' }} 
+                />
                 
                 <textarea
                   ref={textareaRef}

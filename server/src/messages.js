@@ -1,5 +1,21 @@
 const { isOwnerOrModerator } = require('./auth');
 
+// Rate limiting store - keeps track of user message counts
+const rateLimitStore = new Map(); // userId -> { count: number, timestamp: number }
+const RATE_LIMIT_WINDOW = 10000; // 10 seconds window
+const MAX_MESSAGES_PER_WINDOW = 5; // Max 5 messages per window
+
+// Cleanup old rate limit entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, record] of rateLimitStore.entries()) {
+    // If the record is older than 2 windows, remove it
+    if (now - record.timestamp > RATE_LIMIT_WINDOW * 2) {
+      rateLimitStore.delete(userId);
+    }
+  }
+}, 30000); // Clean up every 30 seconds
+
 module.exports = function (fastify) {
   const db = fastify.db;
 
@@ -109,6 +125,28 @@ module.exports = function (fastify) {
     if ((!body || !String(body).trim()) && (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0)) {
       return reply.code(400).send({ error: 'Message body or media files required' });
     }
+
+    // Rate limiting check
+    const userId = request.session.userId;
+    const now = Date.now();
+    const userRateLimit = rateLimitStore.get(userId) || { count: 0, timestamp: now };
+    
+    // Reset counter if window has passed
+    if (now - userRateLimit.timestamp > RATE_LIMIT_WINDOW) {
+      userRateLimit.count = 0;
+      userRateLimit.timestamp = now;
+    }
+    
+    // Increment count
+    userRateLimit.count++;
+    
+    // Check if rate limit exceeded
+    if (userRateLimit.count > MAX_MESSAGES_PER_WINDOW) {
+      return reply.code(429).send({ error: 'Too many messages sent recently. Please slow down.' });
+    }
+    
+    // Update rate limit store
+    rateLimitStore.set(userId, userRateLimit);
 
     const room = db.prepare('SELECT id FROM rooms WHERE id = ?').get(roomId);
     if (!room) return reply.code(404).send({ error: 'Room not found' });

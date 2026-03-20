@@ -127,6 +127,11 @@ export default function Chat() {
   
   // Store scroll position to preserve it between room switches
   const scrollPositions = useRef<Record<number, number>>({}); // Store scroll position per room
+  
+  // Rate limiting state
+  const lastMessageTimeRef = useRef<number>(0);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const rateLimitDelay = 500; // Minimum delay between messages in milliseconds
 
   const { isOpen: isUserListOpen, close: closeUserList, toggle: toggleUserList } =
     useUserListPanel();
@@ -1174,6 +1179,17 @@ export default function Chat() {
     e.preventDefault();
     
     if (!roomId || (!sendText.trim() && selectedFiles.length === 0)) return;
+    
+    // Check rate limiting
+    const now = Date.now();
+    if (now - lastMessageTimeRef.current < rateLimitDelay) {
+      setIsRateLimited(true);
+      setTimeout(() => setIsRateLimited(false), rateLimitDelay - (now - lastMessageTimeRef.current));
+      alert('Слишком частые сообщения. Пожалуйста, подождите немного.');
+      return;
+    }
+    
+    lastMessageTimeRef.current = now;
     
     const text = sendText.trim();
     const hasFiles = selectedFiles.length > 0;
@@ -2409,6 +2425,7 @@ export default function Chat() {
                   autoFocus
                   rows={1}
                   onKeyDown={handleKeyDown}
+                  disabled={isRateLimited} // Disable when rate limited
                   style={{
                     minHeight: '54px',
                     maxHeight: '240px', // 10 lines * 24px per line
@@ -2416,11 +2433,16 @@ export default function Chat() {
                     overflowY: 'hidden' // We control overflow in the function now
                   }}
                 />
-                <button type="submit" disabled={!!(!roomId || 
-                  (!editingMessage && !sendText.trim() && selectedFiles.length === 0) ||
-                  (editingMessage && !editingMessage.body.trim() && 
-                   (!editingMessage.media || editingMessage.media.length === 0) && 
-                   selectedFiles.length === 0))}>
+                <button 
+                  type="submit" 
+                  disabled={
+                    !!(!roomId || 
+                      (!editingMessage && !sendText.trim() && selectedFiles.length === 0) ||
+                      (editingMessage && !editingMessage.body.trim() && 
+                       (!editingMessage.media || editingMessage.media.length === 0) && 
+                       selectedFiles.length === 0)) || 
+                    isRateLimited // Disable when rate limited
+                  }>
                   <span className="send-text">{editingMessage ? 'Сохранить' : 'Отправить'}</span>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

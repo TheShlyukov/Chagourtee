@@ -3,6 +3,22 @@ const { getDb } = require('./db');
 
 const SESSION_COOKIE = 'chagourtee_sid';
 
+// Rate limiting for WebSocket messages
+const wsRateLimitStore = new Map(); // userId -> { count: number, timestamp: number }
+const WS_RATE_LIMIT_WINDOW = 5000; // 5 seconds window
+const WS_MAX_MESSAGES_PER_WINDOW = 10; // Max 10 messages per window
+
+// Cleanup old WebSocket rate limit entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, record] of wsRateLimitStore.entries()) {
+    // If the record is older than 2 windows, remove it
+    if (now - record.timestamp > WS_RATE_LIMIT_WINDOW * 2) {
+      wsRateLimitStore.delete(userId);
+    }
+  }
+}, 30000); // Clean up every 30 seconds
+
 function getUserIdFromCookie(cookieHeader) {
   if (!cookieHeader) return null;
   const db = getDb();
@@ -82,6 +98,35 @@ module.exports = function (fastify) {
         if (process.env.DEBUG_MODE === 'true') {
           fastify.log.info('Received WebSocket message:', msg);
         }
+        
+        // Apply rate limiting to WebSocket messages
+        const now = Date.now();
+        const userWsRateLimit = wsRateLimitStore.get(userId) || { count: 0, timestamp: now };
+        
+        // Reset counter if window has passed
+        if (now - userWsRateLimit.timestamp > WS_RATE_LIMIT_WINDOW) {
+          userWsRateLimit.count = 0;
+          userWsRateLimit.timestamp = now;
+        }
+        
+        // Increment count
+        userWsRateLimit.count++;
+        
+        // Check if rate limit exceeded
+        if (userWsRateLimit.count > WS_MAX_MESSAGES_PER_WINDOW) {
+          if (process.env.DEBUG_MODE === 'true') {
+            fastify.log.warn(`Rate limit exceeded for user ${userId}, closing connection`);
+          }
+          ws.send(JSON.stringify({ 
+            type: 'error', 
+            message: 'Rate limit exceeded. Too many messages sent recently. Please slow down.' 
+          }));
+          ws.close(4000, 'Rate limit exceeded');
+          return;
+        }
+        
+        // Update rate limit store
+        wsRateLimitStore.set(userId, userWsRateLimit);
         
         if (msg.type === 'typing' && msg.roomId != null) {
           broadcastToRoom(Number(msg.roomId), { type: 'typing', userId, login: user?.login || userId }, ws);
@@ -199,9 +244,8 @@ module.exports = function (fastify) {
         return ws.terminate();
       }
       // Ensure all connections are marked as not alive until next heartbeat
-      ws.isAlive = false;
     });
-  }, 40000); // Slightly more than ping interval
+  }, 30000); // Check every 30 seconds
 
   function broadcast(payload) {
     const data = JSON.stringify(payload);
@@ -306,35 +350,33 @@ module.exports = function (fastify) {
   function broadcastRoomUpdated(room) {
     broadcast({ type: 'room_updated', room });
   }
-
-  function broadcastRoomMessagesCleared(roomId) {
-    broadcastToRoom(roomId, { type: 'room_messages_cleared', roomId });
+  
+  function broadcastRoomDeletion(roomId) {
+    broadcast({ type: 'room_deleted', roomId });
   }
 
-  function broadcastUserRoleChanged(user) {
-    broadcast({ type: 'user_role_changed', user });
+  function broadcastRoomMessagesCleared(roomId) {
+    broadcast({ type: 'room_messages_cleared', roomId });
   }
 
   function broadcastUserUpdated(user) {
     broadcast({ type: 'user_updated', user });
   }
 
-  function broadcastInvitesChanged() {
-    broadcast({ type: 'admin_invites_updated' });
+  function broadcastUserRoleChanged(userId, newRole) {
+    broadcast({ type: 'user_role_changed', userId, newRole });
   }
 
-  function broadcastVerificationCodesChanged() {
-    broadcast({ type: 'admin_verification_codes_updated' });
+  function broadcastInvitesChanged(invites) {
+    broadcast({ type: 'invites_changed', invites });
   }
 
-  function broadcastVerificationSettingsUpdated(settings) {
-    const payload = {
-      type: 'verification_settings_updated',
-      // для обратной совместимости оставляем enabled на верхнем уровне
-      enabled: settings && typeof settings.enabled !== 'undefined' ? !!settings.enabled : undefined,
-      settings
-    };
-    broadcast(payload);
+  function broadcastVerificationCodesChanged(codes) {
+    broadcast({ type: 'verification_codes_changed', codes });
+  }
+
+  function broadcastVerificationSettingsUpdated(enabled) {
+    broadcast({ type: 'verification_settings_updated', enabled });
   }
 
   function broadcastServerSettingsUpdated(settings) {
@@ -370,7 +412,7 @@ module.exports = function (fastify) {
   };
   
   fastify.broadcastRoomDeletion = function (roomId) {
-    broadcast({ type: 'room_deleted', roomId });
+    broadcastRoomDeletion(roomId);
   };
   
   fastify.broadcastToUser = function (userId, payload) {

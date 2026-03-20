@@ -107,7 +107,10 @@ export default function Layout() {
                     color: 'var(--text-muted)',
                     whiteSpace: 'nowrap',
                     marginLeft: '0.5rem',
+                    cursor: 'pointer' // Make version clickable
                   }}
+                  onClick={() => setIsVersionModalOpen(true)} // Open version modal on click
+                  title="Информация о приложении" // Tooltip to indicate it's clickable
                 >
                   {serverTagline}
                 </span>
@@ -115,6 +118,28 @@ export default function Layout() {
             ) : (
               <div></div> // Empty div to maintain layout spacing
             )}
+          </div>
+          {/* Add logo to header top for larger screens */}
+          <div 
+            style={{ 
+              marginLeft: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer' // Indicate that the logo is clickable
+            }}
+            onClick={() => setIsVersionModalOpen(true)} // Open the version modal when clicked
+            title="Информация о приложении" // Tooltip to indicate it's clickable
+          >
+            <img 
+              src={logoImage} 
+              alt="Chagourtee" 
+              style={{ 
+                maxWidth: '24px', 
+                height: 'auto',
+                filter: 'grayscale(100%) opacity(0.7)', // Monochrome effect
+              }} 
+            />
           </div>
           {location.pathname.startsWith('/chat/') && (
             <button

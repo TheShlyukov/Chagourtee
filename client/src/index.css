@@ -139,7 +139,7 @@ input:focus, textarea:focus {
   font-size: 0.9rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   body {
     font-size: 16px;
   }
@@ -200,7 +200,7 @@ input:focus, textarea:focus {
   flex-shrink: 0;
 }
 
-/* Layout: десктоп — боковая панель, мобильные — нижняя навигация (breakpoint 768px) */
+/* Layout: десктоп — боковая панель, мобильные — нижняя навигация (breakpoint 678px) */
 .layout-root {
   display: flex;
   flex-direction: row;
@@ -235,7 +235,7 @@ input:focus, textarea:focus {
   display: none;
 }
 
-@media (min-width: 768px) and (max-width: 876px) {
+@media (min-width: 678px) and (max-width: 876px) {
   .layout-root {
     flex-direction: column;
     height: 100dvh;
@@ -308,7 +308,7 @@ input:focus, textarea:focus {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .layout-root {
     flex-direction: column;
     height: 100dvh;
@@ -403,7 +403,7 @@ input:focus, textarea:focus {
   display: none; /* Скрываем по умолчанию, показываем только на промежуточных размерах */
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .chat-header-tools {
     display: none; /* Не показываем на мобильных */
   }
@@ -420,7 +420,7 @@ input:focus, textarea:focus {
   flex-direction: column;
 }
 
-@media (min-width: 768px) and (max-width: 876px) {
+@media (min-width: 678px) and (max-width: 876px) {
   .chat-rooms {
     width: 260px;
     border-right: 1px solid var(--border);
@@ -451,7 +451,7 @@ input:focus, textarea:focus {
   background: var(--bg);
 }
 /* Hide chat-rooms-header on mobile devices */
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .chat-rooms-header {
     display: none;
   }
@@ -573,13 +573,13 @@ input:focus, textarea:focus {
   gap: 1rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .chat-header-desktop {
     display: none;
   }
 }
 
-@media (min-width: 768px) and (max-width: 876px) {
+@media (min-width: 678px) and (max-width: 876px) {
   .chat-header-desktop {
     display: none;
   }
@@ -681,7 +681,7 @@ input:focus, textarea:focus {
   color: var(--text-muted);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .chat-users-panel {
     left: 0;
     right: 0;
@@ -1584,7 +1584,7 @@ pre[class*="language-"] {
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .document-banner {
     max-width: 100%;
     min-width: auto;
@@ -1612,7 +1612,7 @@ pre[class*="language-"] {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .chat-form {
     flex-shrink: 0;
     z-index: 10;
@@ -1669,7 +1669,7 @@ pre[class*="language-"] {
     transform: translateY(0);
   }
 }
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .page-content {
     padding: 1rem;
     padding-left: calc(1rem + env(safe-area-inset-left));
@@ -1700,7 +1700,7 @@ pre[class*="language-"] {
   box-shadow: var(--shadow-md);
   border-color: var(--accent);
 }
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .card {
     padding: 1rem;
     overflow-wrap: break-word;
@@ -1872,7 +1872,7 @@ a:hover {
 }
 
 /* Responsive adjustments for mobile */
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .message-selected-indicator {
     top: 0.25rem;
     right: 0.25rem;
@@ -2038,7 +2038,7 @@ a:hover {
   padding: 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .scroll-to-bottom-btn {
     bottom: 100px;
     right: 15px;
@@ -2078,7 +2078,7 @@ a:hover {
 }
 
 /* Стили для планшетной навигации в чате */
-@media (min-width: 768px) and (max-width: 876px) {
+@media (min-width: 678px) and (max-width: 876px) {
   .tablet-nav-bottom {
     display: flex;
     background: var(--bg);
@@ -2216,7 +2216,7 @@ a:hover {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 678px) {
   .toast {
     top: 10px;
     right: 10px;

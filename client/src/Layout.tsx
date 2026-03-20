@@ -17,8 +17,8 @@ export default function Layout() {
   const { displayName, serverTagline } = useServerName();
   const { isOpen: isUserListOpen, open: openUserList } = useUserListPanel();
   
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [isTabletInRange, setIsTabletInRange] = useState(window.innerWidth >= 768 && window.innerWidth <= 876);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 678);
+  const [isTabletInRange, setIsTabletInRange] = useState(window.innerWidth >= 678 && window.innerWidth <= 876);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false); // State for version modal
 
   // Check if we're in a specific chat room
@@ -28,8 +28,8 @@ export default function Layout() {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      setIsMobile(width <= 768);
-      setIsTabletInRange(width >= 768 && window.innerWidth <= 876);
+      setIsMobile(width <= 678);
+      setIsTabletInRange(width >= 678 && window.innerWidth <= 876);
     };
 
     window.addEventListener('resize', handleResize);

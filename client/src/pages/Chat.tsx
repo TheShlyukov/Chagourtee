@@ -134,10 +134,10 @@ export default function Chat() {
   // Create ref for the user panel to detect clicks outside
   const userPanelRef = useRef<HTMLElement>(null);
 
-  // State to track if we're in the 768-876px range
+  // State to track if we're in the 678-876px range
   const [isTabletInRange, setIsTabletInRange] = useState(
     typeof window !== 'undefined' 
-      ? window.matchMedia('(min-width: 768px) and (max-width: 876px)').matches
+      ? window.matchMedia('(min-width: 678px) and (max-width: 876px)').matches
       : false
   );
 
@@ -163,7 +163,7 @@ export default function Chat() {
   // Update tablet range state when window resizes
   useEffect(() => {
     const handleResize = () => {
-      setIsTabletInRange(window.matchMedia('(min-width: 768px) and (max-width: 876px)').matches);
+      setIsTabletInRange(window.matchMedia('(min-width: 678px) and (max-width: 876px)').matches);
     };
 
     window.addEventListener('resize', handleResize);
@@ -891,7 +891,7 @@ export default function Chat() {
       let bottomPosition = 80; // Base position for desktop
       
       // Check if we're on mobile and adjust base position accordingly
-      if (window.innerWidth <= 768) {
+      if (window.innerWidth <= 678) {
         bottomPosition = 100; // Mobile base position
       }
 
@@ -1688,7 +1688,7 @@ export default function Chat() {
             </Link>
           ))}
         </div>
-        {/* Tablet Navigation Bar - shown only in 768-876px range */}
+        {/* Tablet Navigation Bar - shown only in 678-876px range */}
         {isTabletInRange && (
           <nav className="tablet-nav-bottom">
             <IsActiveLink to="/chat" end>

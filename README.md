@@ -225,9 +225,32 @@ In recent updates, Chagourtee added support for sharing media files in chat. Use
 
 - Images (JPG, PNG, GIF, WebP, SVG, BMP, TIFF)
 - Videos (MP4, WebM, OGG, MPEG, QuickTime)
-- Audio files (MP3, WAV, AAC, OGG, MIDI, WebM, AIF, M4A, etc.)
+- Audio files (MP3, WAV, AAC, OGG, MIDI, WebM, AIF, M4A, AIFF, ALAC, FLAC, etc.)
 - Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, ZIP, RAR, etc.)
 - Any other file types (all file types are supported)
+
+### Audio Transcoding
+
+Chagourtee includes automatic audio transcoding for better browser compatibility. When certain audio formats that aren't well-supported across all browsers are uploaded, the system automatically converts them to FLAC format for playback:
+
+- AIFF/AIFF files
+- M4A files encoded with ALAC (Apple Lossless)
+- Other audio formats that may cause playback issues in some browsers
+
+When these files are accessed, the system will automatically convert them to FLAC format for broader browser compatibility. The transcoded version is cached and served to clients instead of the original file. The original file remains unchanged and secure.
+
+**Note**: FFmpeg must be installed on the system for this feature to work. On most systems, you can install it with:
+
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install ffmpeg
+
+# macOS with Homebrew
+brew install ffmpeg
+
+# Or install ffmpeg-static as a fallback:
+cd server && npm install ffmpeg-static
+```
 
 ### Setup
 
@@ -246,6 +269,8 @@ To enable media file encryption, you need to generate and configure an encryptio
 **Important**: The encryption key must be exactly 32 bytes (64 hexadecimal characters) for AES-256 encryption.
 
 Additionally, you can configure the maximum file size allowed for upload by setting the `CHAGOURTEE_MAX_FILE_SIZE` environment variable in bytes (default is 50MB = 52428800 bytes).
+
+You can also configure the time-to-live for cached audio transcodes (in days) by setting the `CHAGOURTEE_AUDIO_TRANSCODE_TTL_DAYS` environment variable (default is 0, meaning no expiration until message deletion).
 
 ## License
 

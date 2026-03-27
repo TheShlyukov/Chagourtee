@@ -119,7 +119,8 @@ export default function Layout() {
               <div></div> // Empty div to maintain layout spacing
             )}
           </div>
-          {/* Add logo to header top for larger screens */}
+          {/* Add logo to header top, but conditionally render only if not on mobile in a specific room */}
+          {!(isMobile && isInSpecificRoom) ? (
           <div 
             style={{ 
               marginLeft: '0.5rem',
@@ -141,6 +142,7 @@ export default function Layout() {
               }} 
             />
           </div>
+          ) : null}
           {location.pathname.startsWith('/chat/') && (
             <button
               type="button"

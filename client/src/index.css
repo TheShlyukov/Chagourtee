@@ -386,7 +386,7 @@ input:focus, textarea:focus {
   margin-left: 0.5rem;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 679px) {
   .layout-users-button {
     display: none;
   }
@@ -2223,4 +2223,42 @@ a:hover {
     left: 10px;
     max-width: none;
   }
+}
+
+/* Hide server name and tagline on mobile when in a specific room */
+.layout-header-top .server-info-container:has(~ .chat-page.has-room) {
+  display: none;
+}
+
+/* More specific targeting for the server name container */
+.layout-header-top .server-name-section {
+  display: none;
+}
+
+/* Target the container holding both server name and tagline */
+.layout-header-top .server-info-row {
+  display: none;
+}
+
+/* Hide server name and tagline when viewing a specific room */
+.layout-header-top .server-info-container {
+  display: none;
+}
+
+/* But only when in a specific room */
+.layout-root:has(.chat-page.has-room) .layout-header-top .server-info-container {
+  display: none;
+}
+
+/* More general approach - hide the second span containing server info when in a specific room */
+.layout-root:has(.chat-page.has-room) .layout-header-top > div > div:last-child {
+  display: none;
+}
+
+/* Final targeted approach to hide server name and tagline on mobile when in a specific room */
+.chat-page.has-room ~ .layout-header-top [data-server-info],
+.chat-page.has-room ~ .layout-header-top .server-info-row,
+.layout-header-top .server-display-name,
+.layout-header-top .server-tagline {
+  display: none !important;
 }

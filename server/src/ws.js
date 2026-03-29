@@ -99,34 +99,9 @@ module.exports = function (fastify) {
           fastify.log.info('Received WebSocket message:', msg);
         }
         
-        // Apply rate limiting to WebSocket messages
-        const now = Date.now();
-        const userWsRateLimit = wsRateLimitStore.get(userId) || { count: 0, timestamp: now };
-        
-        // Reset counter if window has passed
-        if (now - userWsRateLimit.timestamp > WS_RATE_LIMIT_WINDOW) {
-          userWsRateLimit.count = 0;
-          userWsRateLimit.timestamp = now;
-        }
-        
-        // Increment count
-        userWsRateLimit.count++;
-        
-        // Check if rate limit exceeded
-        if (userWsRateLimit.count > WS_MAX_MESSAGES_PER_WINDOW) {
-          if (process.env.DEBUG_MODE === 'true') {
-            fastify.log.warn(`Rate limit exceeded for user ${userId}, closing connection`);
-          }
-          ws.send(JSON.stringify({ 
-            type: 'error', 
-            message: 'Rate limit exceeded. Too many messages sent recently. Please slow down.' 
-          }));
-          ws.close(4000, 'Rate limit exceeded');
-          return;
-        }
-        
-        // Update rate limit store
-        wsRateLimitStore.set(userId, userWsRateLimit);
+        // For WebSocket messages, we only apply rate limiting to actual message sending actions
+        // Currently, none of the WebSocket message types should be rate limited since they are all service messages
+        // Text messages are rate limited separately via the REST API
         
         if (msg.type === 'typing' && msg.roomId != null) {
           broadcastToRoom(Number(msg.roomId), { type: 'typing', userId, login: user?.login || userId }, ws);

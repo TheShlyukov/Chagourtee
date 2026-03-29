@@ -2262,3 +2262,80 @@ a:hover {
 .layout-header-top .server-tagline {
   display: none !important;
 }
+
+/* Rate limit warning container */
+.rate-limit-warning-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.rate-limit-warning {
+  color: #ff6b6b;
+  font-size: 14px;
+  text-align: center;
+  padding: 8px 16px;
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 20px;
+  animation: pulse 1.5s infinite;
+  max-width: 90%;
+  word-break: break-word;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+/* Responsive adjustments for different screen sizes */
+@media (max-width: 768px) {
+  .rate-limit-warning {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .rate-limit-warning {
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 14px;
+    max-width: 95%;
+  }
+}
+
+/* Tablet specific styles */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .rate-limit-warning {
+    font-size: 13px;
+  }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}

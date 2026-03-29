@@ -131,7 +131,58 @@ export default function Chat() {
   // Rate limiting state
   const lastMessageTimeRef = useRef<number>(0);
   const [isRateLimited, setIsRateLimited] = useState(false);
-  const rateLimitDelay = 500; // Minimum delay between messages in milliseconds
+  const [rateLimitEndTime, setRateLimitEndTime] = useState<number | null>(null);
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(0);
+  const rateLimitDelay = 300; // Minimum delay between messages in milliseconds
+  
+  // Update the seconds remaining every second when rate limited
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (isRateLimited && rateLimitEndTime) {
+      // Set initial value
+      setSecondsRemaining(Math.max(0, Math.ceil((rateLimitEndTime - Date.now()) / 1000)));
+      
+      // Update every second
+      interval = setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((rateLimitEndTime - Date.now()) / 1000));
+        setSecondsRemaining(remaining);
+        
+        if (remaining <= 0) {
+          clearInterval(interval as NodeJS.Timeout);
+          setIsRateLimited(false);
+          setRateLimitEndTime(null);
+        }
+      }, 1000);
+    } else {
+      setSecondsRemaining(0);
+    }
+    
+    // Cleanup interval on unmount or when conditions change
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isRateLimited, rateLimitEndTime]);
+
+  // Function to clear selected files
+  const clearSelectedFiles = () => {
+    setSelectedFiles([]);
+  };
+
+  // Render rate limit warning with dynamic timer
+  const renderRateLimitWarning = () => {
+    if (!isRateLimited || !rateLimitEndTime) return null;
+    
+    return (
+      <div className="rate-limit-warning-container">
+        <div className="rate-limit-warning">
+          {secondsRemaining} сек до разблокировки...
+        </div>
+      </div>
+    );
+  };
 
   const { isOpen: isUserListOpen, close: closeUserList, toggle: toggleUserList } =
     useUserListPanel();
@@ -1184,8 +1235,9 @@ export default function Chat() {
     const now = Date.now();
     if (now - lastMessageTimeRef.current < rateLimitDelay) {
       setIsRateLimited(true);
-      setTimeout(() => setIsRateLimited(false), rateLimitDelay - (now - lastMessageTimeRef.current));
-      alert('Слишком частые сообщения. Пожалуйста, подождите немного.');
+      const remainingBlockTime = 3000; // Block for 3 seconds
+      setRateLimitEndTime(now + remainingBlockTime);
+      setSecondsRemaining(Math.ceil(remainingBlockTime / 1000));
       return;
     }
     
@@ -1227,6 +1279,34 @@ export default function Chat() {
     }
   }
 
+  // Effect to update the timer every second while rate limited
+  useEffect(() => {
+    if (!isRateLimited || !rateLimitEndTime) {
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const remaining = Math.ceil((rateLimitEndTime - now) / 1000);
+      
+      if (remaining <= 0) {
+        setIsRateLimited(false);
+        setRateLimitEndTime(null);
+        setSecondsRemaining(0);
+      } else {
+        setSecondsRemaining(remaining);
+      }
+    };
+
+    // Update immediately
+    updateTimer();
+    
+    // Update every second
+    const intervalId = setInterval(updateTimer, 1000);
+    
+    return () => clearInterval(intervalId);
+  }, [isRateLimited, rateLimitEndTime]);
+  
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -2206,6 +2286,7 @@ export default function Chat() {
                                   />
                                 </div>
                               )}
+                              
                               <button 
                                 type="button" 
                                 className="remove-file-btn"
@@ -2222,40 +2303,20 @@ export default function Chat() {
                 </div>
               )}
               
-              {/* Selected files preview - moved above the form, but only when not editing */}
-              {!editingMessage && selectedFiles.length > 0 && (
+              {/* Selected files preview - only show when files are selected and not editing */}
+              {selectedFiles.length > 0 && !editingMessage && (
                 <div className="selected-files-preview">
-                  {/* Media position toggle */}
-                  <div className="media-position-toggle">
-                    <button
-                      type="button"
-                      className={`media-position-button ${mediaPositionDraft === 'above' ? 'active' : ''}`}
-                      onClick={() => setMediaPositionDraft('above')}
-                      title="Показывать медиа над текстом сообщения"
-                    >
-                      Медиа сверху
-                    </button>
-                    <button
-                      type="button"
-                      className={`media-position-button ${mediaPositionDraft === 'below' ? 'active' : ''}`}
-                      onClick={() => setMediaPositionDraft('below')}
-                      title="Показывать медиа под текстом сообщения"
-                    >
-                      Медиа снизу
-                    </button>
-                  </div>
-                  
-                  <div className="selected-files-header">
-                    <h4>Выбранные файлы:</h4>
+                  <div className="files-header">
+                    <h3>Выбранные файлы:</h3>
                     <button 
                       type="button" 
-                      className="clear-all-files"
-                      onClick={() => setSelectedFiles([])}
+                      className="clear-files-btn"
+                      onClick={clearSelectedFiles}
                     >
-                      Очистить все
+                      Очистить ({selectedFiles.length})
                     </button>
                   </div>
-                  <div className="selected-files-grid">
+                  <div className="file-list">
                     {selectedFiles.map((file, index) => {
                       // Determine file type and show appropriate preview
                       let previewElement;
@@ -2318,6 +2379,8 @@ export default function Chat() {
                   </div>
                 </div>
               )}
+              
+              {renderRateLimitWarning()}
               
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -2433,6 +2496,7 @@ export default function Chat() {
                     overflowY: 'hidden' // We control overflow in the function now
                   }}
                 />
+                
                 <button 
                   type="submit" 
                   disabled={

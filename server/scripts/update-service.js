@@ -213,7 +213,7 @@ function isUpdateAvailable(currentVersion, latestVersion) {
   return comparisonResult < 0;
 }
 
-function performUpdate(targetVersion, skipDependencies = false) {
+function performUpdate(targetVersion) {
   try {
     console.log(colorize('blue', `\nUpdating to version: ${targetVersion}...`));
     
@@ -254,28 +254,44 @@ function performUpdate(targetVersion, skipDependencies = false) {
     console.log(colorize('blue', `Checking out ${targetVersion}...`));
     runCommand(`git checkout ${targetVersion}`);
     
-    // Install dependencies unless explicitly skipped
-    if (!skipDependencies) {
-      console.log(colorize('green', 'Installing root dependencies...'));
-      runCommand('npm install');
-      
-      // If workspaces exist, install dependencies in workspaces too
-      const rootPackagePath = path.join(__dirname, '../../package.json');
-      if (fs.existsSync(rootPackagePath)) {
-        const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
-        if (rootPackage.workspaces) {
-          console.log(colorize('green', 'Installing workspace dependencies...'));
-          rootPackage.workspaces.forEach(workspace => {
-            const workspacePath = path.join(__dirname, '../../', workspace);
-            if (fs.existsSync(workspacePath)) {
-              console.log(colorize('green', `Installing dependencies for ${workspace}...`));
-              runCommand('npm install', workspacePath);
-            }
-          });
-        }
-      }
+    // Check if server is running to determine if we should offer to install dependencies
+    const serverIsRunning = isServerRunning();
+    if (serverIsRunning) {
+      console.log('\n' + colorize('bgYellow', ' NOTICE '));
+      console.log(colorize('yellow', 'Server is currently running, so dependencies will not be installed automatically.'));
+      console.log(colorize('yellow', 'After stopping the server, you can manually install dependencies with `npm install`.'));
     } else {
-      console.log(colorize('yellow', '⚠️  Dependency installation skipped. This could break functionality if dependencies have changed!\nBut you can still manually install the dependencies if needed with `npm install` in root directory and in each workspace directory.'));
+      // Ask the user if they want to install dependencies
+      const readlineSync = require('readline-sync');
+      
+      const installDeps = readlineSync.keyInYNStrict(
+        colorize('green', `\nWould you like to install dependencies now? `)
+      );
+      
+      if (installDeps) {
+        console.log(colorize('green', 'Installing root dependencies...'));
+        runCommand('npm install');
+        
+        // If workspaces exist, install dependencies in workspaces too
+        const rootPackagePath = path.join(__dirname, '../../package.json');
+        if (fs.existsSync(rootPackagePath)) {
+          const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
+          if (rootPackage.workspaces) {
+            console.log(colorize('green', 'Installing workspace dependencies...'));
+            rootPackage.workspaces.forEach(workspace => {
+              const workspacePath = path.join(__dirname, '../../', workspace);
+              if (fs.existsSync(workspacePath)) {
+                console.log(colorize('green', `Installing dependencies for ${workspace}...`));
+                runCommand('npm install', workspacePath);
+              }
+            });
+          }
+        }
+        
+        console.log(colorize('green', 'Dependencies installed successfully.'));
+      } else {
+        console.log(colorize('yellow', 'Dependency installation skipped. You can run `npm install` manually later.'));
+      }
     }
     
     console.log(colorize('bold', colorize('green', `\nSuccessfully updated to version: ${targetVersion}`)));
@@ -365,14 +381,17 @@ function performUpdateCheck(currentVersion) {
             rl.question(
               colorize('yellow', `\nSkip dependency installation? (Only do this for minor updates that you're sure don't require dependency changes)\nSkipping dependencies can break functionality if dependencies have changed!\nType 'YES' in all caps to confirm skipping dependencies: `),
               (skipAnswer) => {
-                const skipDependencies = skipAnswer === 'YES';
+                // We're changing the logic - now we always install dependencies unless server is running
+                // So we don't need the skip logic anymore
+                const serverIsRunning = isServerRunning();
                 
-                if (skipDependencies) {
-                  console.log(colorize('red', '\n⚠️  You have chosen to skip dependency installation.'));
-                  console.log(colorize('red', 'This may cause issues if the update requires new dependencies or changes existing ones.'));
+                if (serverIsRunning) {
+                  console.log('\n' + colorize('bgYellow', ' NOTICE '));
+                  console.log(colorize('yellow', 'Server is currently running, so dependencies will not be installed automatically.'));
+                  console.log(colorize('yellow', 'After stopping the server, you can manually install dependencies with `npm install`.'));
                 }
                 
-                const success = performUpdate(latestVersion, skipDependencies);
+                const success = performUpdate(latestVersion);
                 
                 if (success) {
                   console.log(colorize('bold', colorize('green', '\nUpdate completed successfully!')));

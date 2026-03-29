@@ -3,6 +3,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const readlineSync = require('readline-sync');
 
 /**
  * Script to update the Chagourtee service
@@ -262,8 +263,6 @@ function performUpdate(targetVersion) {
       console.log(colorize('yellow', 'After stopping the server, you can manually install dependencies with `npm install`.'));
     } else {
       // Ask the user if they want to install dependencies
-      const readlineSync = require('readline-sync');
-      
       const installDeps = readlineSync.keyInYNStrict(
         colorize('green', `\nWould you like to install dependencies now? `)
       );
@@ -378,30 +377,27 @@ function performUpdateCheck(currentVersion) {
         colorize('green', `\nA new version (${colorize('bold', latestVersion)}) is available. Would you like to update? (y/N): `),
         (answer) => {
           if (answer.toLowerCase().startsWith('y')) {
-            rl.question(
-              colorize('yellow', `\nSkip dependency installation? (Only do this for minor updates that you're sure don't require dependency changes)\nSkipping dependencies can break functionality if dependencies have changed!\nType 'YES' in all caps to confirm skipping dependencies: `),
-              (skipAnswer) => {
-                // We're changing the logic - now we always install dependencies unless server is running
-                // So we don't need the skip logic anymore
-                const serverIsRunning = isServerRunning();
-                
-                if (serverIsRunning) {
-                  console.log('\n' + colorize('bgYellow', ' NOTICE '));
-                  console.log(colorize('yellow', 'Server is currently running, so dependencies will not be installed automatically.'));
-                  console.log(colorize('yellow', 'After stopping the server, you can manually install dependencies with `npm install`.'));
-                }
-                
-                const success = performUpdate(latestVersion);
-                
-                if (success) {
-                  console.log(colorize('bold', colorize('green', '\nUpdate completed successfully!')));
-                } else {
-                  console.log(colorize('red', 'Update failed. Please check the errors above.'));
-                }
-                
-                rl.close();
-              }
-            );
+            // Removed the old skip dependencies prompt
+            // The new logic will handle dependencies after the update
+            
+            // Check if server is running before proceeding with update
+            const serverIsRunning = isServerRunning();
+            
+            if (serverIsRunning) {
+              console.log('\n' + colorize('bgYellow', ' NOTICE '));
+              console.log(colorize('yellow', 'Server is currently running, so dependencies will not be installed automatically.'));
+              console.log(colorize('yellow', 'After stopping the server, you can manually install dependencies with `npm install`.'));
+            }
+            
+            const success = performUpdate(latestVersion);
+            
+            if (success) {
+              console.log(colorize('bold', colorize('green', '\nUpdate completed successfully!')));
+            } else {
+              console.log(colorize('red', 'Update failed. Please check the errors above.'));
+            }
+            
+            rl.close();
           } else {
             console.log(colorize('yellow', 'Update cancelled by user.'));
             rl.close();  // Make sure to close the readline interface when cancelling

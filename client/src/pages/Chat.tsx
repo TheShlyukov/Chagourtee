@@ -166,11 +166,6 @@ export default function Chat() {
     };
   }, [isRateLimited, rateLimitEndTime]);
 
-  // Function to clear selected files
-  const clearSelectedFiles = () => {
-    setSelectedFiles([]);
-  };
-
   // Render rate limit warning with dynamic timer
   const renderRateLimitWarning = () => {
     if (!isRateLimited || !rateLimitEndTime) return null;
@@ -2303,20 +2298,40 @@ export default function Chat() {
                 </div>
               )}
               
-              {/* Selected files preview - only show when files are selected and not editing */}
-              {selectedFiles.length > 0 && !editingMessage && (
+                            {/* Selected files preview - moved above the form, but only when not editing */}
+                            {!editingMessage && selectedFiles.length > 0 && (
                 <div className="selected-files-preview">
-                  <div className="files-header">
-                    <h3>Выбранные файлы:</h3>
-                    <button 
-                      type="button" 
-                      className="clear-files-btn"
-                      onClick={clearSelectedFiles}
+                  {/* Media position toggle */}
+                  <div className="media-position-toggle">
+                    <button
+                      type="button"
+                      className={`media-position-button ${mediaPositionDraft === 'above' ? 'active' : ''}`}
+                      onClick={() => setMediaPositionDraft('above')}
+                      title="Показывать медиа над текстом сообщения"
                     >
-                      Очистить ({selectedFiles.length})
+                      Медиа сверху
+                    </button>
+                    <button
+                      type="button"
+                      className={`media-position-button ${mediaPositionDraft === 'below' ? 'active' : ''}`}
+                      onClick={() => setMediaPositionDraft('below')}
+                      title="Показывать медиа под текстом сообщения"
+                    >
+                      Медиа снизу
                     </button>
                   </div>
-                  <div className="file-list">
+                  
+                  <div className="selected-files-header">
+                    <h4>Выбранные файлы:</h4>
+                    <button 
+                      type="button" 
+                      className="clear-all-files"
+                      onClick={() => setSelectedFiles([])}
+                    >
+                      Очистить все
+                    </button>
+                  </div>
+                  <div className="selected-files-grid">
                     {selectedFiles.map((file, index) => {
                       // Determine file type and show appropriate preview
                       let previewElement;
@@ -2326,6 +2341,29 @@ export default function Chat() {
                         previewElement = (
                           <div className="file-preview">
                             <img src={fileUrl} alt="Preview" />
+                          </div>
+                        );
+                      } else if (file.type.startsWith('video/')) {
+                        // For videos, show a placeholder with a play icon
+                        previewElement = (
+                          <div className="file-preview video-preview">
+                            <div className="video-placeholder">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                              </svg>
+                            </div>
+                          </div>
+                        );
+                      } else if (file.type.startsWith('audio/')) {
+                        // For audio, show a music note icon
+                        previewElement = (
+                          <div className="file-preview audio-preview">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M9 18V5l12-2v13"></path>
+                              <circle cx="6" cy="18" r="3"></circle>
+                              <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
                           </div>
                         );
                       } else {

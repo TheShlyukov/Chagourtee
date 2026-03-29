@@ -3,7 +3,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const readlineSync = require('readline-sync');
+const readline = require('readline');
 
 /**
  * Script to update the Chagourtee service
@@ -263,36 +263,50 @@ function performUpdate(targetVersion) {
       console.log(colorize('yellow', 'After stopping the server, you can manually install dependencies with `npm install`.'));
     } else {
       // Ask the user if they want to install dependencies
-      const installDeps = readlineSync.keyInYNStrict(
-        colorize('green', `\nWould you like to install dependencies now? `)
-      );
-      
-      if (installDeps) {
-        console.log(colorize('green', 'Installing root dependencies...'));
-        runCommand('npm install');
-        
-        // If workspaces exist, install dependencies in workspaces too
-        const rootPackagePath = path.join(__dirname, '../../package.json');
-        if (fs.existsSync(rootPackagePath)) {
-          const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
-          if (rootPackage.workspaces) {
-            console.log(colorize('green', 'Installing workspace dependencies...'));
-            rootPackage.workspaces.forEach(workspace => {
-              const workspacePath = path.join(__dirname, '../../', workspace);
-              if (fs.existsSync(workspacePath)) {
-                console.log(colorize('green', `Installing dependencies for ${workspace}...`));
-                runCommand('npm install', workspacePath);
+      const readline = require('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+
+      // Return a promise to handle the async nature of readline
+      return new Promise((resolve) => {
+        rl.question(
+          colorize('green', `\nWould you like to install dependencies now? (y/N): `),
+          (answer) => {
+            if (answer.toLowerCase().startsWith('y')) {
+              console.log(colorize('green', 'Installing root dependencies...'));
+              runCommand('npm install');
+
+              // If workspaces exist, install dependencies in workspaces too
+              const rootPackagePath = path.join(__dirname, '../../package.json');
+              if (fs.existsSync(rootPackagePath)) {
+                const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
+                if (rootPackage.workspaces) {
+                  console.log(colorize('green', 'Installing workspace dependencies...'));
+                  rootPackage.workspaces.forEach(workspace => {
+                    const workspacePath = path.join(__dirname, '../../', workspace);
+                    if (fs.existsSync(workspacePath)) {
+                      console.log(colorize('green', `Installing dependencies for ${workspace}...`));
+                      runCommand('npm install', workspacePath);
+                    }
+                  });
+                }
               }
-            });
+
+              console.log(colorize('green', 'Dependencies installed successfully.'));
+            } else {
+              console.log(colorize('yellow', 'Dependency installation skipped. You can run `npm install` manually later.'));
+            }
+
+            rl.close();
+            console.log(colorize('bold', colorize('green', `\nSuccessfully updated to version: ${targetVersion}`)));
+            resolve(true);
           }
-        }
-        
-        console.log(colorize('green', 'Dependencies installed successfully.'));
-      } else {
-        console.log(colorize('yellow', 'Dependency installation skipped. You can run `npm install` manually later.'));
-      }
+        );
+      });
     }
-    
+
     console.log(colorize('bold', colorize('green', `\nSuccessfully updated to version: ${targetVersion}`)));
     return true;
   } catch (error) {
@@ -326,7 +340,6 @@ function main() {
       console.log(colorize('yellow', 'Server appears to be running! There is a risk that npm install may fail or cause issues.'));
       console.log(colorize('yellow', 'It is recommended to stop the server before updating.'));
       
-      const readline = require('readline');
       const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout
@@ -335,13 +348,13 @@ function main() {
       rl.question(
         colorize('magenta', 'Do you want to continue anyway? (This is safe if the update contains only minor changes without new dependencies) (y/N): '),
         (answer) => {
+          rl.close();
+          
           if (!answer.toLowerCase().startsWith('y')) {
             console.log(colorize('red', 'Update cancelled by user.'));
-            rl.close();
             return;
           }
           
-          rl.close();
           performUpdateCheck(currentVersion);
         }
       );
@@ -376,34 +389,46 @@ function performUpdateCheck(currentVersion) {
       rl.question(
         colorize('green', `\nA new version (${colorize('bold', latestVersion)}) is available. Would you like to update? (y/N): `),
         (answer) => {
-          if (answer.toLowerCase().startsWith('y')) {
-            // Removed the old skip dependencies prompt
-            // The new logic will handle dependencies after the update
-            
-            // Check if server is running before proceeding with update
-            const serverIsRunning = isServerRunning();
-            
-            if (serverIsRunning) {
-              console.log('\n' + colorize('bgYellow', ' NOTICE '));
-              console.log(colorize('yellow', 'Server is currently running, so dependencies will not be installed automatically.'));
-              console.log(colorize('yellow', 'After stopping the server, you can manually install dependencies with `npm install`.'));
-            }
-            
-            const success = performUpdate(latestVersion);
-            
-            if (success) {
+          rl.close();
+          
+          if (!answer.toLowerCase().startsWith('y')) {
+            console.log(colorize('yellow', 'Update cancelled by user.'));
+            return;
+          }
+          
+          // Check if server is running before proceeding with update
+          const serverIsRunning = isServerRunning();
+          
+          if (serverIsRunning) {
+            console.log('\n' + colorize('bgYellow', ' NOTICE '));
+            console.log(colorize('yellow', 'Server is currently running, so dependencies will not be installed automatically.'));
+            console.log(colorize('yellow', 'After stopping the server, you can manually install dependencies with `npm install`.'));
+          }
+          
+          const result = performUpdate(latestVersion);
+          
+          // Handle the promise if it's returned (when deps installation is needed)
+          if (result instanceof Promise) {
+            result.then(success => {
+              if (success) {
+                console.log(colorize('bold', colorize('green', '\nUpdate completed successfully!')));
+              } else {
+                console.log(colorize('red', 'Update failed. Please check the errors above.'));
+              }
+              rl.close();
+            }).catch(error => {
+              console.log(colorize('red', 'Update failed. Please check the errors above.'));
+              rl.close();
+            });
+          } else {
+            // Non-promise result (sync execution)
+            if (result) {
               console.log(colorize('bold', colorize('green', '\nUpdate completed successfully!')));
             } else {
               console.log(colorize('red', 'Update failed. Please check the errors above.'));
             }
-            
             rl.close();
-          } else {
-            console.log(colorize('yellow', 'Update cancelled by user.'));
-            rl.close();  // Make sure to close the readline interface when cancelling
           }
-          
-          rl.close();
         }
       );
     } else {

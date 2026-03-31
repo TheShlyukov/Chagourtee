@@ -1053,7 +1053,7 @@ pre[class*="language-"] {
 
 .media-upload-info {
   align-self: center;
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 18px;
@@ -1062,8 +1062,19 @@ pre[class*="language-"] {
   border-radius: 50%;
   font-size: 0.75rem;
   color: var(--text-muted);
-  cursor: help;
+  cursor: pointer;
   user-select: none;
+}
+
+.media-upload-info.media-upload-info-disabled {
+  display: inline-flex;
+  cursor: help;
+}
+
+@media (max-width: 876px) {
+  .media-upload-info {
+    display: inline-flex;
+  }
 }
 
 .attach-button {
@@ -1306,6 +1317,30 @@ pre[class*="language-"] {
 
 .media-item {
   margin-bottom: 0.5rem;
+}
+
+.media-removed-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-default);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  max-width: 500px;
+}
+
+.media-removed-title {
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.media-removed-subtitle {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Style for document/file banners in chat */

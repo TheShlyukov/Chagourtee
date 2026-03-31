@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -26,6 +26,58 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
       file: MediaFile;
       mode: 'image' | 'video';
     } | null>(null);
+    const [missingMediaIds, setMissingMediaIds] = useState<Set<number>>(new Set());
+
+    useEffect(() => {
+      if (!media || media.length === 0) {
+        setMissingMediaIds(new Set());
+        return;
+      }
+
+      const controller = new AbortController();
+      const checkMediaAvailability = async () => {
+        const checks = media.map(async (mediaFile) => {
+          try {
+            const response = await fetch(`/api/media/${mediaFile.encrypted_filename}`, {
+              method: 'GET',
+              headers: { Range: 'bytes=0-0' },
+              credentials: 'include',
+              signal: controller.signal,
+            });
+            if (response.status === 404) {
+              return mediaFile.id;
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        });
+
+        const results = await Promise.all(checks);
+        const missingIds = results.filter((id): id is number => id !== null);
+        setMissingMediaIds(new Set(missingIds));
+      };
+
+      void checkMediaAvailability();
+      return () => controller.abort();
+    }, [media]);
+
+    const mediaWithStatus = useMemo(() => {
+      if (!media) return [];
+      return media.map((mediaFile) => ({
+        mediaFile,
+        isMissing: missingMediaIds.has(mediaFile.id),
+      }));
+    }, [media, missingMediaIds]);
+
+    const markMediaMissing = (id: number) => {
+      setMissingMediaIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    };
     const markdownElement = (
       <ReactMarkdown
         children={content}
@@ -153,14 +205,19 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
     const mediaElement =
       media && media.length > 0 ? (
         <div className="media-container" style={{ marginTop: '10px' }}>
-          {media.map((mediaFile) => {
+          {mediaWithStatus.map(({ mediaFile, isMissing }) => {
             const isImage = mediaFile.mime_type.startsWith('image/');
             const isVideo = mediaFile.mime_type.startsWith('video/');
             const isAudio = mediaFile.mime_type.startsWith('audio/');
 
             return (
               <div key={mediaFile.id} className="media-item" style={{ marginBottom: '10px' }}>
-                {isImage ? (
+                {isMissing ? (
+                  <div className="media-removed-placeholder" title={mediaFile.original_name}>
+                    <div className="media-removed-title">Media Removed</div>
+                    <div className="media-removed-subtitle">{mediaFile.original_name}</div>
+                  </div>
+                ) : isImage ? (
                   <img
                     src={`/api/media/${mediaFile.encrypted_filename}`}
                     alt={mediaFile.original_name}
@@ -174,6 +231,7 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
                     onClick={() =>
                       setViewerState({ file: mediaFile, mode: 'image' })
                     }
+                    onError={() => markMediaMissing(mediaFile.id)}
                   />
                 ) : isVideo ? (
                   <VideoPlayer
@@ -181,10 +239,11 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
                     onOpenFullscreen={() =>
                       setViewerState({ file: mediaFile, mode: 'video' })
                     }
+                    onError={() => markMediaMissing(mediaFile.id)}
                   />
 
                 ) : isAudio ? (
-                  <AudioPlayer file={mediaFile} />
+                  <AudioPlayer file={mediaFile} onError={() => markMediaMissing(mediaFile.id)} />
                 ) : (
                   <div className="document-banner">
                     <div className="document-banner-header">
@@ -216,6 +275,24 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
                         href={`/api/media/${mediaFile.encrypted_filename}`}
                         download={mediaFile.original_name}
                         className="download-button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          fetch(`/api/media/${mediaFile.encrypted_filename}`, {
+                            method: 'GET',
+                            headers: { Range: 'bytes=0-0' },
+                            credentials: 'include',
+                          })
+                            .then((res) => {
+                              if (res.status === 404) {
+                                markMediaMissing(mediaFile.id);
+                                return;
+                              }
+                              window.open(`/api/media/${mediaFile.encrypted_filename}`, '_blank');
+                            })
+                            .catch(() => {
+                              markMediaMissing(mediaFile.id);
+                            });
+                        }}
                       >
                         <svg
                           width="16"

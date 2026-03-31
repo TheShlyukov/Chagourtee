@@ -7,6 +7,7 @@ type AudioPlayerProps = {
   src?: string;
   onOpenFullscreen?: () => void;
   showDownloadButton?: boolean;
+  onError?: () => void;
 };
 
 function formatTime(seconds: number | null): string {
@@ -27,7 +28,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ file, src, showDownloadButton = true }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ file, src, showDownloadButton = true, onError }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -117,6 +118,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ file, src, showDownloadButton
         onTimeUpdate={handleTimeUpdate}
         onPlay={handlePlay}
         onPause={handlePause}
+        onError={onError}
         style={{ display: 'none' }}
       />
       <div className="media-player-controls">

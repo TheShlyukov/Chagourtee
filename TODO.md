@@ -31,10 +31,10 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [x] Implement automatic cleanup of oldest files when quota is exceeded (based on config)
 
 #### 1.4. Missing Media Handling
-- [ ] Implement client-side detection for deleted media files in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx)
-- [ ] Show "Media Removed" placeholder for missing media in messages
-- [ ] Create a consistent UI component for missing media placeholders
-- [ ] Add fallback styling for missing media elements
+- [x] Implement client-side detection for deleted media files in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx)
+- [x] Show "Media Removed" placeholder for missing media in messages
+- [x] Create a consistent UI component for missing media placeholders
+- [x] Add fallback styling for missing media elements
 
 #### 1.5. Media Cleanup Routine
 - [ ] Implement periodic cleanup of orphaned media files (not linked to any message) in [media.js](./server/src/media.js)

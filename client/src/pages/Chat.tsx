@@ -1063,6 +1063,11 @@ export default function Chat() {
   }, [mediaSettings]);
 
   const isUploadEnabled = mediaSettings ? mediaSettings.uploadsEnabled : true;
+  const handleMediaUploadInfoClick = useCallback(() => {
+    if (window.innerWidth <= 876) {
+      alert(getUploadLimitLabel());
+    }
+  }, [getUploadLimitLabel]);
 
   const applyMediaSettingsFilter = useCallback(
     (files: File[]) => {
@@ -2564,7 +2569,15 @@ export default function Chat() {
                     </>
                   )}
                 </div>
-                <span className="media-upload-info" title={getUploadLimitLabel()}>?</span>
+                <span
+                  className={`media-upload-info ${!isUploadEnabled ? 'media-upload-info-disabled' : ''}`}
+                  title={getUploadLimitLabel()}
+                  onClick={handleMediaUploadInfoClick}
+                  role="button"
+                  aria-label="Показать информацию о лимитах медиа"
+                >
+                  ?
+                </span>
                 {uploadWarning && <div className="media-upload-warning">{uploadWarning}</div>}
                 
                 {/* File input for editing message */}

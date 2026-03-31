@@ -6,6 +6,7 @@ type VideoPlayerProps = {
   file: MediaFile;
   src?: string;
   onOpenFullscreen?: () => void;
+  onError?: () => void;
 };
 
 function formatSize(bytes: number): string {
@@ -20,6 +21,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   file,
   src,
   onOpenFullscreen,
+  onError,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [duration, setDuration] = useState<string>('0:00');
@@ -42,10 +44,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setDuration(`${minutes}:${seconds.toString().padStart(2, '0')}`);
     };
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    const handleError = () => {
+      onError?.();
+    };
+    video.addEventListener('error', handleError);
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('error', handleError);
     };
-  }, [finalSrc]);
+  }, [finalSrc, onError]);
 
   // Handle video loaded event and force load in Safari
   const handleVideoLoad = () => {
@@ -126,6 +133,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           cursor: 'pointer'
         }}
         onLoadedMetadata={handleVideoLoad}
+        onError={onError}
       />
       <div 
         className="video-overlay" 

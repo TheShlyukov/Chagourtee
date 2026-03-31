@@ -33,6 +33,17 @@ export type MediaUploadSettings = {
   uploadsEnabled: boolean;
   unlimited: boolean;
   maxFileSize: number | null;
+  storage?: {
+    maxStorageSize: number;
+    cleanupStrategy: 'block' | 'delete_oldest';
+  };
+};
+
+export type MediaStorageSettings = {
+  maxStorageSize: number | null;
+  cleanupStrategy: 'block' | 'delete_oldest';
+  totalBytes: number;
+  filesCount: number;
 };
 
 export type Message = {
@@ -243,6 +254,12 @@ export const media = {
     return `/api/media/${filename}`;
   },
   settings: () => api<MediaUploadSettings>('/api/media/settings'),
+  getStorageSettings: () => api<MediaStorageSettings>('/api/media/storage-settings'),
+  updateStorageSettings: (body: { maxStorageSize: number | null; cleanupStrategy: 'block' | 'delete_oldest' }) =>
+    api<MediaStorageSettings>('/api/media/storage-settings', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 export const invites = {

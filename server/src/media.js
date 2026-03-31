@@ -186,6 +186,115 @@ async function mediaPlugin(fastify, options) {
     });
 
     const db = fastify.db;
+    const envStorageLimitRaw = parseInt(process.env.CHAGOURTEE_MAX_STORAGE_SIZE || '-1', 10);
+    const envStorageLimit =
+        Number.isFinite(envStorageLimitRaw) && envStorageLimitRaw >= -1 ? envStorageLimitRaw : -1;
+    const envCleanupStrategy =
+        process.env.CHAGOURTEE_STORAGE_CLEANUP_STRATEGY === 'delete_oldest'
+            ? 'delete_oldest'
+            : 'block';
+
+    function getStorageSettings() {
+        const row = db
+            .prepare(
+                'SELECT max_storage_size, cleanup_strategy FROM media_storage_settings WHERE id = 1'
+            )
+            .get();
+
+        const cleanupStrategy =
+            row && row.cleanup_strategy === 'delete_oldest'
+                ? 'delete_oldest'
+                : row && row.cleanup_strategy === 'block'
+                    ? 'block'
+                    : envCleanupStrategy;
+
+        let maxStorageSize = envStorageLimit;
+        if (row && typeof row.max_storage_size === 'number') {
+            maxStorageSize = row.max_storage_size;
+        }
+
+        return {
+            maxStorageSize,
+            cleanupStrategy,
+        };
+    }
+
+    function getCurrentStorageUsage() {
+        const row = db
+            .prepare('SELECT COALESCE(SUM(file_size), 0) AS total, COUNT(*) AS files FROM media_files')
+            .get();
+        return {
+            totalBytes: Number(row?.total || 0),
+            filesCount: Number(row?.files || 0),
+        };
+    }
+
+    function removeMediaById(mediaId) {
+        const media = db
+            .prepare(
+                `
+                SELECT id, encrypted_filename, transcoded_filename
+                FROM media_files
+                WHERE id = ?
+            `
+            )
+            .get(mediaId);
+
+        if (!media) return false;
+
+        const originalPath = path.join(MEDIA_DIR, media.encrypted_filename);
+        if (fs.existsSync(originalPath)) {
+            try {
+                fs.unlinkSync(originalPath);
+            } catch (e) {
+                fastify.log.error(`Failed to delete media file ${originalPath}:`, e);
+            }
+        }
+
+        if (media.transcoded_filename) {
+            const transcodedPath = path.join(MEDIA_DIR, media.transcoded_filename);
+            if (fs.existsSync(transcodedPath)) {
+                try {
+                    fs.unlinkSync(transcodedPath);
+                } catch (e) {
+                    fastify.log.error(`Failed to delete transcoded media file ${transcodedPath}:`, e);
+                }
+            }
+        }
+
+        db.prepare('DELETE FROM media_files WHERE id = ?').run(media.id);
+        return true;
+    }
+
+    function cleanupOldestMedia(bytesToFree) {
+        if (bytesToFree <= 0) {
+            return { deletedFiles: 0, freedBytes: 0 };
+        }
+
+        const candidates = db
+            .prepare(
+                `
+                SELECT id, file_size
+                FROM media_files
+                ORDER BY datetime(created_at) ASC, id ASC
+            `
+            )
+            .all();
+
+        let freedBytes = 0;
+        let deletedFiles = 0;
+
+        for (const file of candidates) {
+            if (freedBytes >= bytesToFree) break;
+            const deleted = removeMediaById(file.id);
+            if (deleted) {
+                freedBytes += Number(file.file_size || 0);
+                deletedFiles += 1;
+            }
+        }
+
+        return { deletedFiles, freedBytes };
+    }
 
     /**
      * Ensure we have a FLAC transcode for problematic audio.
@@ -414,10 +523,81 @@ async function mediaPlugin(fastify, options) {
             preHandler: [fastify.requireAuth],
         },
         async () => {
+            const storageSettings = getStorageSettings();
             return {
                 uploadsEnabled: !isUploadDisabled,
                 unlimited: isUnlimitedUpload,
                 maxFileSize: isUnlimitedUpload ? null : maxFileSize,
+                storage: {
+                    maxStorageSize: storageSettings.maxStorageSize,
+                    cleanupStrategy: storageSettings.cleanupStrategy,
+                },
+            };
+        }
+    );
+
+    fastify.get(
+        '/api/media/storage-settings',
+        {
+            preHandler: [fastify.requireAuth, fastify.requireOwner],
+        },
+        async () => {
+            const usage = getCurrentStorageUsage();
+            const settings = getStorageSettings();
+            return {
+                ...settings,
+                totalBytes: usage.totalBytes,
+                filesCount: usage.filesCount,
+            };
+        }
+    );
+
+    fastify.post(
+        '/api/media/storage-settings',
+        {
+            preHandler: [fastify.requireAuth, fastify.requireOwner],
+        },
+        async (req, reply) => {
+            const body = req.body || {};
+            const cleanupStrategy =
+                body.cleanupStrategy === 'delete_oldest' ? 'delete_oldest' : 'block';
+            const requestedMaxStorageSize =
+                body.maxStorageSize === null || body.maxStorageSize === undefined
+                    ? null
+                    : Number(body.maxStorageSize);
+
+            if (
+                requestedMaxStorageSize !== null &&
+                (!Number.isFinite(requestedMaxStorageSize) || requestedMaxStorageSize < -1)
+            ) {
+                return reply.code(400).send({ error: 'Invalid maxStorageSize' });
+            }
+
+            const now = new Date().toISOString();
+            const existing = db.prepare('SELECT id FROM media_storage_settings WHERE id = 1').get();
+            if (existing) {
+                db.prepare(
+                    `
+                    UPDATE media_storage_settings
+                    SET max_storage_size = ?, cleanup_strategy = ?, updated_at = ?
+                    WHERE id = 1
+                `
+                ).run(requestedMaxStorageSize, cleanupStrategy, now);
+            } else {
+                db.prepare(
+                    `
+                    INSERT INTO media_storage_settings (id, max_storage_size, cleanup_strategy, created_at, updated_at)
+                    VALUES (1, ?, ?, ?, ?)
+                `
+                ).run(requestedMaxStorageSize, cleanupStrategy, now, now);
+            }
+
+            const usage = getCurrentStorageUsage();
+            return {
+                maxStorageSize: requestedMaxStorageSize,
+                cleanupStrategy,
+                totalBytes: usage.totalBytes,
+                filesCount: usage.filesCount,
             };
         }
     );
@@ -463,6 +643,35 @@ async function mediaPlugin(fastify, options) {
 
             // Read file buffer
             const buffer = await data.toBuffer();
+
+            // Enforce total media storage quota
+            const storageSettings = getStorageSettings();
+            const storageLimit = storageSettings.maxStorageSize;
+            if (storageLimit !== -1) {
+                const usage = getCurrentStorageUsage();
+                const projectedTotal = usage.totalBytes + buffer.length;
+                if (projectedTotal > storageLimit) {
+                    if (storageSettings.cleanupStrategy === 'delete_oldest') {
+                        const bytesToFree = projectedTotal - storageLimit;
+                        const cleanupResult = cleanupOldestMedia(bytesToFree);
+                        fastify.log.info(
+                            `Media storage cleanup: removed ${cleanupResult.deletedFiles} files, freed ${cleanupResult.freedBytes} bytes`
+                        );
+                    }
+
+                    const recheckedUsage = getCurrentStorageUsage();
+                    const recheckedProjectedTotal = recheckedUsage.totalBytes + buffer.length;
+                    if (recheckedProjectedTotal > storageLimit) {
+                        return reply.code(413).send({
+                            error: 'Media storage quota exceeded',
+                            code: 'MEDIA_STORAGE_QUOTA_EXCEEDED',
+                            maxStorageSize: storageLimit,
+                            currentStorageSize: recheckedUsage.totalBytes,
+                            cleanupStrategy: storageSettings.cleanupStrategy,
+                        });
+                    }
+                }
+            }
 
             // Generate encrypted filename
             const encryptedFilename = generateEncryptedFilename(data.filename);

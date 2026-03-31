@@ -92,6 +92,14 @@ function createDb(dbPath) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS media_storage_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      max_storage_size INTEGER,
+      cleanup_strategy TEXT NOT NULL DEFAULT 'block',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     
     CREATE TABLE IF NOT EXISTS media_files (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,6 +154,25 @@ function createDb(dbPath) {
     }
   } catch (e) {
     console.error('Failed to ensure media_files schema is up to date:', e);
+  }
+
+  // Ensure media_storage_settings schema is up to date on older databases
+  try {
+    const storageColumns = db
+      .prepare('PRAGMA table_info(media_storage_settings)')
+      .all()
+      .map((c) => c.name);
+
+    if (!storageColumns.includes('max_storage_size')) {
+      db.exec('ALTER TABLE media_storage_settings ADD COLUMN max_storage_size INTEGER');
+    }
+    if (!storageColumns.includes('cleanup_strategy')) {
+      db.exec(
+        "ALTER TABLE media_storage_settings ADD COLUMN cleanup_strategy TEXT NOT NULL DEFAULT 'block'"
+      );
+    }
+  } catch (e) {
+    console.error('Failed to ensure media_storage_settings schema is up to date:', e);
   }
 
   // Ensure new messages columns exist on older databases

@@ -24,11 +24,11 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [x] Update server-side validation in [media.js](./server/src/media.js) to respect the new configuration values
 
 #### 1.3. Media Storage Quota Management
-- [ ] Add new environment variable CHAGOURTEE_MAX_STORAGE_SIZE for total storage limit
-- [ ] Implement server-side logic to track cumulative media storage in [media.js](./server/src/media.js)
-- [ ] Add cleanup strategy: either block new uploads or automatically delete oldest files
-- [ ] Create admin panel controls for managing storage settings
-- [ ] Implement automatic cleanup of oldest files when quota is exceeded (based on config)
+- [x] Add new environment variable CHAGOURTEE_MAX_STORAGE_SIZE for total storage limit
+- [x] Implement server-side logic to track cumulative media storage in [media.js](./server/src/media.js)
+- [x] Add cleanup strategy: either block new uploads or automatically delete oldest files
+- [x] Create admin panel controls for managing storage settings
+- [x] Implement automatic cleanup of oldest files when quota is exceeded (based on config)
 
 #### 1.4. Missing Media Handling
 - [ ] Implement client-side detection for deleted media files in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx)

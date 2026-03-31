@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../AuthContext';
-import type { Room, Invite, User } from '../api';
-import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi, serverSettings as serverSettingsApi } from '../api';
+import type { Room, Invite, User, MediaStorageSettings } from '../api';
+import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi, serverSettings as serverSettingsApi, media } from '../api';
 import { useServerName } from '../ServerNameContext';
 import { initializeWebSocket, addMessageHandler, removeMessageHandler } from '../websocket';
 import { useToast } from '../ToastContext';
@@ -10,6 +10,13 @@ import { errorTranslations } from '../localization/errors';
 // Function to translate error messages
 function translateErrorMessage(errorMsg: string): string {
   return errorTranslations[errorMsg] || errorMsg;
+}
+
+function formatBytes(value: number): string {
+  if (value >= 1024 * 1024 * 1024) return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+  if (value >= 1024) return `${(value / 1024).toFixed(2)} KB`;
+  return `${value} B`;
 }
 
 type PendingUser = { id: number; login: string; created_at: string; };
@@ -31,6 +38,10 @@ export default function Admin() {
   const { rawName, displayName, setRawNameLocal } = useServerName();
   const [serverNameInput, setServerNameInput] = useState<string>(rawName ?? '');
   const [serverNameSaving, setServerNameSaving] = useState(false);
+  const [mediaStorageSettings, setMediaStorageSettings] = useState<MediaStorageSettings | null>(null);
+  const [storageLimitInput, setStorageLimitInput] = useState<string>('-1');
+  const [storageCleanupStrategy, setStorageCleanupStrategy] = useState<'block' | 'delete_oldest'>('block');
+  const [storageSettingsSaving, setStorageSettingsSaving] = useState(false);
   
   // State for renaming
   const [renamingRoomId, setRenamingRoomId] = useState<number | null>(null);
@@ -70,6 +81,18 @@ export default function Admin() {
       verificationApi.settings()
         .then(data => setVerificationEnabled(!!data.enabled))
         .catch(err => DEBUG_MODE && console.error('Error fetching verification settings:', err));
+
+      media.getStorageSettings()
+        .then((data) => {
+          setMediaStorageSettings(data);
+          setStorageCleanupStrategy(data.cleanupStrategy);
+          setStorageLimitInput(
+            data.maxStorageSize === null || data.maxStorageSize === undefined
+              ? '-1'
+              : String(data.maxStorageSize)
+          );
+        })
+        .catch((err) => DEBUG_MODE && console.error('Error loading media storage settings:', err));
       
       // Load users
       usersApi.list().then((data) => {
@@ -313,6 +336,36 @@ export default function Admin() {
       showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка при сохранении имени сервера', 'error');
     } finally {
       setServerNameSaving(false);
+    }
+  }
+
+  async function saveMediaStorageSettings(e: React.FormEvent) {
+    e.preventDefault();
+    if (user?.role !== 'owner') {
+      showToast('Только владелец может изменять настройки хранилища', 'error');
+      return;
+    }
+
+    const parsedLimit = Number(storageLimitInput);
+    if (!Number.isFinite(parsedLimit) || parsedLimit < -1) {
+      showToast('Лимит хранилища должен быть -1 или числом >= 0', 'error');
+      return;
+    }
+
+    setStorageSettingsSaving(true);
+    try {
+      const normalizedLimit = parsedLimit === -1 ? null : parsedLimit;
+      const saved = await media.updateStorageSettings({
+        maxStorageSize: normalizedLimit,
+        cleanupStrategy: storageCleanupStrategy,
+      });
+      setMediaStorageSettings(saved);
+      setStorageLimitInput(saved.maxStorageSize === null ? '-1' : String(saved.maxStorageSize));
+      showToast('Настройки медиа-хранилища обновлены', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка сохранения', 'error');
+    } finally {
+      setStorageSettingsSaving(false);
     }
   }
 
@@ -680,6 +733,46 @@ export default function Admin() {
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
               Пример: <strong>Мой сервер</strong>
             </p>
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>💾 Медиа-хранилище</h3>
+            <form onSubmit={saveMediaStorageSettings} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                  Лимит хранилища в байтах (`-1` = без ограничений)
+                </span>
+                <input
+                  type="number"
+                  min={-1}
+                  step={1}
+                  value={storageLimitInput}
+                  onChange={(e) => setStorageLimitInput(e.target.value)}
+                  placeholder="-1"
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Политика при превышении квоты</span>
+                <select
+                  value={storageCleanupStrategy}
+                  onChange={(e) => setStorageCleanupStrategy(e.target.value as 'block' | 'delete_oldest')}
+                >
+                  <option value="block">block (блокировать новые загрузки)</option>
+                  <option value="delete_oldest">delete_oldest (удалять самые старые файлы)</option>
+                </select>
+              </label>
+
+              <button type="submit" disabled={storageSettingsSaving} style={{ alignSelf: 'flex-start', paddingInline: '1.25rem' }}>
+                {storageSettingsSaving ? 'Сохранение…' : 'Сохранить настройки хранилища'}
+              </button>
+            </form>
+
+            {mediaStorageSettings && (
+              <p style={{ margin: '0.75rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Использовано: {formatBytes(mediaStorageSettings.totalBytes)} ({mediaStorageSettings.filesCount} файлов)
+              </p>
+            )}
           </div>
 
           <div className="card">

@@ -29,6 +29,12 @@ export type MediaFile = {
   file_size: number;
 };
 
+export type MediaUploadSettings = {
+  uploadsEnabled: boolean;
+  unlimited: boolean;
+  maxFileSize: number | null;
+};
+
 export type Message = {
   id: number;
   room_id: number;
@@ -207,7 +213,21 @@ export const media = {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(JSON.parse(xhr.responseText));
         } else {
-          reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
+          let payload: { error?: string; code?: string; maxFileSize?: number | null } | null = null;
+          try {
+            payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+          } catch {
+            payload = null;
+          }
+          const err = new Error(payload?.error || xhr.responseText || `HTTP ${xhr.status}`) as Error & {
+            status?: number;
+            code?: string;
+            maxFileSize?: number | null;
+          };
+          err.status = xhr.status;
+          err.code = payload?.code;
+          err.maxFileSize = payload?.maxFileSize ?? null;
+          reject(err);
         }
       };
 
@@ -221,7 +241,8 @@ export const media = {
   
   getMediaUrl: (filename: string) => {
     return `/api/media/${filename}`;
-  }
+  },
+  settings: () => api<MediaUploadSettings>('/api/media/settings'),
 };
 
 export const invites = {

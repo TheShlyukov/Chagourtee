@@ -168,13 +168,18 @@ function shouldTranscodeToFlac(codecName, mimeType, originalName) {
  * Registers the media plugin with Fastify
  */
 async function mediaPlugin(fastify, options) {
-    // Get max file size from environment, default to 50MB
-    const maxFileSize = parseInt(process.env.CHAGOURTEE_MAX_FILE_SIZE || '52428800'); // 50MB in bytes
-    
+    // Get max file size from environment:
+    // 0 = disable uploads, -1 = unlimited, >0 = bytes limit
+    const rawMaxFileSize = parseInt(process.env.CHAGOURTEE_MAX_FILE_SIZE || '52428800', 10);
+    const isUploadDisabled = rawMaxFileSize === 0;
+    const isUnlimitedUpload = rawMaxFileSize === -1;
+    const maxFileSize =
+        Number.isFinite(rawMaxFileSize) && rawMaxFileSize > 0 ? rawMaxFileSize : 52428800;
+
     // Register multipart for handling file uploads
     await fastify.register(require('fastify-multipart'), {
         limits: {
-            fileSize: maxFileSize,
+            fileSize: isUnlimitedUpload ? undefined : maxFileSize,
             fields: 10,
             files: 1
         }
@@ -403,11 +408,32 @@ async function mediaPlugin(fastify, options) {
         };
     }
 
+    fastify.get(
+        '/api/media/settings',
+        {
+            preHandler: [fastify.requireAuth],
+        },
+        async () => {
+            return {
+                uploadsEnabled: !isUploadDisabled,
+                unlimited: isUnlimitedUpload,
+                maxFileSize: isUnlimitedUpload ? null : maxFileSize,
+            };
+        }
+    );
+
     // Endpoint for uploading media files
     fastify.post('/api/upload', {
         preHandler: [fastify.requireAuth]
     }, async (req, reply) => {
         try {
+            if (isUploadDisabled) {
+                return reply.code(403).send({
+                    error: 'Media upload is disabled',
+                    code: 'MEDIA_UPLOAD_DISABLED',
+                });
+            }
+
             const data = await req.file();
             
             if (!data) {
@@ -428,7 +454,11 @@ async function mediaPlugin(fastify, options) {
 
             // Check file size (already limited by multipart config)
             if (data.file.truncated) {
-                return reply.code(400).send({ error: 'File too large' });
+                return reply.code(413).send({
+                    error: 'File too large',
+                    code: 'MEDIA_FILE_TOO_LARGE',
+                    maxFileSize,
+                });
             }
 
             // Read file buffer
@@ -486,6 +516,16 @@ async function mediaPlugin(fastify, options) {
                 file_size: buffer.length
             });
         } catch (error) {
+            if (
+                error &&
+                (error.code === 'FST_REQ_FILE_TOO_LARGE' || error.code === 'RequestFileTooLargeError')
+            ) {
+                return reply.code(413).send({
+                    error: 'File too large',
+                    code: 'MEDIA_FILE_TOO_LARGE',
+                    maxFileSize,
+                });
+            }
             console.error('Upload error:', error);
             reply.code(500).send({ error: 'Upload failed', details: error.message });
         }

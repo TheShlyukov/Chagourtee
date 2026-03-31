@@ -1044,6 +1044,20 @@ pre[class*="language-"] {
   padding-top: 0.625rem; /* Add some top padding to align with the send button */
 }
 
+.media-upload-meta {
+  align-self: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 170px;
+}
+
+.media-upload-warning {
+  align-self: center;
+  font-size: 0.75rem;
+  color: var(--danger);
+  max-width: 260px;
+}
+
 .attach-button {
   display: flex;
   align-items: center;
@@ -1063,6 +1077,13 @@ pre[class*="language-"] {
   background: var(--bg-hover);
   border-color: var(--accent);
   transform: scale(1.05);
+}
+
+.attach-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
 }
 
 .media-position-toggle {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback} from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import type { Room, Message, User, MessageListResponse, MediaFile } from '../api';
+import type { Room, Message, User, MessageListResponse, MediaFile, MediaUploadSettings } from '../api';
 import { rooms as roomsApi, messages as messagesApi, auth as authApi, users, media } from '../api';
 import { 
   getWebSocket, 
@@ -81,6 +81,29 @@ function formatTypingUsers(users: TypingUser[]): string | null {
   return `${names[0]}, ${names[1]}, ${names[2]} и др.`;
 }
 
+function formatBytes(size: number): string {
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / 1024).toFixed(1)} KB`;
+}
+
+function getUploadErrorMessage(
+  error: unknown,
+  fallbackMaxFileSize: number | null | undefined
+): string {
+  if (!(error instanceof Error)) return 'Не удалось загрузить файл.';
+  const uploadError = error as Error & { code?: string; maxFileSize?: number | null };
+  if (uploadError.code === 'MEDIA_UPLOAD_DISABLED') {
+    return 'Загрузка файлов отключена настройками сервера.';
+  }
+  if (uploadError.code === 'MEDIA_FILE_TOO_LARGE') {
+    const maxSize = uploadError.maxFileSize ?? fallbackMaxFileSize;
+    return maxSize
+      ? `Файл превышает лимит ${formatBytes(maxSize)}.`
+      : 'Файл превышает допустимый размер.';
+  }
+  return uploadError.message || 'Не удалось загрузить файл.';
+}
+
 export default function Chat() {
   const { roomId: routeRoomId } = useParams();
   const roomId = routeRoomId ? Number(routeRoomId) : null;
@@ -117,6 +140,8 @@ export default function Chat() {
   // State for media uploads
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
+  const [mediaSettings, setMediaSettings] = useState<MediaUploadSettings | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
 
   // State for per-message media position (above or below text)
   const [mediaPositionDraft, setMediaPositionDraft] = useState<'above' | 'below'>('below');
@@ -1023,6 +1048,36 @@ export default function Chat() {
     }
   }, [messages, roomId, loading]);
 
+  useEffect(() => {
+    media
+      .settings()
+      .then((settings) => setMediaSettings(settings))
+      .catch((error) => console.error('Failed to load media settings:', error));
+  }, []);
+
+  const getUploadLimitLabel = useCallback(() => {
+    if (!mediaSettings) return 'Лимит загрузки: ...';
+    if (!mediaSettings.uploadsEnabled) return 'Загрузка медиа отключена сервером';
+    if (mediaSettings.unlimited) return 'Лимит загрузки: без ограничений';
+    return `Лимит файла: ${formatBytes(mediaSettings.maxFileSize || 0)}`;
+  }, [mediaSettings]);
+
+  const isUploadEnabled = mediaSettings ? mediaSettings.uploadsEnabled : true;
+
+  const applyMediaSettingsFilter = useCallback(
+    (files: File[]) => {
+      if (!mediaSettings) return { accepted: files, rejected: [] as File[] };
+      if (!mediaSettings.uploadsEnabled) return { accepted: [] as File[], rejected: files };
+      if (mediaSettings.unlimited || !mediaSettings.maxFileSize) {
+        return { accepted: files, rejected: [] as File[] };
+      }
+      const accepted = files.filter((file) => file.size <= mediaSettings.maxFileSize!);
+      const rejected = files.filter((file) => file.size > mediaSettings.maxFileSize!);
+      return { accepted, rejected };
+    },
+    [mediaSettings]
+  );
+
   // Scroll to typing indicator when someone is typing, but only if user was at the bottom
   useEffect(() => {
     if (typingUsers.length > 0 && typingIndicatorRef.current && shouldAutoScrollRef.current) {
@@ -1034,7 +1089,24 @@ export default function Chat() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
-      setSelectedFiles(prev => [...prev, ...files]);
+      const { accepted, rejected } = applyMediaSettingsFilter(files);
+      if (accepted.length > 0) {
+        setSelectedFiles((prev) => [...prev, ...accepted]);
+      }
+      if (rejected.length > 0) {
+        if (mediaSettings && !mediaSettings.uploadsEnabled) {
+          setUploadWarning('Загрузка файлов отключена настройками сервера.');
+        } else {
+          setUploadWarning(
+            `Пропущено файлов: ${rejected.length}. Превышен лимит ${formatBytes(
+              mediaSettings?.maxFileSize || 0
+            )}.`
+          );
+        }
+      } else {
+        setUploadWarning(null);
+      }
+      e.target.value = '';
     }
   };
 
@@ -1151,12 +1223,44 @@ export default function Chat() {
       }
       
       if (files.length > 0) {
-        setSelectedFiles(prev => [...prev, ...files]);
+        const { accepted, rejected } = applyMediaSettingsFilter(files);
+        if (accepted.length > 0) {
+          setSelectedFiles((prev) => [...prev, ...accepted]);
+        }
+        if (rejected.length > 0) {
+          if (mediaSettings && !mediaSettings.uploadsEnabled) {
+            setUploadWarning('Загрузка файлов отключена настройками сервера.');
+          } else {
+            setUploadWarning(
+              `Пропущено файлов: ${rejected.length}. Превышен лимит ${formatBytes(
+                mediaSettings?.maxFileSize || 0
+              )}.`
+            );
+          }
+        } else {
+          setUploadWarning(null);
+        }
       }
     } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       // Fallback to regular file handling
       const droppedFiles = Array.from(e.dataTransfer.files);
-      setSelectedFiles(prev => [...prev, ...droppedFiles]);
+      const { accepted, rejected } = applyMediaSettingsFilter(droppedFiles);
+      if (accepted.length > 0) {
+        setSelectedFiles((prev) => [...prev, ...accepted]);
+      }
+      if (rejected.length > 0) {
+        if (mediaSettings && !mediaSettings.uploadsEnabled) {
+          setUploadWarning('Загрузка файлов отключена настройками сервера.');
+        } else {
+          setUploadWarning(
+            `Пропущено файлов: ${rejected.length}. Превышен лимит ${formatBytes(
+              mediaSettings?.maxFileSize || 0
+            )}.`
+          );
+        }
+      } else {
+        setUploadWarning(null);
+      }
     }
   };
 
@@ -1210,14 +1314,17 @@ export default function Chat() {
       }, {} as Record<number, number>)
     );
 
-    const uploadPromises = selectedFiles.map((file, index) => 
-      uploadFile(file, index)
-    );
-    const results = await Promise.all(uploadPromises);
-    setSelectedFiles([]); // Clear selected files after successful upload
-    setUploadProgress({}); // Clear progress
-    
-    return results.map(result => result.id);
+    try {
+      const uploadPromises = selectedFiles.map((file, index) => uploadFile(file, index));
+      const results = await Promise.all(uploadPromises);
+      setSelectedFiles([]); // Clear selected files after successful upload
+      setUploadProgress({}); // Clear progress
+      return results.map((result) => result.id);
+    } catch (error) {
+      setUploadProgress({});
+      setUploadWarning(getUploadErrorMessage(error, mediaSettings?.maxFileSize));
+      throw error;
+    }
   };
 
   // Modified handleSend to support both text and media
@@ -1247,6 +1354,7 @@ export default function Chat() {
     try {
       // Temporarily clear text so UI feels responsive
       setSendText('');
+      setUploadWarning(null);
       // Upload files if any
       const mediaIds = hasFiles ? await uploadSelectedFiles() : [];
       
@@ -1270,6 +1378,10 @@ export default function Chat() {
       }, 0);
     } catch (err) {
       setSendText(text);
+      const uploadErr = err as Error & { code?: string };
+      if (uploadErr?.code === 'MEDIA_FILE_TOO_LARGE' || uploadErr?.code === 'MEDIA_UPLOAD_DISABLED') {
+        return;
+      }
       alert(err instanceof Error ? err.message : 'Не удалось отправить');
     }
   }
@@ -2430,7 +2542,15 @@ export default function Chat() {
               }} className="chat-form" style={{ display: isSelecting ? 'none' : 'flex' }}>
                 {/* Attachment button */}
                 <div className="attachment-button-wrapper">
-                  <label htmlFor="file-upload" className="attach-button">
+                  <label
+                    htmlFor={isUploadEnabled ? 'file-upload' : undefined}
+                    className={`attach-button ${!isUploadEnabled ? 'disabled' : ''}`}
+                    title={
+                      isUploadEnabled
+                        ? 'Прикрепить файлы'
+                        : 'Загрузка файлов отключена настройками сервера'
+                    }
+                  >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19" />
                     </svg>
@@ -2440,10 +2560,13 @@ export default function Chat() {
                     type="file" 
                     multiple
                     {...{ webkitdirectory: true }}
+                    disabled={!isUploadEnabled}
                     onChange={handleFileSelect} 
                     style={{ display: 'none' }} 
                   />
                 </div>
+                <div className="media-upload-meta">{getUploadLimitLabel()}</div>
+                {uploadWarning && <div className="media-upload-warning">{uploadWarning}</div>}
                 
                 {/* File input for editing message */}
                 <input 
@@ -2451,12 +2574,14 @@ export default function Chat() {
                   type="file" 
                   multiple
                   {...{ webkitdirectory: true }}
+                  disabled={!isUploadEnabled}
                   onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {
                       const files = Array.from(e.target.files);
+                      const { accepted, rejected } = applyMediaSettingsFilter(files);
                       
                       // Upload each file and add to the editing message
-                      files.forEach(file => {
+                      accepted.forEach(file => {
                         media.upload(file).then((result: any) => {
                           const newMediaFile: MediaFile = {
                             id: result.id,
@@ -2475,9 +2600,23 @@ export default function Chat() {
                           });
                         }).catch(error => {
                           console.error('Error uploading file for editing:', error);
-                          alert(`Ошибка при загрузке файла: ${error.message}`);
+                          setUploadWarning(getUploadErrorMessage(error, mediaSettings?.maxFileSize));
                         });
                       });
+                      if (rejected.length > 0) {
+                        if (mediaSettings && !mediaSettings.uploadsEnabled) {
+                          setUploadWarning('Загрузка файлов отключена настройками сервера.');
+                        } else {
+                          setUploadWarning(
+                            `Пропущено файлов: ${rejected.length}. Превышен лимит ${formatBytes(
+                              mediaSettings?.maxFileSize || 0
+                            )}.`
+                          );
+                        }
+                      } else {
+                        setUploadWarning(null);
+                      }
+                      e.target.value = '';
                     }
                   }}
                   style={{ display: 'none' }} 

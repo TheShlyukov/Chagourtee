@@ -39,8 +39,12 @@ export default function Admin() {
   const [serverNameInput, setServerNameInput] = useState<string>(rawName ?? '');
   const [serverNameSaving, setServerNameSaving] = useState(false);
   const [mediaStorageSettings, setMediaStorageSettings] = useState<MediaStorageSettings | null>(null);
+  const [uploadLimitInput, setUploadLimitInput] = useState<string>('52428800');
   const [storageLimitInput, setStorageLimitInput] = useState<string>('-1');
   const [storageCleanupStrategy, setStorageCleanupStrategy] = useState<'block' | 'delete_oldest'>('block');
+  const [orphanCleanupEnabled, setOrphanCleanupEnabled] = useState(true);
+  const [orphanCleanupIntervalMinutes, setOrphanCleanupIntervalMinutes] = useState<string>('60');
+  const [orphanCleanupGraceMinutes, setOrphanCleanupGraceMinutes] = useState<string>('10');
   const [storageSettingsSaving, setStorageSettingsSaving] = useState(false);
   
   // State for renaming
@@ -85,12 +89,16 @@ export default function Admin() {
       media.getStorageSettings()
         .then((data) => {
           setMediaStorageSettings(data);
+          setUploadLimitInput(data.maxFileSize === null ? '-1' : String(data.maxFileSize));
           setStorageCleanupStrategy(data.cleanupStrategy);
           setStorageLimitInput(
             data.maxStorageSize === null || data.maxStorageSize === undefined
               ? '-1'
               : String(data.maxStorageSize)
           );
+          setOrphanCleanupEnabled(data.orphanCleanupEnabled);
+          setOrphanCleanupIntervalMinutes(String(data.orphanCleanupIntervalMinutes));
+          setOrphanCleanupGraceMinutes(String(data.orphanCleanupGraceMinutes));
         })
         .catch((err) => DEBUG_MODE && console.error('Error loading media storage settings:', err));
       
@@ -347,20 +355,45 @@ export default function Admin() {
     }
 
     const parsedLimit = Number(storageLimitInput);
+    const parsedUploadLimit = Number(uploadLimitInput);
+    const parsedCleanupInterval = Number(orphanCleanupIntervalMinutes);
+    const parsedCleanupGrace = Number(orphanCleanupGraceMinutes);
+
+    if (!Number.isFinite(parsedUploadLimit) || parsedUploadLimit < -1) {
+      showToast('Лимит файла должен быть -1, 0 или числом > 0', 'error');
+      return;
+    }
     if (!Number.isFinite(parsedLimit) || parsedLimit < -1) {
       showToast('Лимит хранилища должен быть -1 или числом >= 0', 'error');
+      return;
+    }
+    if (!Number.isFinite(parsedCleanupInterval) || parsedCleanupInterval < 1) {
+      showToast('Интервал очистки должен быть >= 1 минуты', 'error');
+      return;
+    }
+    if (!Number.isFinite(parsedCleanupGrace) || parsedCleanupGrace < 1) {
+      showToast('Safety-окно должно быть >= 1 минуты', 'error');
       return;
     }
 
     setStorageSettingsSaving(true);
     try {
       const normalizedLimit = parsedLimit === -1 ? null : parsedLimit;
+      const normalizedUploadLimit = parsedUploadLimit === -1 ? null : parsedUploadLimit;
       const saved = await media.updateStorageSettings({
+        maxFileSize: normalizedUploadLimit,
         maxStorageSize: normalizedLimit,
         cleanupStrategy: storageCleanupStrategy,
+        orphanCleanupEnabled,
+        orphanCleanupIntervalMinutes: parsedCleanupInterval,
+        orphanCleanupGraceMinutes: parsedCleanupGrace,
       });
       setMediaStorageSettings(saved);
+      setUploadLimitInput(saved.maxFileSize === null ? '-1' : String(saved.maxFileSize));
       setStorageLimitInput(saved.maxStorageSize === null ? '-1' : String(saved.maxStorageSize));
+      setOrphanCleanupEnabled(saved.orphanCleanupEnabled);
+      setOrphanCleanupIntervalMinutes(String(saved.orphanCleanupIntervalMinutes));
+      setOrphanCleanupGraceMinutes(String(saved.orphanCleanupGraceMinutes));
       showToast('Настройки медиа-хранилища обновлены', 'success');
     } catch (err) {
       showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка сохранения', 'error');
@@ -740,6 +773,20 @@ export default function Admin() {
             <form onSubmit={saveMediaStorageSettings} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                  Лимит одного файла (`0` = выключить загрузку, `-1` = без ограничений)
+                </span>
+                <input
+                  type="number"
+                  min={-1}
+                  step={1}
+                  value={uploadLimitInput}
+                  onChange={(e) => setUploadLimitInput(e.target.value)}
+                  placeholder="52428800"
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
                   Лимит хранилища в байтах (`-1` = без ограничений)
                 </span>
                 <input
@@ -755,12 +802,50 @@ export default function Admin() {
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Политика при превышении квоты</span>
                 <select
+                  className="admin-settings-select"
                   value={storageCleanupStrategy}
                   onChange={(e) => setStorageCleanupStrategy(e.target.value as 'block' | 'delete_oldest')}
                 >
                   <option value="block">block (блокировать новые загрузки)</option>
                   <option value="delete_oldest">delete_oldest (удалять самые старые файлы)</option>
                 </select>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={orphanCleanupEnabled}
+                  onChange={(e) => setOrphanCleanupEnabled(e.target.checked)}
+                />
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                  Включить автоочистку orphaned-файлов
+                </span>
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                  Интервал автоочистки (минуты)
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={orphanCleanupIntervalMinutes}
+                  onChange={(e) => setOrphanCleanupIntervalMinutes(e.target.value)}
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                  Safety-окно перед удалением orphaned-файла (минуты)
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={orphanCleanupGraceMinutes}
+                  onChange={(e) => setOrphanCleanupGraceMinutes(e.target.value)}
+                />
               </label>
 
               <button type="submit" disabled={storageSettingsSaving} style={{ alignSelf: 'flex-start', paddingInline: '1.25rem' }}>

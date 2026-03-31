@@ -168,24 +168,19 @@ function shouldTranscodeToFlac(codecName, mimeType, originalName) {
  * Registers the media plugin with Fastify
  */
 async function mediaPlugin(fastify, options) {
-    // Get max file size from environment:
-    // 0 = disable uploads, -1 = unlimited, >0 = bytes limit
-    const rawMaxFileSize = parseInt(process.env.CHAGOURTEE_MAX_FILE_SIZE || '52428800', 10);
-    const isUploadDisabled = rawMaxFileSize === 0;
-    const isUnlimitedUpload = rawMaxFileSize === -1;
-    const maxFileSize =
-        Number.isFinite(rawMaxFileSize) && rawMaxFileSize > 0 ? rawMaxFileSize : 52428800;
-
     // Register multipart for handling file uploads
     await fastify.register(require('fastify-multipart'), {
         limits: {
-            fileSize: isUnlimitedUpload ? undefined : maxFileSize,
             fields: 10,
             files: 1
         }
     });
 
     const db = fastify.db;
+    // 0 = disable uploads, -1 = unlimited, >0 = bytes limit
+    const envUploadLimitRaw = parseInt(process.env.CHAGOURTEE_MAX_FILE_SIZE || '52428800', 10);
+    const envUploadLimit =
+        Number.isFinite(envUploadLimitRaw) && envUploadLimitRaw >= -1 ? envUploadLimitRaw : 52428800;
     const envStorageLimitRaw = parseInt(process.env.CHAGOURTEE_MAX_STORAGE_SIZE || '-1', 10);
     const envStorageLimit =
         Number.isFinite(envStorageLimitRaw) && envStorageLimitRaw >= -1 ? envStorageLimitRaw : -1;
@@ -193,11 +188,62 @@ async function mediaPlugin(fastify, options) {
         process.env.CHAGOURTEE_STORAGE_CLEANUP_STRATEGY === 'delete_oldest'
             ? 'delete_oldest'
             : 'block';
+    const envOrphanCleanupEnabled = process.env.CHAGOURTEE_ORPHAN_MEDIA_CLEANUP_ENABLED === 'false' ? 0 : 1;
+    const envOrphanCleanupInterval = Math.max(
+        1,
+        parseInt(process.env.CHAGOURTEE_ORPHAN_MEDIA_CLEANUP_INTERVAL_MINUTES || '60', 10) || 60
+    );
+    const envOrphanCleanupGrace = Math.max(
+        1,
+        parseInt(process.env.CHAGOURTEE_ORPHAN_MEDIA_CLEANUP_GRACE_MINUTES || '10', 10) || 10
+    );
+
+    function ensureMediaSettingsRow() {
+        const existing = db.prepare('SELECT id FROM media_storage_settings WHERE id = 1').get();
+        if (existing) return;
+        const now = new Date().toISOString();
+        db.prepare(
+            `
+            INSERT INTO media_storage_settings (
+                id,
+                max_file_size,
+                max_storage_size,
+                cleanup_strategy,
+                orphan_cleanup_enabled,
+                orphan_cleanup_interval_minutes,
+                orphan_cleanup_grace_minutes,
+                created_at,
+                updated_at
+            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+        ).run(
+            envUploadLimit,
+            envStorageLimit,
+            envCleanupStrategy,
+            envOrphanCleanupEnabled,
+            envOrphanCleanupInterval,
+            envOrphanCleanupGrace,
+            now,
+            now
+        );
+    }
+
+    ensureMediaSettingsRow();
 
     function getStorageSettings() {
         const row = db
             .prepare(
-                'SELECT max_storage_size, cleanup_strategy FROM media_storage_settings WHERE id = 1'
+                `
+                SELECT
+                    max_file_size,
+                    max_storage_size,
+                    cleanup_strategy,
+                    orphan_cleanup_enabled,
+                    orphan_cleanup_interval_minutes,
+                    orphan_cleanup_grace_minutes
+                FROM media_storage_settings
+                WHERE id = 1
+            `
             )
             .get();
 
@@ -213,9 +259,42 @@ async function mediaPlugin(fastify, options) {
             maxStorageSize = row.max_storage_size;
         }
 
+        let maxFileSize = envUploadLimit;
+        if (row && typeof row.max_file_size === 'number') {
+            maxFileSize = row.max_file_size;
+        }
+
+        const orphanCleanupEnabled =
+            row && typeof row.orphan_cleanup_enabled === 'number'
+                ? row.orphan_cleanup_enabled === 1
+                : envOrphanCleanupEnabled === 1;
+        const orphanCleanupIntervalMinutes =
+            row && typeof row.orphan_cleanup_interval_minutes === 'number'
+                ? Math.max(1, row.orphan_cleanup_interval_minutes)
+                : envOrphanCleanupInterval;
+        const orphanCleanupGraceMinutes =
+            row && typeof row.orphan_cleanup_grace_minutes === 'number'
+                ? Math.max(1, row.orphan_cleanup_grace_minutes)
+                : envOrphanCleanupGrace;
+
         return {
+            maxFileSize,
             maxStorageSize,
             cleanupStrategy,
+            orphanCleanupEnabled,
+            orphanCleanupIntervalMinutes,
+            orphanCleanupGraceMinutes,
+        };
+    }
+
+    function getUploadSettings() {
+        const settings = getStorageSettings();
+        const raw = settings.maxFileSize;
+        return {
+            uploadsEnabled: raw !== 0,
+            unlimited: raw === -1,
+            maxFileSize: raw > 0 ? raw : null,
+            rawMaxFileSize: raw,
         };
     }
 
@@ -263,6 +342,9 @@ async function mediaPlugin(fastify, options) {
         }
 
         db.prepare('DELETE FROM media_files WHERE id = ?').run(media.id);
+        if (typeof fastify.broadcastAll === 'function') {
+            fastify.broadcastAll({ type: 'media_removed', mediaId: media.id });
+        }
         return true;
     }
 
@@ -295,6 +377,70 @@ async function mediaPlugin(fastify, options) {
 
         return { deletedFiles, freedBytes };
     }
+
+    function cleanupOrphanedMedia() {
+        const settings = getStorageSettings();
+        if (!settings.orphanCleanupEnabled) {
+            return { deletedFiles: 0, freedBytes: 0 };
+        }
+
+        const olderThan = `-${settings.orphanCleanupGraceMinutes} minutes`;
+        const candidates = db
+            .prepare(
+                `
+                SELECT id, file_size
+                FROM media_files
+                WHERE message_id IS NULL
+                  AND datetime(created_at) <= datetime('now', ?)
+                ORDER BY datetime(created_at) ASC, id ASC
+            `
+            )
+            .all(olderThan);
+
+        let deletedFiles = 0;
+        let freedBytes = 0;
+        for (const file of candidates) {
+            // Safety check: only remove rows still orphaned at the deletion moment.
+            const latest = db
+                .prepare('SELECT id, message_id FROM media_files WHERE id = ?')
+                .get(file.id);
+            if (!latest || latest.message_id !== null) continue;
+
+            const deleted = removeMediaById(file.id);
+            if (deleted) {
+                deletedFiles += 1;
+                freedBytes += Number(file.file_size || 0);
+            }
+        }
+
+        if (deletedFiles > 0) {
+            fastify.log.info(
+                `Orphan media cleanup: deleted ${deletedFiles} files, freed ${freedBytes} bytes`
+            );
+        }
+
+        return { deletedFiles, freedBytes };
+    }
+
+    let lastOrphanCleanupAt = 0;
+    const orphanCleanupScheduler = setInterval(() => {
+        try {
+            const settings = getStorageSettings();
+            if (!settings.orphanCleanupEnabled) return;
+            const intervalMs = settings.orphanCleanupIntervalMinutes * 60 * 1000;
+            const now = Date.now();
+            if (now - lastOrphanCleanupAt < intervalMs) return;
+            lastOrphanCleanupAt = now;
+            cleanupOrphanedMedia();
+        } catch (e) {
+            fastify.log.error('Failed to run orphan media cleanup:', e);
+        }
+    }, 60 * 1000);
+
+    fastify.addHook('onClose', (_instance, done) => {
+        clearInterval(orphanCleanupScheduler);
+        done();
+    });
 
     /**
      * Ensure we have a FLAC transcode for problematic audio.
@@ -523,11 +669,12 @@ async function mediaPlugin(fastify, options) {
             preHandler: [fastify.requireAuth],
         },
         async () => {
+            const uploadSettings = getUploadSettings();
             const storageSettings = getStorageSettings();
             return {
-                uploadsEnabled: !isUploadDisabled,
-                unlimited: isUnlimitedUpload,
-                maxFileSize: isUnlimitedUpload ? null : maxFileSize,
+                uploadsEnabled: uploadSettings.uploadsEnabled,
+                unlimited: uploadSettings.unlimited,
+                maxFileSize: uploadSettings.maxFileSize,
                 storage: {
                     maxStorageSize: storageSettings.maxStorageSize,
                     cleanupStrategy: storageSettings.cleanupStrategy,
@@ -545,7 +692,12 @@ async function mediaPlugin(fastify, options) {
             const usage = getCurrentStorageUsage();
             const settings = getStorageSettings();
             return {
-                ...settings,
+                maxFileSize: settings.maxFileSize,
+                maxStorageSize: settings.maxStorageSize,
+                cleanupStrategy: settings.cleanupStrategy,
+                orphanCleanupEnabled: settings.orphanCleanupEnabled,
+                orphanCleanupIntervalMinutes: settings.orphanCleanupIntervalMinutes,
+                orphanCleanupGraceMinutes: settings.orphanCleanupGraceMinutes,
                 totalBytes: usage.totalBytes,
                 filesCount: usage.filesCount,
             };
@@ -561,10 +713,30 @@ async function mediaPlugin(fastify, options) {
             const body = req.body || {};
             const cleanupStrategy =
                 body.cleanupStrategy === 'delete_oldest' ? 'delete_oldest' : 'block';
+            const requestedMaxFileSize =
+                body.maxFileSize === null || body.maxFileSize === undefined
+                    ? null
+                    : Number(body.maxFileSize);
             const requestedMaxStorageSize =
                 body.maxStorageSize === null || body.maxStorageSize === undefined
                     ? null
                     : Number(body.maxStorageSize);
+            const orphanCleanupEnabled = body.orphanCleanupEnabled === false ? 0 : 1;
+            const orphanCleanupIntervalMinutes = Math.max(
+                1,
+                Number(body.orphanCleanupIntervalMinutes || 60)
+            );
+            const orphanCleanupGraceMinutes = Math.max(
+                1,
+                Number(body.orphanCleanupGraceMinutes || 10)
+            );
+
+            if (
+                requestedMaxFileSize !== null &&
+                (!Number.isFinite(requestedMaxFileSize) || requestedMaxFileSize < -1)
+            ) {
+                return reply.code(400).send({ error: 'Invalid maxFileSize' });
+            }
 
             if (
                 requestedMaxStorageSize !== null &&
@@ -579,23 +751,60 @@ async function mediaPlugin(fastify, options) {
                 db.prepare(
                     `
                     UPDATE media_storage_settings
-                    SET max_storage_size = ?, cleanup_strategy = ?, updated_at = ?
+                    SET max_file_size = ?,
+                        max_storage_size = ?,
+                        cleanup_strategy = ?,
+                        orphan_cleanup_enabled = ?,
+                        orphan_cleanup_interval_minutes = ?,
+                        orphan_cleanup_grace_minutes = ?,
+                        updated_at = ?
                     WHERE id = 1
                 `
-                ).run(requestedMaxStorageSize, cleanupStrategy, now);
+                ).run(
+                    requestedMaxFileSize,
+                    requestedMaxStorageSize,
+                    cleanupStrategy,
+                    orphanCleanupEnabled,
+                    orphanCleanupIntervalMinutes,
+                    orphanCleanupGraceMinutes,
+                    now
+                );
             } else {
                 db.prepare(
                     `
-                    INSERT INTO media_storage_settings (id, max_storage_size, cleanup_strategy, created_at, updated_at)
-                    VALUES (1, ?, ?, ?, ?)
+                    INSERT INTO media_storage_settings (
+                        id,
+                        max_file_size,
+                        max_storage_size,
+                        cleanup_strategy,
+                        orphan_cleanup_enabled,
+                        orphan_cleanup_interval_minutes,
+                        orphan_cleanup_grace_minutes,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
                 `
-                ).run(requestedMaxStorageSize, cleanupStrategy, now, now);
+                ).run(
+                    requestedMaxFileSize,
+                    requestedMaxStorageSize,
+                    cleanupStrategy,
+                    orphanCleanupEnabled,
+                    orphanCleanupIntervalMinutes,
+                    orphanCleanupGraceMinutes,
+                    now,
+                    now
+                );
             }
 
             const usage = getCurrentStorageUsage();
             return {
+                maxFileSize: requestedMaxFileSize,
                 maxStorageSize: requestedMaxStorageSize,
                 cleanupStrategy,
+                orphanCleanupEnabled: orphanCleanupEnabled === 1,
+                orphanCleanupIntervalMinutes,
+                orphanCleanupGraceMinutes,
                 totalBytes: usage.totalBytes,
                 filesCount: usage.filesCount,
             };
@@ -607,7 +816,8 @@ async function mediaPlugin(fastify, options) {
         preHandler: [fastify.requireAuth]
     }, async (req, reply) => {
         try {
-            if (isUploadDisabled) {
+            const uploadSettings = getUploadSettings();
+            if (!uploadSettings.uploadsEnabled) {
                 return reply.code(403).send({
                     error: 'Media upload is disabled',
                     code: 'MEDIA_UPLOAD_DISABLED',
@@ -637,12 +847,19 @@ async function mediaPlugin(fastify, options) {
                 return reply.code(413).send({
                     error: 'File too large',
                     code: 'MEDIA_FILE_TOO_LARGE',
-                    maxFileSize,
+                    maxFileSize: uploadSettings.maxFileSize,
                 });
             }
 
             // Read file buffer
             const buffer = await data.toBuffer();
+            if (!uploadSettings.unlimited && uploadSettings.maxFileSize && buffer.length > uploadSettings.maxFileSize) {
+                return reply.code(413).send({
+                    error: 'File too large',
+                    code: 'MEDIA_FILE_TOO_LARGE',
+                    maxFileSize: uploadSettings.maxFileSize,
+                });
+            }
 
             // Enforce total media storage quota
             const storageSettings = getStorageSettings();
@@ -732,7 +949,7 @@ async function mediaPlugin(fastify, options) {
                 return reply.code(413).send({
                     error: 'File too large',
                     code: 'MEDIA_FILE_TOO_LARGE',
-                    maxFileSize,
+                    maxFileSize: getUploadSettings().maxFileSize,
                 });
             }
             console.error('Upload error:', error);

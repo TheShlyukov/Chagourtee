@@ -40,8 +40,12 @@ export type MediaUploadSettings = {
 };
 
 export type MediaStorageSettings = {
+  maxFileSize: number | null;
   maxStorageSize: number | null;
   cleanupStrategy: 'block' | 'delete_oldest';
+  orphanCleanupEnabled: boolean;
+  orphanCleanupIntervalMinutes: number;
+  orphanCleanupGraceMinutes: number;
   totalBytes: number;
   filesCount: number;
 };
@@ -255,7 +259,14 @@ export const media = {
   },
   settings: () => api<MediaUploadSettings>('/api/media/settings'),
   getStorageSettings: () => api<MediaStorageSettings>('/api/media/storage-settings'),
-  updateStorageSettings: (body: { maxStorageSize: number | null; cleanupStrategy: 'block' | 'delete_oldest' }) =>
+  updateStorageSettings: (body: {
+    maxFileSize: number | null;
+    maxStorageSize: number | null;
+    cleanupStrategy: 'block' | 'delete_oldest';
+    orphanCleanupEnabled: boolean;
+    orphanCleanupIntervalMinutes: number;
+    orphanCleanupGraceMinutes: number;
+  }) =>
     api<MediaStorageSettings>('/api/media/storage-settings', {
       method: 'POST',
       body: JSON.stringify(body),

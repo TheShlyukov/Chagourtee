@@ -10,6 +10,13 @@ import type { MediaFile } from '../api';
 import AudioPlayer from './AudioPlayer';
 import VideoPlayer from './VideoPlayer';
 import MediaViewer from './MediaViewer';
+import {
+  addMessageHandler,
+  removeMessageHandler,
+  getWebSocket,
+  addOpenHandler,
+  removeOpenHandler,
+} from '../websocket';
 
 // Импортируем KaTeX CSS
 import 'katex/dist/katex.min.css';
@@ -34,32 +41,44 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
         return;
       }
 
-      const controller = new AbortController();
-      const checkMediaAvailability = async () => {
-        const checks = media.map(async (mediaFile) => {
-          try {
-            const response = await fetch(`/api/media/${mediaFile.encrypted_filename}`, {
-              method: 'GET',
-              headers: { Range: 'bytes=0-0' },
-              credentials: 'include',
-              signal: controller.signal,
-            });
-            if (response.status === 404) {
-              return mediaFile.id;
-            }
-            return null;
-          } catch {
-            return null;
-          }
-        });
-
-        const results = await Promise.all(checks);
-        const missingIds = results.filter((id): id is number => id !== null);
-        setMissingMediaIds(new Set(missingIds));
+      const requestId = `media-check-${Date.now()}-${Math.random()}`;
+      const sendAvailabilityCheck = () => {
+        const ws = getWebSocket();
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(
+          JSON.stringify({
+            type: 'check_media_availability',
+            requestId,
+            files: media.map((m) => ({ id: m.id, encrypted_filename: m.encrypted_filename })),
+          })
+        );
       };
 
-      void checkMediaAvailability();
-      return () => controller.abort();
+      const handleWsMessage = (payload: any) => {
+        if (
+          payload.type === 'media_availability_result' &&
+          payload.requestId === requestId &&
+          Array.isArray(payload.unavailableIds)
+        ) {
+          setMissingMediaIds(new Set(payload.unavailableIds.map((id: number) => Number(id))));
+        }
+        if (payload.type === 'media_removed' && typeof payload.mediaId === 'number') {
+          setMissingMediaIds((prev) => {
+            const next = new Set(prev);
+            next.add(payload.mediaId);
+            return next;
+          });
+        }
+      };
+
+      addMessageHandler(handleWsMessage);
+      addOpenHandler(sendAvailabilityCheck);
+      sendAvailabilityCheck();
+
+      return () => {
+        removeMessageHandler(handleWsMessage);
+        removeOpenHandler(sendAvailabilityCheck);
+      };
     }, [media]);
 
     const mediaWithStatus = useMemo(() => {

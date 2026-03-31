@@ -1,7 +1,10 @@
 const WebSocket = require('ws');
 const { getDb } = require('./db');
+const fs = require('fs');
+const path = require('path');
 
 const SESSION_COOKIE = 'chagourtee_sid';
+const MEDIA_DIR = path.join(__dirname, '../data/media');
 
 // Rate limiting for WebSocket messages
 const wsRateLimitStore = new Map(); // userId -> { count: number, timestamp: number }
@@ -175,6 +178,37 @@ module.exports = function (fastify) {
             userId, 
             login: user?.login || userId 
           }, ws);
+        }
+
+        if (msg.type === 'check_media_availability' && msg.requestId && Array.isArray(msg.files)) {
+          const unavailableIds = [];
+          for (const file of msg.files) {
+            const mediaId = Number(file.id);
+            const encryptedFilename = typeof file.encrypted_filename === 'string'
+              ? file.encrypted_filename
+              : '';
+            if (!Number.isFinite(mediaId) || !encryptedFilename) continue;
+
+            const row = fastify.db
+              .prepare('SELECT id, encrypted_filename FROM media_files WHERE id = ?')
+              .get(mediaId);
+
+            const existsInDb = !!row && row.encrypted_filename === encryptedFilename;
+            const existsOnDisk = existsInDb
+              ? fs.existsSync(path.join(MEDIA_DIR, encryptedFilename))
+              : false;
+
+            if (!existsInDb || !existsOnDisk) {
+              unavailableIds.push(mediaId);
+            }
+          }
+          ws.send(
+            JSON.stringify({
+              type: 'media_availability_result',
+              requestId: msg.requestId,
+              unavailableIds,
+            })
+          );
         }
       } catch (err) {
         // Логируем конкретную ошибку вместо игнорирования

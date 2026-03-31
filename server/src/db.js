@@ -95,8 +95,12 @@ function createDb(dbPath) {
 
     CREATE TABLE IF NOT EXISTS media_storage_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
+      max_file_size INTEGER,
       max_storage_size INTEGER,
       cleanup_strategy TEXT NOT NULL DEFAULT 'block',
+      orphan_cleanup_enabled INTEGER NOT NULL DEFAULT 1,
+      orphan_cleanup_interval_minutes INTEGER NOT NULL DEFAULT 60,
+      orphan_cleanup_grace_minutes INTEGER NOT NULL DEFAULT 10,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -166,9 +170,27 @@ function createDb(dbPath) {
     if (!storageColumns.includes('max_storage_size')) {
       db.exec('ALTER TABLE media_storage_settings ADD COLUMN max_storage_size INTEGER');
     }
+    if (!storageColumns.includes('max_file_size')) {
+      db.exec('ALTER TABLE media_storage_settings ADD COLUMN max_file_size INTEGER');
+    }
     if (!storageColumns.includes('cleanup_strategy')) {
       db.exec(
         "ALTER TABLE media_storage_settings ADD COLUMN cleanup_strategy TEXT NOT NULL DEFAULT 'block'"
+      );
+    }
+    if (!storageColumns.includes('orphan_cleanup_enabled')) {
+      db.exec(
+        "ALTER TABLE media_storage_settings ADD COLUMN orphan_cleanup_enabled INTEGER NOT NULL DEFAULT 1"
+      );
+    }
+    if (!storageColumns.includes('orphan_cleanup_interval_minutes')) {
+      db.exec(
+        "ALTER TABLE media_storage_settings ADD COLUMN orphan_cleanup_interval_minutes INTEGER NOT NULL DEFAULT 60"
+      );
+    }
+    if (!storageColumns.includes('orphan_cleanup_grace_minutes')) {
+      db.exec(
+        "ALTER TABLE media_storage_settings ADD COLUMN orphan_cleanup_grace_minutes INTEGER NOT NULL DEFAULT 10"
       );
     }
   } catch (e) {

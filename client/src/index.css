@@ -1044,13 +1044,6 @@ pre[class*="language-"] {
   padding-top: 0.625rem; /* Add some top padding to align with the send button */
 }
 
-.media-upload-warning {
-  align-self: center;
-  font-size: 0.75rem;
-  color: var(--danger);
-  max-width: 260px;
-}
-
 .media-upload-info {
   align-self: center;
   display: none;
@@ -1341,6 +1334,15 @@ pre[class*="language-"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.admin-settings-select {
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-default);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.9rem;
 }
 
 /* Style for document/file banners in chat */

@@ -204,6 +204,15 @@ export default function Chat() {
     );
   };
 
+  const renderUploadWarning = () => {
+    if (!uploadWarning) return null;
+    return (
+      <div className="rate-limit-warning-container">
+        <div className="rate-limit-warning">{uploadWarning}</div>
+      </div>
+    );
+  };
+
   const { isOpen: isUserListOpen, close: closeUserList, toggle: toggleUserList } =
     useUserListPanel();
 
@@ -2536,6 +2545,7 @@ export default function Chat() {
               )}
               
               {renderRateLimitWarning()}
+              {renderUploadWarning()}
               
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -2578,7 +2588,6 @@ export default function Chat() {
                 >
                   ?
                 </span>
-                {uploadWarning && <div className="media-upload-warning">{uploadWarning}</div>}
                 
                 {/* File input for editing message */}
                 <input 

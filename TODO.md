@@ -37,10 +37,10 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [x] Add fallback styling for missing media elements
 
 #### 1.5. Media Cleanup Routine
-- [ ] Implement periodic cleanup of orphaned media files (not linked to any message) in [media.js](./server/src/media.js)
-- [ ] Create scheduled task to run cleanup at configurable intervals
-- [ ] Add logging for cleanup operations
-- [ ] Implement safety checks to prevent accidental deletion of active media
+- [x] Implement periodic cleanup of orphaned media files (not linked to any message) in [media.js](./server/src/media.js)
+- [x] Create scheduled task to run cleanup at configurable intervals
+- [x] Add logging for cleanup operations
+- [x] Implement safety checks to prevent accidental deletion of active media
 
 ### 2. UI Redesign
 

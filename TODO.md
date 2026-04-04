@@ -59,34 +59,50 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [ ] Create audio/video settings section (for future voice chat)
 - [ ] Add visual theme settings (auto/light/dark mode toggle)
 
-#### 2.3. New Page Implementation (1)
-- [ ] Create 403 Forbidden page component
-- [ ] Add routing for unauthorized access scenarios in [App.tsx](./client/src/App.tsx)
-- [ ] Design error message with helpful guidance
-- [ ] Link to relevant help resources from the 403 page
+#### 2.3. New Page Implementation (1) — 403 Forbidden
+- [x] Create 403 Forbidden page component ([Forbidden.tsx](./client/src/pages/Forbidden.tsx))
+- [x] Add routing for unauthorized access scenarios in [App.tsx](./client/src/App.tsx)
+- [x] Design error message with helpful guidance
+- [x] Link to relevant help resources from the 403 page
 
-#### 2.4. New Page Implementation (2)
-- [ ] Create Offline Page component
-- [ ] While server is turning off, send websocket message to the client
-- [ ] Add routing for server offline scenarios in [App.tsx](./client/src/App.tsx)
-- [ ] Design offline message with guidance on reconnection
-- [ ] Link to relevant help resources from the offline page
+#### 2.4. New Page Implementation (2) — Offline Page
+- [x] Create Offline Page component ([Offline.tsx](./client/src/pages/Offline.tsx))
+- [x] While server is turning off, send websocket message to the client (implemented in [websocket.ts](./client/src/websocket.ts))
+- [x] Add routing for server offline scenarios in [App.tsx](./client/src/App.tsx)
+- [x] Design offline message with guidance on reconnection
+- [x] Link to relevant help resources from the offline page
 
 ### 3. Code Quality Improvements
 
 #### 3.1. Replace Alert Boxes with Custom Elements
-- [ ] Identify all instances of `alert()` in the client codebase
-- [ ] Create custom toast/notification components to replace alerts
+- [ ] Identify all instances of `alert()` in the client codebase (7 instances found in [Chat.tsx](./client/src/pages/Chat.tsx): lines 1070, 1392, 1642, 1685, 1732, 1794, 1835)
+- [ ] Create custom toast/notification components to replace alerts (ToastContext and Toast component already exist)
 - [ ] Implement custom modal dialogs for confirmations (replacing `confirm()`)
 - [ ] Update all client components to use custom elements instead of native dialogs
 - [ ] Add proper error handling UI in place of alerts
 
 #### 3.2. Centralize All Styling
-- [ ] Audit all inline styles throughout the application
-- [ ] Move all inline styles to the CSS files
-- [ ] Create CSS classes for commonly used style patterns
-- [ ] Ensure no component has inline styles after migration
-- [ ] Organize CSS in a modular, maintainable way
+- [x] Audit all inline styles throughout the application
+- [x] Move all inline styles to the CSS files
+- [x] Create CSS classes for commonly used style patterns
+- [x] Ensure no component has inline styles after migration
+- [x] Organize CSS in a modular, maintainable way
+
+#### 3.3. Identified Styling Issues
+- [ ] Fix inline style usage in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx) where `style={oneDark as any}` is used for syntax highlighting
+- [ ] Replace inline styles with CSS classes for the SyntaxHighlighter component
+- [ ] Create consistent styling for code blocks throughout the application
+
+#### 3.4. CSS Code Quality Issues
+- [x] Fix duplicate `@keyframes pulse` definition in [index.css](./client/src/index.css)
+- [x] Fix invalid CSS function: `linear(...)` → `linear-gradient(...)` in [index.css](./client/src/index.css)
+- [x] Remove duplicate `height: 100dvh` declarations in [index.css](./client/src/index.css)
+- [x] Consolidate duplicated responsive rules for `.layout-nav-bottom` and `.layout-header-top` (merged `@media (max-width: 678px)` and `@media (min-width: 678px) and (max-width: 876px)` into single `@media (max-width: 876px)`)
+- [x] Remove dead server-info hiding rules (targeted non-existent classes; Layout.tsx handles this via JS)
+- [ ] Consider splitting monolithic [index.css](./client/src/index.css) into modular CSS files (4007 lines)
+
+#### 3.5. Duplicate version.ts in Server Source
+- [x] Remove unused [version.ts](./server/src/version.ts) (duplicate of [version.js](./server/src/version.js))
 
 ### 4. Extended Permission Management
 
@@ -170,8 +186,8 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 ## Implementation Priority
 
 ### High Priority (Required for v0.4.0-alpha)
-1. Enhanced File Handling (especially media size validation and error handling)
-2. Code Quality Improvements (replace alerts and centralize styles)
+1. Enhanced File Handling (especially media size validation and error handling) — ✅ **Done**
+2. Code Quality Improvements (replace alerts and centralize styles) — **In Progress** (alerts remain, CSS issues found)
 3. Basic HTTPS/WSS implementation
 4. Message Replies functionality
 5. Room access levels (at least basic implementation)
@@ -192,6 +208,24 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [ ] Validate all user inputs to prevent injection attacks
 - [ ] Ensure proper encryption for file uploads and storage
 - [ ] Secure WebSocket connections with proper authentication
+
+## Identified Styling Issues (Client-Side) — Audit Report
+
+### Fixed
+- ~~Invalid CSS function `linear(...)`~~ → fixed to `linear-gradient(...)`
+- ~~Duplicate `@keyframes pulse`~~ → removed duplicate
+- ~~Duplicate `height: 100dvh`~~ → removed 3 redundant duplicates
+- ~~Duplicated responsive rules for `.layout-nav-bottom`/`.layout-header-top`~~ → consolidated into single `@media (max-width: 876px)`
+- ~~Overly broad `!important` in server-info hiding rules~~ → removed dead CSS (targeted non-existent classes)
+
+### Remaining
+- **Monolithic CSS file** — 4007 lines in a single file, consider modularization as project grows
+
+### Other Observations
+- **Inline styles**: Only 1 instance in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx) for SyntaxHighlighter (acceptable — library-specific)
+- **alert() calls**: 7 instances all in [Chat.tsx](./client/src/pages/Chat.tsx) — should use existing Toast system
+- **No CSS linting**: No Stylelint or autoprefixer configured
+- **Emoji usage**: No Unicode emojis found in client code (all icons use SVG components from [Icons.tsx](./client/src/components/icons/Icons.tsx)) — ✅ Done
 
 ## Testing Requirements
 - [ ] Unit tests for new server functionality

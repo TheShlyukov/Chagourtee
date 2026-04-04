@@ -245,6 +245,33 @@ async function run() {
     server.log.error(err);
     process.exit(1);
   }
+
+  let isShuttingDown = false;
+  async function gracefulShutdown(signal) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    server.log.info({ signal }, 'graceful shutdown');
+    try {
+      if (typeof server.notifyServerShutdown === 'function') {
+        server.notifyServerShutdown('Сервер останавливается');
+      }
+    } catch (e) {
+      server.log.error(e);
+    }
+    try {
+      await server.close();
+    } catch (e) {
+      server.log.error(e);
+    }
+    process.exit(0);
+  }
+
+  process.on('SIGINT', () => {
+    void gracefulShutdown('SIGINT');
+  });
+  process.on('SIGTERM', () => {
+    void gracefulShutdown('SIGTERM');
+  });
 }
 
 run();

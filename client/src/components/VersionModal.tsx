@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { serverVersion } from '../api';
-import logoImage from '../assets/Images/Chagourtee_512px.png'; // Import the logo image
+import logoImage from '../assets/Images/Chagourtee_512px.png';
 
 interface VersionModalProps {
   isOpen: boolean;
@@ -34,7 +34,6 @@ const VersionModal: React.FC<VersionModalProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  // Close modal when clicking outside of it
   useEffect(() => {
     const handleEscapeKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -47,95 +46,35 @@ const VersionModal: React.FC<VersionModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="modal-overlay" 
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        backdropFilter: 'blur(4px)',
-      }}
-      onClick={onClose}
-    >
-      <div 
-        className="modal-content"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderRadius: 'var(--radius-medium)',
-          padding: '1.5rem',
-          maxWidth: '400px',
-          width: '90%',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          border: '1px solid var(--border)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1rem' }}>
-          <img 
-            src={logoImage} 
-            alt="Chagourtee Logo" 
-            style={{ 
-              maxWidth: '80px', 
-              height: 'auto',
-              marginBottom: '0.75rem'
-            }} 
-          />
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: 'var(--text)', alignSelf: 'center' }}>О приложении</h3>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.5rem',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              padding: '0.25rem',
-              borderRadius: 'var(--radius-small)',
-              position: 'absolute',
-              top: '1rem',
-              right: '1rem',
-            }}
-            aria-label="Закрыть"
-          >
-            ×
-          </button>
+    <div className="version-modal-overlay" onClick={onClose} role="presentation">
+      <div className="version-modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="version-modal-heading">
+        <button type="button" className="version-modal-close" onClick={onClose} aria-label="Закрыть">
+          ×
+        </button>
+        <div className="version-modal-header">
+          <img src={logoImage} alt="" className="version-modal-logo" />
+          <h3 id="version-modal-heading" className="version-modal-title">
+            О приложении
+          </h3>
         </div>
-        
-        <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+
+        <div className="version-modal-body">
           {loading ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Загрузка информации...</p>
+            <p className="version-modal-muted">Загрузка информации...</p>
           ) : error ? (
-            <p style={{ color: 'var(--danger)', textAlign: 'center' }}>{error}</p>
+            <p className="version-modal-error">{error}</p>
           ) : (
             <div>
-              <p style={{ margin: '0.5rem 0', color: 'var(--text)' }}>
-                Версия: {versionInfo?.version}
-              </p>
-              <p style={{ margin: '0.5rem 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                Работает на {versionInfo?.name}
-              </p>
+              <p className="version-modal-row">Версия: {versionInfo?.version}</p>
+              <p className="version-modal-row-muted">Работает на {versionInfo?.name}</p>
             </div>
           )}
-          
-          <a 
-            href="https://github.com/TheShlyukov/Chagourtee" 
-            target="_blank" 
+
+          <a
+            href="https://github.com/TheShlyukov/Chagourtee"
+            target="_blank"
             rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              marginTop: '1rem',
-              color: 'var(--accent)',
-              textDecoration: 'none',
-              fontSize: '0.95rem',
-            }}
+            className="version-modal-github"
           >
             GitHub Repository ↗
           </a>

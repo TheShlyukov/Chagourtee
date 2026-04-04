@@ -452,4 +452,25 @@ module.exports = function (fastify) {
   fastify.broadcastVerificationCodesChanged = broadcastVerificationCodesChanged;
   fastify.broadcastVerificationSettingsUpdated = broadcastVerificationSettingsUpdated;
   fastify.broadcastServerSettingsUpdated = broadcastServerSettingsUpdated;
+
+  fastify.notifyServerShutdown = function (message) {
+    const text = message || 'Server is shutting down';
+    const payload = JSON.stringify({
+      type: 'server_shutdown',
+      message: text,
+    });
+    wss.clients.forEach((c) => {
+      if (c.readyState !== WebSocket.OPEN) return;
+      try {
+        c.send(payload);
+      } catch (err) {
+        fastify.log.warn({ err }, 'notifyServerShutdown send failed');
+      }
+      try {
+        c.close(1001, 'Server shutdown');
+      } catch (err2) {
+        fastify.log.warn({ err: err2 }, 'notifyServerShutdown close failed');
+      }
+    });
+  };
 };

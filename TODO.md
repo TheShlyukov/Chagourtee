@@ -45,26 +45,32 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 ### 2. UI Redesign
 
 #### 2.1. Visual Overhaul
-- [ ] Redesign [client/src/index.css](./client/src/index.css) with 80s terminal aesthetic
-- [ ] Implement monospace font throughout the application
-- [ ] Apply orange color scheme with subtle backgrounds
-- [ ] Remove solid backgrounds in favor of outlined elements
+- [ ] Update [client/src/index.css](./client/src/index.css) with more modern aesthetic
+- [ ] Make sure that all styles placed only in [client/src/index.css](./client/src/index.css) (inline styles not allowed)
+- [ ] Add more animations and transitions (also between layouts like desktop/tablet/mobile)
 - [ ] Replace Unicode emojis with SVG equivalents
 - [ ] Create reusable CSS components with the new design
 
 #### 2.2. Settings Redesign
 - [ ] Combine profile and client settings into a unified Settings tab
 - [ ] Maintain separate Server Settings tab for server administration
-- [ ] Implement categorized settings with collapsible sections
+- [ ] Implement categorized settings with side panel navigation (like chat-rooms panel in Chat.tsx, adapt for all layouts — desctop/tablet/mobile)
 - [ ] Add profile management section within settings
 - [ ] Create audio/video settings section (for future voice chat)
-- [ ] Add visual theme settings (light/dark mode toggle)
+- [ ] Add visual theme settings (auto/light/dark mode toggle)
 
-#### 2.3. New Page Implementation
+#### 2.3. New Page Implementation (1)
 - [ ] Create 403 Forbidden page component
 - [ ] Add routing for unauthorized access scenarios in [App.tsx](./client/src/App.tsx)
 - [ ] Design error message with helpful guidance
 - [ ] Link to relevant help resources from the 403 page
+
+#### 2.4. New Page Implementation (2)
+- [ ] Create Offline Page component
+- [ ] While server is turning off, send websocket message to the client
+- [ ] Add routing for server offline scenarios in [App.tsx](./client/src/App.tsx)
+- [ ] Design offline message with guidance on reconnection
+- [ ] Link to relevant help resources from the offline page
 
 ### 3. Code Quality Improvements
 

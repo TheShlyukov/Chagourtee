@@ -1,6 +1,19 @@
 <!DOCTYPE html>
 <html lang="ru">
   <head>
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem('chagourtee-theme') || 'dark';
+          var resolved = pref;
+          if (pref === 'auto') {
+            resolved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          }
+          document.documentElement.setAttribute('data-theme', resolved);
+          document.documentElement.setAttribute('data-theme-pref', pref);
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="icon" href="./src/assets/favicon.png" />

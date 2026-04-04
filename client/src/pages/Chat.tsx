@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback} from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import type { Room, Message, User, MessageListResponse, MediaFile, MediaUploadSettings } from '../api';
 import { rooms as roomsApi, messages as messagesApi, auth as authApi, users, media } from '../api';
 import { 
@@ -20,6 +20,8 @@ import { ensureNotificationPermission, showMessageNotification } from '../notifi
 import { useUserListPanel } from '../UserListPanelContext';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { TabletBottomNav } from '../components/TabletBottomNav';
+import { IconHome, IconUsers } from '../components/icons/Icons';
 
 // Extend the HTMLInputElement interface to include webkitdirectory
 declare global {
@@ -191,6 +193,14 @@ export default function Chat() {
     };
   }, [isRateLimited, rateLimitEndTime]);
 
+  useLayoutEffect(() => {
+    const el = contextMenuRef.current;
+    if (el && contextMenu.visible) {
+      el.style.setProperty('--ctx-left', `${contextMenu.x}px`);
+      el.style.setProperty('--ctx-top', `${contextMenu.y}px`);
+    }
+  }, [contextMenu.visible, contextMenu.x, contextMenu.y]);
+
   // Render rate limit warning with dynamic timer
   const renderRateLimitWarning = () => {
     if (!isRateLimited || !rateLimitEndTime) return null;
@@ -272,23 +282,6 @@ export default function Chat() {
     
     loadAllUsers();
   }, []);
-
-  // Custom component to handle active class for tablet navigation
-  const IsActiveLink: React.FC<{to: string, children: React.ReactNode, end?: boolean}> = ({ to, children, end }) => {
-    const location = useLocation();
-    const isActive = end 
-      ? location.pathname === to 
-      : location.pathname.startsWith(to);
-    
-    return (
-      <Link 
-        to={to} 
-        className={isActive ? 'active' : ''}
-      >
-        {children}
-      </Link>
-    );
-  };
 
   // Handle clicks outside the context menu
   useEffect(() => {
@@ -1850,7 +1843,7 @@ export default function Chat() {
 
   if (roomList.length === 0 && !loading) {
     return (
-      <div style={{ padding: '2rem', color: 'var(--text-muted)' }}>
+      <div className="chat-empty-muted">
         Нет комнат. Создайте комнату в разделе «Админка».
       </div>
     );
@@ -1860,13 +1853,23 @@ export default function Chat() {
     <div className={`chat-page${roomId ? ' has-room' : ''}`}>
       <div className="chat-rooms">
         <div className="chat-rooms-header">
-          <span className="chat-rooms-title">🏠 Комнаты</span>
+          <span className="chat-rooms-title">
+            <span className="chat-rooms-title-inner">
+              <span className="icon-inline" aria-hidden>
+                <IconHome />
+              </span>
+              Комнаты
+            </span>
+          </span>
           <button
             type="button"
             className="chat-rooms-users-button secondary"
             onClick={toggleUserList}
+            aria-label="Пользователи в комнате"
           >
-            👥
+            <span className="icon-inline" aria-hidden>
+              <IconUsers />
+            </span>
           </button>
         </div>
         <div className="chat-rooms-list">
@@ -1905,24 +1908,8 @@ export default function Chat() {
             </Link>
           ))}
         </div>
-        {/* Tablet Navigation Bar - shown only in 678-876px range */}
         {isTabletInRange && (
-          <nav className="tablet-nav-bottom">
-            <IsActiveLink to="/chat" end>
-              <span className="icon">💬</span>
-              <span>Чаты</span>
-            </IsActiveLink>
-            <IsActiveLink to="/profile">
-              <span className="icon">👤</span>
-              <span>Профиль</span>
-            </IsActiveLink>
-            {(user?.role === 'owner' || user?.role === 'moderator') && (
-              <IsActiveLink to="/admin">
-                <span className="icon">⚙️</span>
-                <span>Админка</span>
-              </IsActiveLink>
-            )}
-          </nav>
+          <TabletBottomNav showAdmin={user?.role === 'owner' || user?.role === 'moderator'} />
         )}
       </div>
       <div className="chat-main">
@@ -1942,7 +1929,7 @@ export default function Chat() {
                 onDrop={handleDrop}
               >
                 {loading ? (
-                  <div style={{ color: 'var(--text-muted)' }}>Загрузка…</div>
+                  <div className="chat-loading-muted">Загрузка…</div>
                 ) : (
                   messages.map((m, idx) => {
                     // Check if the current message is from the same user as the previous one
@@ -2009,7 +1996,7 @@ export default function Chat() {
                                   
                                   if ((userRole === 'moderator' || userRole === 'owner') && !isCurrentUser) {
                                     return (
-                                      <span className="user-role-label" style={{ fontStyle: 'italic', marginLeft: '8px' }}>
+                                      <span className="user-role-label user-role-label-extra">
                                         {userRole === 'moderator' ? 'Модератор' : 'Владелец'}
                                       </span>
                                     );
@@ -2061,10 +2048,7 @@ export default function Chat() {
                   })
                 )}
                 {formatTypingUsers(typingUsers) && (
-                  <div 
-                    ref={typingIndicatorRef}
-                    style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}
-                  >
+                  <div ref={typingIndicatorRef} className="chat-typing-indicator">
                     <Marquee animationDuration={8}>{formatTypingUsers(typingUsers)}</Marquee> печатает…
                   </div>
                 )}
@@ -2085,16 +2069,7 @@ export default function Chat() {
               
               {/* Context Menu */}
               {contextMenu.visible && contextMenu.message && (
-                <div 
-                  ref={contextMenuRef}
-                  className="context-menu"
-                  style={{
-                    position: 'fixed',
-                    left: contextMenu.x,
-                    top: contextMenu.y,
-                    zIndex: 1000
-                  }}
-                >
+                <div ref={contextMenuRef} className="context-menu">
                   {/* Кнопка копирования сообщения */}
                   <button 
                     className="context-menu-item"
@@ -2401,9 +2376,11 @@ export default function Chat() {
                               </div>
                               {uploadProgress[index] !== undefined && (
                                 <div className="upload-progress">
-                                  <div 
-                                    className="progress-bar" 
-                                    style={{ width: `${uploadProgress[index]}%` }} 
+                                  <div
+                                    className="progress-bar-fill"
+                                    ref={(el) => {
+                                      if (el) el.style.setProperty('--progress', String(uploadProgress[index] ?? 0));
+                                    }}
                                   />
                                 </div>
                               )}
@@ -2524,9 +2501,11 @@ export default function Chat() {
                           </div>
                           {uploadProgress[index] !== undefined && (
                             <div className="upload-progress">
-                              <div 
-                                className="progress-bar" 
-                                style={{ width: `${uploadProgress[index]}%` }} 
+                              <div
+                                className="progress-bar-fill"
+                                ref={(el) => {
+                                  if (el) el.style.setProperty('--progress', String(uploadProgress[index] ?? 0));
+                                }}
                               />
                             </div>
                           )}
@@ -2554,7 +2533,7 @@ export default function Chat() {
                 } else {
                   handleSend(e);
                 }
-              }} className="chat-form" style={{ display: isSelecting ? 'none' : 'flex' }}>
+              }} className={`chat-form${isSelecting ? ' chat-form-hidden' : ' chat-form-flex'}`}>
                 {/* Attachment button */}
                 <div className="attachment-button-wrapper">
                   {isUploadEnabled && (
@@ -2574,7 +2553,7 @@ export default function Chat() {
                         multiple
                         {...{ webkitdirectory: true }}
                         onChange={handleFileSelect}
-                        style={{ display: 'none' }}
+                        className="visually-hidden-input"
                       />
                     </>
                   )}
@@ -2640,7 +2619,7 @@ export default function Chat() {
                       e.target.value = '';
                     }
                   }}
-                  style={{ display: 'none' }} 
+                  className="visually-hidden-input"
                 />
                 
                 <textarea
@@ -2686,13 +2665,8 @@ export default function Chat() {
                   autoFocus
                   rows={1}
                   onKeyDown={handleKeyDown}
-                  disabled={isRateLimited} // Disable when rate limited
-                  style={{
-                    minHeight: '54px',
-                    maxHeight: '240px', // 10 lines * 24px per line
-                    resize: 'none',
-                    overflowY: 'hidden' // We control overflow in the function now
-                  }}
+                  disabled={isRateLimited}
+                  className="chat-form-textarea"
                 />
                 
                 <button 
@@ -2715,8 +2689,10 @@ export default function Chat() {
               {/* Removed the old selected files preview */}
             </>
           ) : (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              {user?.role === 'owner' ? 'Выберите комнату или создайте новую, чтобы начать общаться' : 'Выберите комнату, чтобы начать общаться'}
+            <div className="chat-center-muted">
+              {user?.role === 'owner'
+                ? 'Выберите комнату или создайте новую, чтобы начать общаться'
+                : 'Выберите комнату, чтобы начать общаться'}
             </div>
           )}
         </div>

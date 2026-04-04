@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../AuthContext';
 import type { Room, Invite, User, MediaStorageSettings } from '../api';
 import { rooms as roomsApi, invites as invitesApi, verification as verificationApi, users as usersApi, serverSettings as serverSettingsApi, media } from '../api';
@@ -6,6 +6,22 @@ import { useServerName } from '../ServerNameContext';
 import { initializeWebSocket, addMessageHandler, removeMessageHandler } from '../websocket';
 import { useToast } from '../ToastContext';
 import { errorTranslations } from '../localization/errors';
+import { useAdminChrome } from '../AdminChromeContext';
+import { TabletBottomNav } from '../components/TabletBottomNav';
+import {
+  IconDatabase,
+  IconHash,
+  IconHome,
+  IconHourglass,
+  IconMonitor,
+  IconPencil,
+  IconPlus,
+  IconShield,
+  IconSparkles,
+  IconTicket,
+  IconTrash,
+  IconUser,
+} from '../components/icons/Icons';
 
 // Function to translate error messages
 function translateErrorMessage(errorMsg: string): string {
@@ -21,6 +37,19 @@ function formatBytes(value: number): string {
 
 type PendingUser = { id: number; login: string; created_at: string; };
 type UserWithDate = User & { created_at: string; };
+
+type AdminSectionId = 'invites' | 'server' | 'media' | 'rooms' | 'verification' | 'users';
+
+const ADMIN_OWNER_SECTIONS: { id: AdminSectionId; label: string }[] = [
+  { id: 'invites', label: 'Инвайты' },
+  { id: 'server', label: 'Имя сервера' },
+  { id: 'media', label: 'Медиа-хранилище' },
+  { id: 'rooms', label: 'Комнаты' },
+  { id: 'verification', label: 'Верификация' },
+  { id: 'users', label: 'Пользователи' },
+];
+
+const ADMIN_MODERATOR_SECTIONS: { id: AdminSectionId; label: string }[] = [{ id: 'invites', label: 'Инвайты' }];
 
 export default function Admin() {
   const { user } = useAuth();
@@ -46,7 +75,10 @@ export default function Admin() {
   const [orphanCleanupIntervalMinutes, setOrphanCleanupIntervalMinutes] = useState<string>('60');
   const [orphanCleanupGraceMinutes, setOrphanCleanupGraceMinutes] = useState<string>('10');
   const [storageSettingsSaving, setStorageSettingsSaving] = useState(false);
-  
+  const [isTabletInRange, setIsTabletInRange] = useState(
+    () => window.matchMedia('(min-width: 678px) and (max-width: 876px)').matches
+  );
+
   // State for renaming
   const [renamingRoomId, setRenamingRoomId] = useState<number | null>(null);
   const [renamingInputValue, setRenamingInputValue] = useState(''); // Separate state for renaming
@@ -120,6 +152,50 @@ export default function Admin() {
 
     load();
   }, [user, load]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 678px) and (max-width: 876px)');
+    const onChange = () => setIsTabletInRange(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const adminSections = useMemo(
+    () => (user?.role === 'owner' ? ADMIN_OWNER_SECTIONS : ADMIN_MODERATOR_SECTIONS),
+    [user?.role]
+  );
+  const [activeSection, setActiveSection] = useState<AdminSectionId>('invites');
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const { setAdminChrome } = useAdminChrome();
+
+  const selectAdminSection = useCallback((id: AdminSectionId) => {
+    setActiveSection(id);
+    setMobilePanelOpen(true);
+  }, []);
+
+  const goBackAdminMobile = useCallback(() => {
+    setMobilePanelOpen(false);
+  }, []);
+
+  const adminSectionTitle = useMemo(
+    () => adminSections.find((s) => s.id === activeSection)?.label ?? 'Админка',
+    [adminSections, activeSection]
+  );
+
+  useEffect(() => {
+    if (user?.role === 'moderator' && activeSection !== 'invites') {
+      setActiveSection('invites');
+    }
+  }, [user?.role, activeSection]);
+
+  useEffect(() => {
+    setAdminChrome({
+      sectionTitle: adminSectionTitle,
+      panelOpen: mobilePanelOpen,
+      onBack: goBackAdminMobile,
+    });
+    return () => setAdminChrome(null);
+  }, [adminSectionTitle, mobilePanelOpen, goBackAdminMobile, setAdminChrome]);
 
   // WebSocket realtime updates for admin data
   useEffect(() => {
@@ -664,11 +740,38 @@ export default function Admin() {
   }
 
   return (
-    <div className="page-content" style={{ maxWidth: 800 }}>
-      {/* Invites section - available to both owners and moderators */}
-      <div className="card">
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🎫 Инвайты</h3>
-        <form onSubmit={createInvite} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+    <div className={`admin-page page-content page-content--admin admin-page-tablet${mobilePanelOpen ? ' has-panel' : ''}`}>
+      <aside className="admin-sidebar">
+        <div className="admin-sidebar-header">Админка</div>
+        <div className="admin-nav-list" role="tablist">
+          {adminSections.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              aria-selected={activeSection === s.id}
+              className={`admin-nav-item${activeSection === s.id ? ' active' : ''}`}
+              onClick={() => selectAdminSection(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        {isTabletInRange && <TabletBottomNav showAdmin />}
+      </aside>
+
+      <div className="admin-main">
+        <div className="admin-main-heading-desktop">{adminSectionTitle}</div>
+        <div className="admin-panel-inner">
+          {activeSection === 'invites' && (
+            <div className="card">
+        <h3 className="admin-card-title">
+          <span className="icon-inline" aria-hidden>
+            <IconTicket />
+          </span>
+          Инвайты
+        </h3>
+        <form onSubmit={createInvite} className="admin-form-stack admin-form-stack--mb-lg">
           <input
             type="number"
             min={1}
@@ -683,75 +786,60 @@ export default function Admin() {
             onChange={(e) => setInviteOpts((o) => ({ ...o, expiresInHours: e.target.value }))}
             placeholder="Срок в часах (необязательно)"
           />
-          <button type="submit" style={{ width: '100%' }}>➕ Создать инвайт</button>
+          <button type="submit" className="admin-btn-block">
+            <span className="icon-inline" aria-hidden>
+              <IconPlus />
+            </span>{' '}
+            Создать инвайт
+          </button>
         </form>
         {lastInviteUrl && (
-          <div style={{ 
-            marginBottom: '1.5rem', 
-            padding: '1rem',
-            background: 'var(--accent-light)',
-            borderRadius: 'var(--radius-medium)', // Используем переменную
-            border: '1px solid var(--accent)'
-          }}>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Ссылка для приглашения:</div>
-            <a href={lastInviteUrl} target="_blank" rel="noreferrer" style={{ 
-              wordBreak: 'break-word',
-              overflowWrap: 'break-word',
-              color: 'var(--accent)',
-              fontWeight: 500,
-              fontSize: '0.9rem'
-            }}>{lastInviteUrl}</a>
+          <div className="admin-invite-highlight">
+            <div className="admin-muted-label">Ссылка для приглашения:</div>
+            <a href={lastInviteUrl} target="_blank" rel="noreferrer" className="admin-invite-link">
+              {lastInviteUrl}
+            </a>
             {import.meta.env.VITE_APP_PUBLIC_URL && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                ℹ️ По настройке VITE_APP_PUBLIC_URL
-              </div>
+              <div className="admin-hint-small">По настройке VITE_APP_PUBLIC_URL</div>
             )}
           </div>
         )}
         {invites.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет активных инвайтов</p>
+          <p className="admin-empty-hint">Нет активных инвайтов</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div className="admin-list-col">
             {invites.map((inv) => (
-              <div key={inv.id} style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.75rem',
-                padding: '0.875rem 1rem',
-                background: 'var(--bg-hover)',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                fontSize: '0.9rem',
-                flexWrap: 'wrap'
-              }}>
-                <code style={{ 
-                  background: 'var(--bg)', 
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '4px',
-                  fontWeight: 600,
-                  color: 'var(--accent)'
-                }}>{inv.id}</code>
-                <span style={{ color: 'var(--text-muted)', flex: '1 1 150px', fontSize: '0.85rem' }}>
-                  {inv.uses_count}{inv.max_uses != null ? `/${inv.max_uses}` : ''} · {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : 'без срока'}
+              <div key={inv.id} className="admin-row-card">
+                <code className="admin-code-badge">{inv.id}</code>
+                <span className="admin-flex-meta">
+                  {inv.uses_count}
+                  {inv.max_uses != null ? `/${inv.max_uses}` : ''} ·{' '}
+                  {inv.expires_at ? new Date(inv.expires_at).toLocaleString() : 'без срока'}
                 </span>
-                <button type="button" className="danger" onClick={() => deleteInvite(inv.id)} style={{ fontSize: '0.875rem', flex: '0 0 auto' }}>
-                  🗑️
+                <button type="button" className="danger admin-btn-sm" onClick={() => deleteInvite(inv.id)} aria-label="Удалить инвайт">
+                  <span className="icon-inline" aria-hidden>
+                    <IconTrash />
+                  </span>
                 </button>
               </div>
             ))}
           </div>
         )}
-      </div>
+            </div>
+          )}
 
-      {/* Only show the rest of the admin panel to owners */}
-      {user?.role === 'owner' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          {activeSection === 'server' && user?.role === 'owner' && (
           <div className="card">
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🖥 Имя сервера</h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+            <h3 className="admin-card-title">
+              <span className="icon-inline" aria-hidden>
+                <IconMonitor />
+              </span>
+              Имя сервера
+            </h3>
+            <p className="admin-lead">
               Текущее отображение: <strong>{displayName}</strong>
             </p>
-            <form onSubmit={saveServerName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <form onSubmit={saveServerName} className="admin-form-stack admin-form-stack--mb-sm">
               <input
                 type="text"
                 value={serverNameInput}
@@ -759,20 +847,27 @@ export default function Admin() {
                 placeholder="Например: Мой сервер"
                 maxLength={32}
               />
-              <button type="submit" disabled={serverNameSaving} style={{ alignSelf: 'flex-start', paddingInline: '1.25rem' }}>
+              <button type="submit" disabled={serverNameSaving} className="admin-btn-inline">
                 {serverNameSaving ? 'Сохранение…' : 'Сохранить имя сервера'}
               </button>
             </form>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+            <p className="admin-hint-tiny">
               Пример: <strong>Мой сервер</strong>
             </p>
           </div>
+          )}
 
+          {activeSection === 'media' && user?.role === 'owner' && (
           <div className="card">
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>💾 Медиа-хранилище</h3>
-            <form onSubmit={saveMediaStorageSettings} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+            <h3 className="admin-card-title">
+              <span className="icon-inline" aria-hidden>
+                <IconDatabase />
+              </span>
+              Медиа-хранилище
+            </h3>
+            <form onSubmit={saveMediaStorageSettings} className="admin-form-stack">
+              <label className="admin-label-col">
+                <span className="admin-label-text">
                   Лимит одного файла (`0` = выключить загрузку, `-1` = без ограничений)
                 </span>
                 <input
@@ -785,8 +880,8 @@ export default function Admin() {
                 />
               </label>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              <label className="admin-label-col">
+                <span className="admin-label-text">
                   Лимит хранилища в байтах (`-1` = без ограничений)
                 </span>
                 <input
@@ -799,8 +894,8 @@ export default function Admin() {
                 />
               </label>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Политика при превышении квоты</span>
+              <label className="admin-label-col">
+                <span className="admin-label-text">Политика при превышении квоты</span>
                 <select
                   className="admin-settings-select"
                   value={storageCleanupStrategy}
@@ -811,19 +906,17 @@ export default function Admin() {
                 </select>
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label className="admin-label-row">
                 <input
                   type="checkbox"
                   checked={orphanCleanupEnabled}
                   onChange={(e) => setOrphanCleanupEnabled(e.target.checked)}
                 />
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                  Включить автоочистку orphaned-файлов
-                </span>
+                <span className="admin-label-text">Включить автоочистку orphaned-файлов</span>
               </label>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              <label className="admin-label-col">
+                <span className="admin-label-text">
                   Интервал автоочистки (минуты)
                 </span>
                 <input
@@ -835,8 +928,8 @@ export default function Admin() {
                 />
               </label>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              <label className="admin-label-col">
+                <span className="admin-label-text">
                   Safety-окно перед удалением orphaned-файла (минуты)
                 </span>
                 <input
@@ -848,45 +941,48 @@ export default function Admin() {
                 />
               </label>
 
-              <button type="submit" disabled={storageSettingsSaving} style={{ alignSelf: 'flex-start', paddingInline: '1.25rem' }}>
+              <button type="submit" disabled={storageSettingsSaving} className="admin-btn-inline">
                 {storageSettingsSaving ? 'Сохранение…' : 'Сохранить настройки хранилища'}
               </button>
             </form>
 
             {mediaStorageSettings && (
-              <p style={{ margin: '0.75rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <p className="admin-storage-footnote">
                 Использовано: {formatBytes(mediaStorageSettings.totalBytes)} ({mediaStorageSettings.filesCount} файлов)
               </p>
             )}
           </div>
+          )}
 
+          {activeSection === 'rooms' && user?.role === 'owner' && (
           <div className="card">
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🏠 Комнаты</h3>
-            <form onSubmit={createRoom} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <h3 className="admin-card-title">
+              <span className="icon-inline" aria-hidden>
+                <IconHome />
+              </span>
+              Комнаты
+            </h3>
+            <form onSubmit={createRoom} className="admin-room-form">
               <input
                 value={newRoomName}
                 onChange={(e) => setNewRoomName(e.target.value.slice(0, 32))}
                 placeholder="Название комнаты (макс. 32 символа)"
-                style={{ flex: '1 1 200px', minWidth: 0 }}
+                className="admin-room-name-input"
                 maxLength={32}
               />
-              <button type="submit" style={{ flex: '0 0 auto' }}>➕ Создать</button>
+              <button type="submit" className="admin-btn-sm">
+                <span className="icon-inline" aria-hidden>
+                  <IconPlus />
+                </span>{' '}
+                Создать
+              </button>
             </form>
             {rooms.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет комнат</p>
+              <p className="admin-empty-hint">Нет комнат</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div className="admin-list-col">
                 {rooms.map((r) => (
-                  <div key={r.id} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.75rem',
-                    padding: '0.875rem 1rem',
-                    background: 'var(--bg-hover)',
-                    borderRadius: 'var(--radius-medium)', // Используем переменную
-                    border: '1px solid var(--border)',
-                    flexWrap: 'wrap'
-                  }}>
+                  <div key={r.id} className="admin-row-card">
                     {renamingRoomId === r.id ? (
                       <>
                         <input
@@ -896,12 +992,7 @@ export default function Admin() {
                           placeholder="Новое название комнаты"
                           maxLength={32}
                           autoFocus
-                          style={{ 
-                            flex: '1 1 150px', 
-                            fontWeight: 500, 
-                            wordBreak: 'break-word',
-                            marginRight: '0.5rem'
-                          }}
+                          className="admin-room-rename-input"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               renameRoom(r.id, renamingInputValue);
@@ -911,92 +1002,58 @@ export default function Admin() {
                             }
                           }}
                         />
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => renameRoom(r.id, renamingInputValue)}
-                          style={{ 
-                            fontSize: '0.875rem', 
-                            flex: '0 0 auto',
-                            backgroundColor: 'var(--accent)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 'var(--radius-default)',
-                            padding: '0.25rem 0.5rem',
-                            cursor: 'pointer',
-                            marginRight: '0.25rem'
-                          }}
+                          className="admin-btn-room admin-btn-room--accent"
                         >
-                          ✅ Сохранить
+                          Сохранить
                         </button>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => {
                             setRenamingRoomId(null);
                             setRenamingInputValue('');
                           }}
-                          style={{ 
-                            fontSize: '0.875rem', 
-                            flex: '0 0 auto',
-                            backgroundColor: 'var(--danger)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 'var(--radius-default)',
-                            padding: '0.25rem 0.5rem',
-                            cursor: 'pointer'
-                          }}
+                          className="admin-btn-room admin-btn-room--danger"
                         >
-                          ❌ Отмена
+                          Отмена
                         </button>
                       </>
                     ) : (
                       <>
-                        <span style={{ flex: '1 1 150px', fontWeight: 500, wordBreak: 'break-word' }}>{r.name}</span>
+                        <span className="admin-room-title">{r.name}</span>
                         {r.name === 'main' ? (
-                          <button 
-                            type="button" 
-                            onClick={() => clearRoomMessages(r.id)} 
-                            style={{ 
-                              fontSize: '0.875rem', 
-                              flex: '0 0 auto',
-                              backgroundColor: 'var(--warning)',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: 'var(--radius-default)', // Используем переменную
-                              padding: '0.25rem 0.5rem',
-                              cursor: 'pointer'
-                            }}
+                          <button
+                            type="button"
+                            onClick={() => clearRoomMessages(r.id)}
+                            className="admin-btn-room admin-btn-room--warn"
                           >
-                            🧹 Очистить
+                            <span className="icon-inline" aria-hidden>
+                              <IconSparkles />
+                            </span>{' '}
+                            Очистить
                           </button>
                         ) : (
                           <>
-                            <button 
-                              type="button" 
+                            <button
+                              type="button"
                               onClick={() => {
                                 setRenamingRoomId(r.id);
-                                setRenamingInputValue(r.name); // Set the current name as the initial value for renaming
-                              }} 
-                              style={{ 
-                                fontSize: '0.875rem', 
-                                flex: '0 0 auto',
-                                backgroundColor: 'var(--accent)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: 'var(--radius-default)',
-                                padding: '0.25rem 0.5rem',
-                                cursor: 'pointer',
-                                marginRight: '0.25rem'
+                                setRenamingInputValue(r.name);
                               }}
+                              className="admin-btn-room admin-btn-room--accent"
                             >
-                              ✏️ Переименовать
+                              <span className="icon-inline" aria-hidden>
+                                <IconPencil />
+                              </span>{' '}
+                              Переименовать
                             </button>
-                            <button 
-                              type="button" 
-                              className="danger" 
-                              onClick={() => deleteRoom(r.id)} 
-                              style={{ fontSize: '0.875rem', flex: '0 0 auto' }}
-                            >
-                              🗑️ Удалить
+                            <button type="button" className="danger admin-btn-sm" onClick={() => deleteRoom(r.id)}>
+                              <span className="icon-inline" aria-hidden>
+                                <IconTrash />
+                              </span>{' '}
+                              Удалить
                             </button>
                           </>
                         )}
@@ -1007,38 +1064,36 @@ export default function Admin() {
               </div>
             )}
           </div>
-        </div>
-      )}
+          )}
 
-      {/* Sections only for owners */}
-      {user?.role === 'owner' && (
+      {activeSection === 'verification' && user?.role === 'owner' && (
         <>
           <div className="card">
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>✅ Верификация (ожидают)</h3>
+            <h3 className="admin-card-title">
+              <span className="icon-inline" aria-hidden>
+                <IconShield />
+              </span>
+              Верификация (ожидают)
+            </h3>
             {pending.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет пользователей на верификации</p>
+              <p className="admin-empty-hint">Нет пользователей на верификации</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="admin-list-col--lg">
                 {pending.map((u) => (
-                  <div
-                    key={u.id}
-                    style={{
-                      padding: '1.25rem',
-                      background: 'var(--bg-hover)',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
-                    <div style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>
-                      👤 {u.login}
+                  <div key={u.id} className="admin-pending-card">
+                    <div className="admin-pending-login">
+                      <span className="icon-inline" aria-hidden>
+                        <IconUser />
+                      </span>
+                      {u.login}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
-                        <button type="button" onClick={() => approve(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                          ✓ Подтвердить
+                    <div className="admin-form-stack">
+                      <div className="admin-actions-row">
+                        <button type="button" onClick={() => approve(u.id)} className="admin-btn-grow">
+                          Подтвердить
                         </button>
-                        <button type="button" className="danger" onClick={() => reject(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                          ✕ Отклонить
+                        <button type="button" className="danger admin-btn-grow" onClick={() => reject(u.id)}>
+                          Отклонить
                         </button>
                       </div>
                     </div>
@@ -1048,33 +1103,32 @@ export default function Admin() {
             )}
           </div>
 
-          {/* Card for verification settings */}
           <div className="card">
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔐 Настройка верификации</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-              <span style={{ flex: 1 }}>
-                {verificationEnabled 
-                  ? '✅ Система верификации включена' 
-                  : '❌ Система верификации отключена'}
+            <h3 className="admin-card-title">
+              <span className="icon-inline" aria-hidden>
+                <IconShield />
               </span>
-              <button 
-                type="button" 
+              Настройка верификации
+            </h3>
+            <div className="admin-verify-toolbar">
+              <span>
+                {verificationEnabled ? 'Система верификации включена' : 'Система верификации отключена'}
+              </span>
+              <button
+                type="button"
                 onClick={toggleVerification}
-                className={verificationEnabled ? 'danger' : ''}
-                style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+                className={verificationEnabled ? 'danger admin-toggle-btn' : 'admin-toggle-btn'}
               >
-                {verificationEnabled ? '❌ Отключить' : '✅ Включить'}
+                {verificationEnabled ? 'Отключить' : 'Включить'}
               </button>
             </div>
-            
+
             {verificationEnabled && (
-              <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-hover)', borderRadius: '6px' }}>
-                <p style={{ margin: 0, marginBottom: '0.75rem' }}>
-                  При включенной системе все новые пользователи будут ожидать верификации.
-                </p>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  Вы можете использовать одноразовые коды для автоматической верификации или 
-                  проверять кодовые слова вручную для пользователей.
+              <div className="admin-info-box">
+                <p>При включенной системе все новые пользователи будут ожидать верификации.</p>
+                <p>
+                  Вы можете использовать одноразовые коды для автоматической верификации или проверять кодовые слова
+                  вручную для пользователей.
                 </p>
               </div>
             )}
@@ -1083,73 +1137,49 @@ export default function Admin() {
           {/* Card for verification codes if verification is enabled */}
           {verificationEnabled && (
             <div className="card">
-              <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>🔢 Одноразовые коды верификации</h3>
-              <div style={{ marginBottom: '1.5rem' }}>
+              <h3 className="admin-card-title">
+                <span className="icon-inline" aria-hidden>
+                  <IconHash />
+                </span>
+                Одноразовые коды верификации
+              </h3>
+              <div className="admin-code-create-block">
                 <input
                   type="text"
                   placeholder="Введите свой код (необязательно)"
                   value={customCode}
                   onChange={(e) => setCustomCode(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    marginBottom: '0.5rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)'
-                  }}
+                  className="admin-code-input"
                 />
-                <button 
-                  type="button" 
-                  onClick={createVerificationCode}
-                  style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
-                >
-                  ➕ Создать одноразовый код
+                <button type="button" onClick={createVerificationCode} className="admin-btn-block">
+                  <span className="icon-inline" aria-hidden>
+                    <IconPlus />
+                  </span>{' '}
+                  Создать одноразовый код
                 </button>
               </div>
-              
+
               {codes.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Нет активных кодов</p>
+                <p className="admin-empty-hint admin-margin-0">Нет активных кодов</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="admin-form-stack">
                   {codes.map((code) => (
-                    <div 
-                      key={code.id} 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between', 
-                        padding: '0.75rem', 
-                        backgroundColor: 'var(--bg-card)', 
-                        borderRadius: 'var(--radius)',
-                        border: '1px solid var(--border)'
-                      }}
-                    >
+                    <div key={code.id} className="admin-code-row">
                       <div>
-                        <div style={{ fontWeight: 'bold' }}>ID: {code.id}</div>
-                        <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
-                          Создан: {new Date(code.created_at).toLocaleString()}
-                        </div>
+                        <div className="text-bold">ID: {code.id}</div>
+                        <div className="text-sm-muted">Создан: {new Date(code.created_at).toLocaleString()}</div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
+                      <div className="admin-code-row-meta">
                         <div>Статус: {code.used ? 'Использован' : 'Доступен'}</div>
-                        <div style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>
-                          Срок до: {new Date(code.expires_at).toLocaleString()}
-                        </div>
+                        <div className="text-sm-muted">Срок до: {new Date(code.expires_at).toLocaleString()}</div>
                       </div>
                       <button
+                        type="button"
+                        className="admin-code-delete"
                         onClick={() => {
                           if (window.confirm('Удалить этот код?')) {
                             deleteVerificationCode(code.id);
                           }
-                        }}
-                        style={{
-                          marginLeft: '0.5rem',
-                          padding: '0.25rem 0.5rem',
-                          border: 'none',
-                          backgroundColor: 'var(--danger)',
-                          color: 'white',
-                          borderRadius: 'var(--radius)',
-                          cursor: 'pointer'
                         }}
                       >
                         Удалить
@@ -1160,43 +1190,44 @@ export default function Admin() {
               )}
             </div>
           )}
+        </>
+      )}
 
-          {/* Card for users management */}
+          {activeSection === 'users' && user?.role === 'owner' && (
           <div className="card">
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>👥 Пользователи</h3>
+            <h3 className="admin-card-title">
+              <span className="icon-inline" aria-hidden>
+                <IconUser />
+              </span>
+              Пользователи
+            </h3>
             {users.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Нет пользователей</p>
+              <p className="admin-empty-hint">Нет пользователей</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="admin-list-col--lg">
                 {users.map((u) => (
-                  <div key={u.id} style={{ 
-                    padding: '1rem', 
-                    background: 'var(--bg-elevated)', 
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
-                          {u.login}
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                          {u.verified ? '✓ Верифицирован' : '⏳ Ожидает'}
+                  <div key={u.id} className="admin-user-card">
+                    <div className="admin-user-row">
+                      <div className="admin-user-main">
+                        <div className="admin-user-login">{u.login}</div>
+                        <div className="admin-user-status">
+                          {u.verified ? (
+                            'Верифицирован'
+                          ) : (
+                            <span className="admin-user-status-pending">
+                              <span className="icon-inline" aria-hidden>
+                                <IconHourglass />
+                              </span>{' '}
+                              Ожидает
+                            </span>
+                          )}
                         </div>
                       </div>
                       <select
                         value={u.role}
                         onChange={(e) => changeUserRole(u.id, e.target.value as 'owner' | 'moderator' | 'member')}
                         disabled={u.role === 'owner'}
-                        style={{
-                          padding: '0.5rem 0.75rem',
-                          borderRadius: '6px',
-                          background: 'var(--bg-elevated)',
-                          border: '1px solid var(--border)',
-                          color: 'var(--text)',
-                          fontSize: '0.9rem',
-                          minWidth: '120px'
-                        }}
+                        className="admin-user-role-select"
                       >
                         <option value="owner">Владелец</option>
                         <option value="moderator">Модератор</option>
@@ -1205,23 +1236,24 @@ export default function Admin() {
                       {u.role !== 'owner' && (
                         <button
                           type="button"
-                          className="danger"
+                          className="danger admin-user-delete"
                           onClick={() => handleDeleteUserWithReason(u.id)}
-                          style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
                         >
-                          🗑️ Удалить
+                          <span className="icon-inline" aria-hidden>
+                            <IconTrash />
+                          </span>{' '}
+                          Удалить
                         </button>
                       )}
                     </div>
-                    
-                    {/* Verification controls only for unverified members */}
+
                     {!u.verified && u.role === 'member' && verificationEnabled && (
-                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <button type="button" onClick={() => approveUser(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                          ✓ Подтвердить
+                      <div className="admin-user-verify-row">
+                        <button type="button" onClick={() => approveUser(u.id)} className="admin-btn-grow">
+                          Подтвердить
                         </button>
-                        <button type="button" className="danger" onClick={() => rejectUser(u.id)} style={{ flex: '1 1 auto', fontSize: '0.875rem', minWidth: '100px' }}>
-                          ✕ Отклонить
+                        <button type="button" className="danger admin-btn-grow" onClick={() => rejectUser(u.id)}>
+                          Отклонить
                         </button>
                       </div>
                     )}
@@ -1230,63 +1262,31 @@ export default function Admin() {
               </div>
             )}
           </div>
-        </>
-      )}
+          )}
+
+        </div>
+      </div>
       
       {/* Add the modal for deletion reason if needed */}
       {deletingUserId !== null && user?.role === 'owner' && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'var(--bg-elevated)',
-            padding: '1.5rem',
-            borderRadius: '8px',
-            width: '90%',
-            maxWidth: '500px',
-            boxShadow: 'var(--shadow-lg)'
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Причина удаления</h3>
-            
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                Укажите причину удаления:
-              </label>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-dialog">
+            <h3 className="admin-modal-title">Причина удаления</h3>
+
+            <div className="admin-modal-field">
+              <label className="form-label">Укажите причину удаления:</label>
               <textarea
                 value={deletionReason}
                 onChange={(e) => setDeletionReason(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border)',
-                  backgroundColor: 'var(--bg-input)',
-                  minHeight: '80px'
-                }}
+                className="admin-modal-textarea"
               />
             </div>
-            
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={() => setDeletingUserId(null)}
-                style={{ padding: '0.5rem 1rem' }}
-              >
+
+            <div className="admin-modal-actions">
+              <button type="button" className="secondary" onClick={() => setDeletingUserId(null)}>
                 Отмена
               </button>
-              <button 
-                onClick={confirmDeleteUser}
-                className="danger"
-                style={{ padding: '0.5rem 1rem' }}
-              >
+              <button type="button" onClick={confirmDeleteUser} className="danger">
                 Удалить
               </button>
             </div>

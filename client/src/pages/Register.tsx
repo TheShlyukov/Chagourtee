@@ -4,8 +4,8 @@ import { auth, verification } from '../api';
 import { useAuth } from '../AuthContext';
 import { useServerName } from '../ServerNameContext';
 import { errorTranslations } from '../localization/errors';
-import logoImage from '../assets/Images/Chagourtee_512px.png'; // Import the logo
-import Marquee from '../components/Marquee'; // Import Marquee component
+import logoImage from '../assets/Images/Chagourtee_512px.png';
+import Marquee from '../components/Marquee';
 
 export default function Register() {
   const [searchParams] = useSearchParams();
@@ -21,10 +21,10 @@ export default function Register() {
   const { displayName } = useServerName();
 
   useEffect(() => {
-    // Load verification settings
-    verification.settings()
-      .then(data => setVerificationEnabled(!!data.enabled))
-      .catch(err => console.error('Failed to load verification settings:', err));
+    verification
+      .settings()
+      .then((data) => setVerificationEnabled(!!data.enabled))
+      .catch((err) => console.error('Failed to load verification settings:', err));
 
     if (!inviteId) setError('Укажите инвайт в ссылке (например: /register?invite=xxx)');
   }, [inviteId]);
@@ -39,13 +39,12 @@ export default function Register() {
         inviteId,
         login: login.trim(),
         password,
-        codeword: codeword.trim() || undefined, // Still send undefined if not required
+        codeword: codeword.trim() || undefined,
       });
       setUser(user);
       await refresh();
-      // If verification is enabled and user has to wait, show a different message
       if (verificationEnabled && !user.verified) {
-        navigate('/profile', { replace: true }); // Go to profile where user can see verification status
+        navigate('/settings', { replace: true });
       } else {
         navigate('/', { replace: true });
       }
@@ -59,56 +58,20 @@ export default function Register() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-        background: 'var(--gradient-bg)',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 420 }}>
-        <div style={{ 
-          background: 'var(--bg-elevated)', 
-          borderRadius: 'var(--radius-large)', // Используем переменную
-          padding: '2.5rem 2rem',
-          boxShadow: 'var(--shadow-lg)',
-          border: '1px solid var(--border)'
-        }}>
-          {/* Logo added above the form */}
-          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <img 
-              src={logoImage} 
-              alt="Chagourtee" 
-              style={{ 
-                maxWidth: '120px', 
-                height: 'auto',
-                display: 'block',
-                margin: '0 auto'
-              }} 
-            />
+    <div className="auth-page-outer">
+      <div className="auth-page-inner">
+        <div className="auth-card">
+          <div className="auth-logo-wrap">
+            <img src={logoImage} alt="Chagourtee" className="auth-logo auth-logo--large" />
           </div>
-          
-          <h1 style={{ 
-            marginBottom: '0.5rem', 
-            textAlign: 'center',
-            background: 'var(--gradient-primary)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            fontSize: '2rem',
-            fontWeight: 700
-          }}>Регистрация</h1>
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
+
+          <h1 className="auth-title auth-register-title">Регистрация</h1>
+          <p className="auth-subtitle">
             Создайте аккаунт на <Marquee animationDuration={15}>{displayName}</Marquee>
           </p>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <form onSubmit={handleSubmit} className="form-stack">
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                Логин
-              </label>
+              <label className="form-label">Логин</label>
               <input
                 type="text"
                 value={login}
@@ -123,9 +86,7 @@ export default function Register() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                Пароль
-              </label>
+              <label className="form-label">Пароль</label>
               <input
                 type="password"
                 value={password}
@@ -138,8 +99,8 @@ export default function Register() {
             </div>
             {verificationEnabled && (
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                  Кодовое слово <span style={{ color: 'var(--text-danger)', fontWeight: 400 }}>(обязательно)</span>
+                <label className="form-label">
+                  Кодовое слово <span className="label-required-mark">(обязательно)</span>
                 </label>
                 <input
                   type="text"
@@ -148,19 +109,18 @@ export default function Register() {
                   placeholder="Для верификации владельцем"
                   required={verificationEnabled}
                 />
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0 }}>
+                <p className="register-codeword-hint">
                   Это кодовое слово будет использовано для вашей верификации. Убедитесь, что знаете его.
                 </p>
               </div>
             )}
-            {error && <p className="error" style={{ margin: 0 }}>{error}</p>}
-            <button type="submit" disabled={loading || !inviteId} style={{ marginTop: '0.5rem', padding: '0.75rem' }}>
+            {error && <p className="error error-margin-0">{error}</p>}
+            <button type="submit" disabled={loading || !inviteId} className="btn-block-mt">
               {loading ? 'Регистрация…' : 'Зарегистрироваться'}
             </button>
           </form>
-          <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Уже есть аккаунт?{' '}
-            <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 500 }}>Войти</Link>
+          <p className="auth-footer">
+            Уже есть аккаунт? <Link to="/login">Войти</Link>
           </p>
         </div>
       </div>

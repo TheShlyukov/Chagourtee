@@ -119,7 +119,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ file, src, showDownloadButton
         onPlay={handlePlay}
         onPause={handlePause}
         onError={onError}
-        style={{ display: 'none' }}
+        className="audio-hidden"
       />
       <div className="media-player-controls">
         <button
@@ -133,8 +133,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ file, src, showDownloadButton
         <div className="media-progress" onClick={handleSeek}>
           <div className="media-progress-bar">
             <div
-              className="media-progress-fill"
-              style={{ width: `${progressPercent}%` }}
+              className="media-progress-fill audio-progress-fill-dynamic"
+              ref={(el) => {
+                if (el) el.style.setProperty('--progress', String(progressPercent));
+              }}
             />
           </div>
         </div>

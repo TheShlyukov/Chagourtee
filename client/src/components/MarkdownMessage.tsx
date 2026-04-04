@@ -121,26 +121,15 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
             const codeString = String(children).replace(/\n$/, '');
             
             return (
-              <div className="code-block-wrapper" style={{ overflowX: 'auto' }}>
+              <div className="code-block-wrapper code-block-wrapper-scroll">
                 <div className="code-header">
                   <span className="code-language">{lang}</span>
                 </div>
-                <SyntaxHighlighter
-                  style={oneDark as any}
-                  language={lang}
-                  PreTag="div"
-                  {...props}
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: '0 0 4px 4px',
-                    maxHeight: '300px',
-                    overflow: 'auto',
-                    wordBreak: 'break-word',
-                    wordWrap: 'break-word'
-                  }}
-                >
-                  {codeString}
-                </SyntaxHighlighter>
+                <div className="syntax-highlighter-inner">
+                  <SyntaxHighlighter style={oneDark as any} language={lang} PreTag="div" {...props}>
+                    {codeString}
+                  </SyntaxHighlighter>
+                </div>
               </div>
             );
           },
@@ -152,85 +141,40 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
             return (
               <a
                 href={href}
-                className={className}
-                target={isExternal ? "_blank" : undefined}
-                rel={isExternal ? "noopener noreferrer" : undefined}
+                className={[className, 'md-a'].filter(Boolean).join(' ')}
+                target={isExternal ? '_blank' : undefined}
+                rel={isExternal ? 'noopener noreferrer' : undefined}
                 {...props}
-                style={{ wordBreak: 'break-word' }}
               >
                 {children}
               </a>
             );
           },
-          // Обеспечиваем корректное форматирование текста с сохранением переносов строк
-          p: ({ node, ...props }) => <p style={{ margin: '0.2em 0', wordBreak: 'break-word' }} {...props} />,
-          // Обработка списков
-          li: ({ node, ...props }) => <li style={{ margin: '0.2em 0', wordBreak: 'break-word' }} {...props} />,
-          // Обработка блоков с ограниченной высотой
-          blockquote: ({ node, ...props }) => (
-            <blockquote 
-              style={{ 
-                margin: '0.5em 0', 
-                padding: '0.25em 1em', 
-                borderLeft: '3px solid var(--border)',
-                color: 'var(--text-muted)',
-                maxHeight: '200px',
-                overflow: 'auto',
-                wordBreak: 'break-word'
-              }} 
-              {...props} 
-            />
-          ),
-          // Обработка таблиц с горизонтальным скроллом
+          p: ({ node, ...props }) => <p className="md-p" {...props} />,
+          li: ({ node, ...props }) => <li className="md-li" {...props} />,
+          blockquote: ({ node, ...props }) => <blockquote className="md-blockquote" {...props} />,
           table: ({ node, ...props }) => (
-            <div style={{ overflowX: 'auto', margin: '0.5em 0' }}>
-              <table style={{ minWidth: '100%', borderCollapse: 'collapse' }} {...props} />
+            <div className="md-table-scroll">
+              <table className="md-table" {...props} />
             </div>
           ),
-          // Обработка изображений
-          img: ({ node, ...props }) => (
-            <img 
-              style={{ 
-                maxWidth: '100%', 
-                maxHeight: '300px',
-                borderRadius: '4px',
-                objectFit: 'contain'
-              }} 
-              {...props} 
-            />
-          ),
-          // Обработка математических формул
-          div: ({ node, ...props }) => (
-            <div 
-              style={{ 
-                overflowX: 'auto',
-                wordBreak: 'break-word'
-              }}
-              {...props} 
-            />
-          ),
-          span: ({ node, ...props }) => (
-            <span 
-              style={{ 
-                wordBreak: 'break-word'
-              }}
-              {...props} 
-            />
-          )
+          img: ({ node, ...props }) => <img className="md-img" {...props} />,
+          div: ({ node, ...props }) => <div className="md-div" {...props} />,
+          span: ({ node, ...props }) => <span className="md-span" {...props} />
         }}
       />
     );
 
     const mediaElement =
       media && media.length > 0 ? (
-        <div className="media-container" style={{ marginTop: '10px' }}>
+        <div className="media-container media-container-spaced">
           {mediaWithStatus.map(({ mediaFile, isMissing }) => {
             const isImage = mediaFile.mime_type.startsWith('image/');
             const isVideo = mediaFile.mime_type.startsWith('video/');
             const isAudio = mediaFile.mime_type.startsWith('audio/');
 
             return (
-              <div key={mediaFile.id} className="media-item" style={{ marginBottom: '10px' }}>
+              <div key={mediaFile.id} className="media-item media-item-spaced">
                 {isMissing ? (
                   <div className="media-removed-placeholder" title={mediaFile.original_name}>
                     <div className="media-removed-title">Media Removed</div>
@@ -240,13 +184,7 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
                   <img
                     src={`/api/media/${mediaFile.encrypted_filename}`}
                     alt={mediaFile.original_name}
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '300px',
-                      borderRadius: '4px',
-                      objectFit: 'contain',
-                      cursor: 'zoom-in',
-                    }}
+                    className="md-img md-img-clickable"
                     onClick={() =>
                       setViewerState({ file: mediaFile, mode: 'image' })
                     }

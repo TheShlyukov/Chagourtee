@@ -3,291 +3,285 @@ import { useAuth } from './AuthContext';
 import { useState, useEffect } from 'react';
 import { rooms as roomsApi } from './api';
 import { useServerName } from './ServerNameContext';
-import Marquee from './components/Marquee'; // Import Marquee component
+import Marquee from './components/Marquee';
 import { useUserListPanel } from './UserListPanelContext';
-import logoImage from './assets/Images/Chagourtee_512px.png'; // Import the logo
-import VersionModal from './components/VersionModal'; // Import the version modal
-import DisconnectionBanner from './components/DisconnectionBanner'; // Import the disconnection banner
+import logoImage from './assets/Images/Chagourtee_512px.png';
+import VersionModal from './components/VersionModal';
+import DisconnectionBanner from './components/DisconnectionBanner';
+import { IconAdmin, IconArrowLeft, IconChat, IconSettings, IconUsers } from './components/icons/Icons';
+import { SettingsChromeProvider, useSettingsChrome } from './SettingsChromeContext';
+import { AdminChromeProvider, useAdminChrome } from './AdminChromeContext';
 
-export default function Layout() {
+function LayoutInner() {
   const { user } = useAuth();
   const location = useLocation();
   const params = useParams();
   const [roomName, setRoomName] = useState<string | null>(null);
   const { displayName, serverTagline } = useServerName();
   const { isOpen: isUserListOpen, open: openUserList } = useUserListPanel();
-  
+  const { chrome: settingsChrome } = useSettingsChrome();
+  const { chrome: adminChrome } = useAdminChrome();
+
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 678);
   const [isTabletInRange, setIsTabletInRange] = useState(window.innerWidth >= 678 && window.innerWidth <= 876);
-  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false); // State for version modal
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
 
-  // Check if we're in a specific chat room
   const isInSpecificRoom = location.pathname.startsWith('/chat/') && params.roomId;
 
-  // Update mobile and tablet state when window resizes
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
       setIsMobile(width <= 678);
-      setIsTabletInRange(width >= 678 && window.innerWidth <= 876);
+      setIsTabletInRange(width >= 678 && width <= 876);
     };
 
     window.addEventListener('resize', handleResize);
-    
-    // Cleanup listener on unmount
     return () => {
       window.removeEventListener('resize', handleResize);
     };
   }, []);
 
-  // Загрузка названия комнаты для заголовка
   useEffect(() => {
     const roomId = params.roomId ? Number(params.roomId) : null;
     if (roomId) {
-      roomsApi.list().then(({ rooms }) => {
-        const room = rooms.find(r => r.id === roomId);
-        setRoomName(room?.name || null);
-      }).catch(() => setRoomName(null));
+      roomsApi
+        .list()
+        .then(({ rooms }) => {
+          const room = rooms.find((r) => r.id === roomId);
+          setRoomName(room?.name || null);
+        })
+        .catch(() => setRoomName(null));
     } else {
       setRoomName(null);
     }
   }, [params.roomId]);
 
-  // Определяем заголовок для текущей страницы
   const getPageTitle = () => {
+    if (location.pathname === '/settings' && settingsChrome) {
+      return isMobile && !settingsChrome.panelOpen ? 'Настройки' : settingsChrome.sectionTitle;
+    }
+    if (location.pathname === '/admin' && adminChrome) {
+      return isMobile && !adminChrome.panelOpen ? 'Админка' : adminChrome.sectionTitle;
+    }
     if (location.pathname === '/chat') {
-      return isMobile ? '🏠 Комнаты' : ''; // Show 'Комнаты' title on mobile when viewing room list
+      return isMobile ? 'Комнаты' : '';
     }
     if (location.pathname.startsWith('/chat/')) {
-      if (params.roomId && roomName) return roomName; // Show room name when in a specific room
-      return 'Чат'; // Fallback if room name is not loaded yet
+      if (params.roomId && roomName) return roomName;
+      return 'Чат';
     }
-    if (location.pathname === '/profile') return '👤 Профиль';
-    if (location.pathname === '/admin') return '⚙️ Админка';
+    if (location.pathname === '/settings') return 'Настройки';
+    if (location.pathname === '/admin') return 'Админка';
     return 'Chagourtee';
   };
 
   const showBackButton = location.pathname.startsWith('/chat/') && params.roomId;
+  const showSettingsBack = location.pathname === '/settings' && isMobile && settingsChrome?.panelOpen;
+  const showAdminBack = location.pathname === '/admin' && isMobile && adminChrome?.panelOpen;
+
+  const hideLayoutBottomNav =
+    (location.pathname.startsWith('/chat') && isTabletInRange) ||
+    (location.pathname.startsWith('/chat') && !isMobile) ||
+    (isTabletInRange &&
+      (location.pathname.startsWith('/settings') || location.pathname.startsWith('/admin'))) ||
+    (isMobile && isInSpecificRoom) ||
+    (isMobile && location.pathname === '/settings' && settingsChrome?.panelOpen) ||
+    (isMobile && location.pathname === '/admin' && adminChrome?.panelOpen);
+
+  const compactMobileHeader =
+    isMobile &&
+    (isInSpecificRoom ||
+      (location.pathname === '/settings' && settingsChrome?.panelOpen) ||
+      (location.pathname === '/admin' && adminChrome?.panelOpen));
 
   return (
-    <div className="layout-root-with-banner">
-      <DisconnectionBanner /> {/* Add the disconnection banner at the top, outside the flex container */}
-      <div className="layout-root">
-        <nav className="layout-header-top">
-          {showBackButton && (
-            <Link to="/chat" className="chat-back touch-target" style={{ color: 'var(--accent)', textDecoration: 'none', marginRight: '0.5rem', fontSize: '1.25rem' }}>
-              ←
-          </Link>
-          )}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span>
-              <Marquee>
-                {getPageTitle()}
-              </Marquee>
-            </span>
-            {/* Conditionally render server name and tagline only if not on mobile in a specific room */}
-            {!(isMobile && isInSpecificRoom) ? (
-              <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    color: 'var(--text-muted)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  <Marquee animationDuration={15}>
-                    {displayName}
-                  </Marquee>
-                </span>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    color: 'var(--text-muted)',
-                    whiteSpace: 'nowrap',
-                    marginLeft: '0.5rem',
-                    cursor: 'pointer' // Make version clickable
-                  }}
-                  onClick={() => setIsVersionModalOpen(true)} // Open version modal on click
-                  title="Информация о приложении" // Tooltip to indicate it's clickable
-                >
-                  {serverTagline}
-                </span>
-              </div>
-            ) : (
-              <div></div> // Empty div to maintain layout spacing
-            )}
-          </div>
-          {/* Add logo to header top, but conditionally render only if not on mobile in a specific room */}
-          {!(isMobile && isInSpecificRoom) ? (
-          <div 
-            style={{ 
-              marginLeft: '0.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer' // Indicate that the logo is clickable
-            }}
-            onClick={() => setIsVersionModalOpen(true)} // Open the version modal when clicked
-            title="Информация о приложении" // Tooltip to indicate it's clickable
+    <div className="layout-root">
+      <nav className="layout-header-top">
+        {showSettingsBack && (
+          <button
+            type="button"
+            className="chat-back touch-target chat-back-link"
+            onClick={() => settingsChrome?.onBack()}
+            aria-label="Назад к разделам настроек"
           >
-            <img 
-              src={logoImage} 
-              alt="Chagourtee" 
-              style={{ 
-                maxWidth: '24px', 
-                height: 'auto',
-                filter: 'grayscale(100%) opacity(0.7)', // Monochrome effect
-              }} 
-            />
-          </div>
-          ) : null}
-          {location.pathname.startsWith('/chat/') && (
-            <button
-              type="button"
-              className="layout-users-button secondary"
-              onClick={() => {
-                if (!isUserListOpen) {
-                  openUserList();
-                }
-              }}
-            >
-              👥
+            <span className="icon-inline" aria-hidden>
+              <IconArrowLeft />
+            </span>
           </button>
+        )}
+        {showAdminBack && (
+          <button
+            type="button"
+            className="chat-back touch-target chat-back-link"
+            onClick={() => adminChrome?.onBack()}
+            aria-label="Назад к разделам админки"
+          >
+            <span className="icon-inline" aria-hidden>
+              <IconArrowLeft />
+            </span>
+          </button>
+        )}
+        {showBackButton && !showSettingsBack && !showAdminBack && (
+          <Link to="/chat" className="chat-back touch-target chat-back-link" aria-label="Назад к списку комнат">
+            <span className="icon-inline" aria-hidden>
+              <IconArrowLeft />
+            </span>
+          </Link>
+        )}
+        <div className="layout-header-inner">
+          <span>
+            <Marquee>{getPageTitle()}</Marquee>
+          </span>
+          {!compactMobileHeader ? (
+            <div className="layout-header-meta-row">
+              <span className="layout-header-meta-text">
+                <Marquee animationDuration={15}>{displayName}</Marquee>
+              </span>
+              <span
+                className="layout-header-meta-text layout-header-meta-text--clickable"
+                onClick={() => setIsVersionModalOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsVersionModalOpen(true);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                title="Информация о приложении"
+              >
+                {serverTagline}
+              </span>
+            </div>
+          ) : (
+            <div />
+          )}
+        </div>
+        {!compactMobileHeader ? (
+          <div
+            className="layout-header-logo-wrap"
+            onClick={() => setIsVersionModalOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsVersionModalOpen(true);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            title="Информация о приложении"
+          >
+            <img src={logoImage} alt="Chagourtee" className="layout-header-logo" />
+          </div>
+        ) : null}
+        {location.pathname.startsWith('/chat/') && (
+          <button
+            type="button"
+            className="layout-users-button secondary"
+            onClick={() => {
+              if (!isUserListOpen) {
+                openUserList();
+              }
+            }}
+            aria-label="Список пользователей"
+          >
+            <span className="icon-inline">
+              <IconUsers />
+            </span>
+          </button>
+        )}
+      </nav>
+      <aside className="layout-sidebar">
+        <nav className="layout-sidebar-nav">
+          <NavLink to="/chat" end className={({ isActive }) => `layout-nav-link${isActive ? ' active' : ''}`}>
+            <span className="icon-inline">
+              <IconChat />
+            </span>
+            Чаты
+          </NavLink>
+          <NavLink to="/settings" className={({ isActive }) => `layout-nav-link${isActive ? ' active' : ''}`}>
+            <span className="icon-inline">
+              <IconSettings />
+            </span>
+            Настройки
+          </NavLink>
+          {(user?.role === 'owner' || user?.role === 'moderator') && (
+            <NavLink to="/admin" className={({ isActive }) => `layout-nav-link${isActive ? ' active' : ''}`}>
+              <span className="icon-inline">
+                <IconAdmin />
+              </span>
+              Админка
+            </NavLink>
           )}
         </nav>
-        <aside className="layout-sidebar">
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 0.75rem' }}>
-            <NavLink
-              to="/chat"
-              end
-              style={({ isActive }) => ({
-                padding: '0.75rem 1rem',
-                color: isActive ? 'var(--accent)' : 'var(--text)',
-                textDecoration: 'none',
-                borderRadius: 'var(--radius-medium)', // Используем переменную
-                background: isActive ? 'var(--accent-light)' : 'transparent',
-                transition: 'all 0.2s ease',
-                fontWeight: isActive ? 600 : 400,
-              })}
-            >
-              💬 Чаты
-          </NavLink>
-            <NavLink
-              to="/profile"
-              style={({ isActive }) => ({
-                padding: '0.75rem 1rem',
-                color: isActive ? 'var(--accent)' : 'var(--text)',
-                textDecoration: 'none',
-                borderRadius: 'var(--radius-medium)', // Используем переменную
-                background: isActive ? 'var(--accent-light)' : 'transparent',
-                transition: 'all 0.2s ease',
-                fontWeight: isActive ? 600 : 400,
-              })}
-            >
-              👤 Профиль
-          </NavLink>
-            {(user?.role === 'owner' || user?.role === 'moderator') && (
-              <NavLink
-                to="/admin"
-                style={({ isActive }) => ({
-                  padding: '0.75rem 1rem',
-                  color: isActive ? 'var(--accent)' : 'var(--text)',
-                  textDecoration: 'none',
-                  borderRadius: 'var(--radius-medium)', // Используем переменную
-                  background: isActive ? 'var(--accent-light)' : 'transparent',
-                  transition: 'all 0.2s ease',
-                  fontWeight: isActive ? 600 : 400,
-                })}
-              >
-                ⚙️ Админка
-            </NavLink>
-            )}
-          </nav>
-          <div style={{ padding: '1rem 1.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 'auto', borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem' }}>
-              <Marquee animationDuration={10}>
-                {user?.login}
-              </Marquee>
-            </div>
-            {!user?.verified && <div style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>⏳ Ожидает верификации</div>}
-            <div
-              style={{
-                fontSize: '0.8rem',
-                marginTop: '0.25rem',
-                color: 'var(--text-muted)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              <Marquee>
-                {displayName}
-              </Marquee>
-            </div>
-            <div
-              style={{
-                fontSize: '0.8rem',
-                marginTop: '0.35rem',
-                color: 'var(--text-muted)',
-              }}
-            >
-              {serverTagline}
-            </div>
+        <div className="layout-sidebar-footer">
+          <div className="layout-sidebar-user">
+            <Marquee animationDuration={10}>{user?.login}</Marquee>
           </div>
-          
-          {/* Adding the logo in the sidebar, below the version info */}
-          <div 
-            style={{ 
-              textAlign: 'left', 
-              padding: '1rem 0.5rem 0.5rem',
-              borderTop: '1px solid var(--border)',
-              marginTop: 'auto',
-              paddingLeft: '1rem', // Add some left padding for better alignment
-              cursor: 'pointer' // Indicate that the logo is clickable
-            }}
-            onClick={() => setIsVersionModalOpen(true)} // Open the version modal when clicked
-          >
-            <img 
-              src={logoImage} 
-              alt="Chagourtee" 
-              style={{ 
-                maxWidth: '40px', 
-                height: 'auto',
-                filter: 'grayscale(100%) opacity(0.7)', // Monochrome effect
-                margin: '0 0 0 0' // Left alignment
-              }} 
-            />
+          {!user?.verified && <div className="layout-sidebar-pending">Ожидает верификации</div>}
+          <div className="layout-sidebar-meta">
+            <Marquee>{displayName}</Marquee>
           </div>
-        </aside>
-        <main className="layout-main">
-          <Outlet />
-        </main>
-        {((location.pathname.startsWith('/chat') && isTabletInRange) || 
-           (location.pathname.startsWith('/chat') && !isMobile) ||
-           (location.pathname !== '/chat' && location.pathname.startsWith('/chat') && !isTabletInRange && isMobile)) ? null : (
+          <div className="layout-sidebar-tagline">{serverTagline}</div>
+        </div>
+
+        <div
+          className="layout-sidebar-logo-block"
+          onClick={() => setIsVersionModalOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsVersionModalOpen(true);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <img src={logoImage} alt="Chagourtee" className="layout-sidebar-logo" />
+        </div>
+      </aside>
+      <main className="layout-main">
+        <Outlet />
+      </main>
+      {hideLayoutBottomNav ? null : (
         <nav className="layout-nav-bottom">
           <NavLink to="/chat" end className={({ isActive }) => (isActive ? 'active' : '')}>
-            💬 Чаты
+            <span className="icon-inline">
+              <IconChat />
+            </span>
+            Чаты
           </NavLink>
-          <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
-            👤 Профиль
+          <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
+            <span className="icon-inline">
+              <IconSettings />
+            </span>
+            Настройки
           </NavLink>
           {(user?.role === 'owner' || user?.role === 'moderator') && (
             <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
-              ⚙️ Админка
+              <span className="icon-inline">
+                <IconAdmin />
+              </span>
+              Админка
             </NavLink>
           )}
         </nav>
       )}
-        
-        {/* Version Modal */}
-        <VersionModal 
-          isOpen={isVersionModalOpen} 
-          onClose={() => setIsVersionModalOpen(false)} 
-        />
-      </div>
+
+      <VersionModal isOpen={isVersionModalOpen} onClose={() => setIsVersionModalOpen(false)} />
+    </div>
+  );
+}
+
+export default function Layout() {
+  return (
+    <div className="layout-root-with-banner">
+      <DisconnectionBanner />
+      <SettingsChromeProvider>
+        <AdminChromeProvider>
+          <LayoutInner />
+        </AdminChromeProvider>
+      </SettingsChromeProvider>
     </div>
   );
 }

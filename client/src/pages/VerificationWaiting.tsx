@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { verification } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { IconHourglass } from '../components/icons/Icons';
 
 export default function VerificationWaiting() {
   const { user, refresh } = useAuth();
@@ -11,16 +12,13 @@ export default function VerificationWaiting() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Refresh user data periodically to check verification status
     const interval = setInterval(() => {
       refresh();
-    }, 10000); // Check every 10 seconds
-
+    }, 10000);
     return () => clearInterval(interval);
   }, [refresh]);
 
   useEffect(() => {
-    // If user becomes verified, redirect to home
     if (user?.verified) {
       navigate('/');
     }
@@ -38,9 +36,7 @@ export default function VerificationWaiting() {
     try {
       await verification.useCode(verificationCode);
       setSuccess('Верификация прошла успешно! Перенаправление...');
-      // Refresh user data to update verification status
       await refresh();
-      // Wait a moment before navigating
       setTimeout(() => {
         navigate('/');
       }, 1000);
@@ -50,38 +46,36 @@ export default function VerificationWaiting() {
   };
 
   return (
-    <div className="page-content" style={{ maxWidth: 800 }}>
-      <div style={{ 
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.5rem'
-      }}>
-        <div className="card" style={{ border: '2px solid var(--danger)', gridColumn: '1 / -1', borderRadius: 'var(--radius-medium)' /* Используем переменную */ }}>
-          <h3 style={{ marginBottom: '0.75rem', fontSize: '1.2rem', color: 'var(--danger)'}}>⏳ Ожидание верификации</h3>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Ваш аккаунт ожидает подтверждения от владельца сервера. 
-            Вы можете использовать одноразовый код для мгновенной верификации, если он у вас есть.
+    <div className="page-content page-content--max-800">
+      <div className="verify-page-stack">
+        <div className="card card-verify-danger">
+          <h3 className="verify-title-danger">
+            <span className="icon-inline" aria-hidden>
+              <IconHourglass />
+            </span>
+            Ожидание верификации
+          </h3>
+          <p className="settings-lead muted-text">
+            Ваш аккаунт ожидает подтверждения от владельца сервера. Вы можете использовать одноразовый код для
+            мгновенной верификации, если он у вас есть.
           </p>
-          
-          <div style={{ marginTop: '1.5rem' }}>
-            <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>Использовать одноразовый код</h4>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+
+          <div className="verify-section">
+            <h4>Использовать одноразовый код</h4>
+            <div className="verify-code-row">
               <input
                 type="text"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
                 placeholder="Введите код верификации"
-                style={{ flex: 1, minWidth: '200px' }}
+                className="verify-code-input"
               />
-              <button 
-                onClick={handleUseCode}
-                style={{ whiteSpace: 'nowrap' }}
-              >
+              <button type="button" onClick={handleUseCode} className="verify-code-btn">
                 Применить код
               </button>
             </div>
-            {error && <p className="error" style={{ margin: '0.5rem 0 0 0' }}>{error}</p>}
-            {success && <p style={{ color: 'var(--success)', margin: '0.5rem 0 0 0' }}>{success}</p>}
+            {error && <p className="error error-margin-top">{error}</p>}
+            {success && <p className="success-margin-top">{success}</p>}
           </div>
         </div>
       </div>

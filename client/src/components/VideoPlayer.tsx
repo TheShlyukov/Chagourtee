@@ -112,81 +112,36 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [onOpenFullscreen]);
 
   return (
-    <div 
-      className="video-thumbnail-container"
-      style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}
+    <div
+      className="video-thumbnail-container video-player-root"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
       <video
         ref={videoRef}
-        // Remove the src from the JSX to prevent auto-loading, 
-        // instead we'll load it in the useEffect
         onClick={handleVideoClick}
         controls={false}
-        className="video-thumbnail-element"
-        style={{ 
-          maxWidth: '100%', 
-          maxHeight: '300px', 
-          borderRadius: '4px', 
-          objectFit: 'cover',
-          cursor: 'pointer'
-        }}
+        className="video-thumbnail-element video-player-video"
         onLoadedMetadata={handleVideoLoad}
         onError={onError}
       />
-      <div 
-        className="video-overlay" 
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: isHovering || !isVideoLoaded ? 1 : 0.2,  // Show when hovering or initially loading
-          transition: 'opacity 0.2s ease',
-          borderRadius: '4px',
-          pointerEvents: 'none'  // Allow clicks to pass through when not hovering over the play button
-        }}
+      <div
+        className={`video-overlay video-player-overlay${
+          isHovering || !isVideoLoaded ? ' video-player-overlay--show' : ' video-player-overlay--dim'
+        }`}
       >
-        <div 
-          className="play-button" 
-          style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            background: 'rgba(255,123,0,0.9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            pointerEvents: 'all'  // Enable interactions with the play button itself
-          }}
+        <button
+          type="button"
+          className="play-button video-player-play"
           onClick={handleVideoClick}
           aria-label="Play video"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
-        </div>
+        </button>
       </div>
-      <div 
-        className="video-duration" 
-        style={{
-          position: 'absolute',
-          bottom: '8px',
-          right: '8px',
-          background: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          padding: '2px 6px',
-          borderRadius: '4px',
-          fontSize: '12px',
-        }}
-      >
+      <div className="video-duration video-player-badge">
         {duration} • {formatSize(file.file_size)}
       </div>
     </div>

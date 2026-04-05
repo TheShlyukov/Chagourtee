@@ -241,9 +241,46 @@ module.exports = function (fastify) {
         }
       }
     });
-    
+
     // Mark connection as alive initially
     ws.isAlive = true;
+
+    // Handle connection errors (e.g., ECONNRESET when client disconnects abruptly)
+    ws.on('error', (error) => {
+      // Suppress noisy ECONNRESET/EPIPE errors — these are normal during abrupt disconnections
+      if (error.code === 'ECONNRESET' || error.code === 'EPIPE') {
+        if (process.env.DEBUG_MODE === 'true') {
+          fastify.log.debug(`WebSocket error for user ${userId} (${error.code}), cleaning up...`);
+        }
+      } else {
+        fastify.log.error(`WebSocket error for user ${userId}:`, error);
+      }
+      // Force cleanup — connection is dead
+      clearInterval(heartbeatInterval);
+      userByClient.delete(ws);
+      const set = clientsByUser.get(userId);
+      if (set) {
+        set.delete(ws);
+        if (set.size === 0) {
+          clientsByUser.delete(userId);
+          const user = fastify.getUser(userId);
+          broadcast({ type: 'presence', userId, login: user?.login, online: false });
+        }
+      }
+    });
+
+    ws.on('close', () => {
+      clearInterval(heartbeatInterval);
+      userByClient.delete(ws);
+      const set = clientsByUser.get(userId);
+      if (set) {
+        set.delete(ws);
+        if (set.size === 0) {
+          clientsByUser.delete(userId);
+          broadcast({ type: 'presence', userId, login: user?.login, online: false });
+        }
+      }
+    });
   });
 
   // Periodically remove dead connections
@@ -259,7 +296,16 @@ module.exports = function (fastify) {
   function broadcast(payload) {
     const data = JSON.stringify(payload);
     wss.clients.forEach((c) => {
-      if (c.readyState === WebSocket.OPEN) c.send(data);
+      if (c.readyState === WebSocket.OPEN) {
+        try {
+          c.send(data);
+        } catch (err) {
+          // Connection might be dead - will be cleaned up by error handler
+          if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+            fastify.log.error('Broadcast send error:', err);
+          }
+        }
+      }
     });
   }
   
@@ -272,10 +318,16 @@ module.exports = function (fastify) {
       userId,
       login
     });
-    
+
     wss.clients.forEach((c) => {
       if (c.readyState === WebSocket.OPEN && c.currentRoomId === roomId) {
-        c.send(payload);
+        try {
+          c.send(payload);
+        } catch (err) {
+          if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+            fastify.log.error('broadcastMessageUpdated send error:', err);
+          }
+        }
       }
     });
   }
@@ -288,10 +340,16 @@ module.exports = function (fastify) {
       userId,
       login
     });
-    
+
     wss.clients.forEach((c) => {
       if (c.readyState === WebSocket.OPEN && c.currentRoomId === roomId) {
-        c.send(payload);
+        try {
+          c.send(payload);
+        } catch (err) {
+          if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+            fastify.log.error('broadcastMessageDeleted send error:', err);
+          }
+        }
       }
     });
   }
@@ -304,10 +362,16 @@ module.exports = function (fastify) {
       userId,
       login
     });
-    
+
     wss.clients.forEach((c) => {
       if (c.readyState === WebSocket.OPEN && c.currentRoomId === roomId) {
-        c.send(payload);
+        try {
+          c.send(payload);
+        } catch (err) {
+          if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+            fastify.log.error('broadcastMediaUploaded send error:', err);
+          }
+        }
       }
     });
   }
@@ -320,10 +384,16 @@ module.exports = function (fastify) {
       userId,
       login
     });
-    
+
     wss.clients.forEach((c) => {
       if (c.readyState === WebSocket.OPEN && c.currentRoomId === roomId) {
-        c.send(payload);
+        try {
+          c.send(payload);
+        } catch (err) {
+          if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+            fastify.log.error('broadcastMediaShared send error:', err);
+          }
+        }
       }
     });
   }
@@ -343,8 +413,15 @@ module.exports = function (fastify) {
         if (process.env.DEBUG_MODE === 'true') {
           fastify.log.info(`Sending to client in room ${roomId}`);
         }
-        c.send(data);
-        count++;
+        try {
+          c.send(data);
+          count++;
+        } catch (err) {
+          // Connection might be dead - will be cleaned up by error handler
+          if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+            fastify.log.error('broadcastToRoom send error:', err);
+          }
+        }
       }
     });
     if (process.env.DEBUG_MODE === 'true') {
@@ -369,7 +446,18 @@ module.exports = function (fastify) {
   }
 
   function broadcastUserUpdated(user) {
-    broadcast({ type: 'user_updated', user });
+    const payload = JSON.stringify({ type: 'user_updated', user });
+    wss.clients.forEach((c) => {
+      if (c.readyState === WebSocket.OPEN) {
+        try {
+          c.send(payload);
+        } catch (err) {
+          if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+            fastify.log.error('broadcastUserUpdated send error:', err);
+          }
+        }
+      }
+    });
   }
 
   function broadcastUserRoleChanged(userId, newRole) {
@@ -430,7 +518,13 @@ module.exports = function (fastify) {
       const data = JSON.stringify(payload);
       userClients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-          client.send(data);
+          try {
+            client.send(data);
+          } catch (err) {
+            if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+              fastify.log.error('broadcastToUser send error:', err);
+            }
+          }
         }
       });
     }

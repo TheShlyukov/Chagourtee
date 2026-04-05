@@ -45,19 +45,19 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 ### 2. UI Redesign
 
 #### 2.1. Visual Overhaul
-- [ ] Update [client/src/index.css](./client/src/index.css) with more modern aesthetic
-- [ ] Make sure that all styles placed only in [client/src/index.css](./client/src/index.css) (inline styles not allowed)
-- [ ] Add more animations and transitions (also between layouts like desktop/tablet/mobile)
-- [ ] Replace Unicode emojis with SVG equivalents
-- [ ] Create reusable CSS components with the new design
+- [x] Update [client/src/index.css](./client/src/index.css) with more modern aesthetic (CSS variables, gradients, shadows, radii)
+- [x] Make sure that all styles placed only in [client/src/index.css](./client/src/index.css) (inline styles not allowed) — only SyntaxHighlighter style remains (library-specific)
+- [x] Add more animations and transitions (also between layouts like desktop/tablet/mobile) — 57+ transitions/animations, `--layout-transition` for layout changes
+- [x] Replace Unicode emojis with SVG equivalents — all icons are SVG components from [Icons.tsx](./client/src/components/icons/Icons.tsx)
+- [x] Create reusable CSS components with the new design (`.card`, `.btn-align-start`, `.form-stack`, `.theme-toggle-btn`, etc.)
 
 #### 2.2. Settings Redesign
-- [ ] Combine profile and client settings into a unified Settings tab
-- [ ] Maintain separate Server Settings tab for server administration
-- [ ] Implement categorized settings with side panel navigation (like chat-rooms panel in Chat.tsx, adapt for all layouts — desctop/tablet/mobile)
-- [ ] Add profile management section within settings
-- [ ] Create audio/video settings section (for future voice chat)
-- [ ] Add visual theme settings (auto/light/dark mode toggle)
+- [x] Combine profile and client settings into a unified Settings tab (profile, appearance, media sections)
+- [x] Maintain separate Server Settings tab for server administration (Admin page for owner/moderator)
+- [x] Implement categorized settings with side panel navigation (desktop sidebar, tablet bottom nav, mobile slide panel)
+- [x] Add profile management section within settings (logout, verification status, password change, login change)
+- [x] Create audio/video settings section (for future voice chat) — placeholder with mic, camera, volume controls
+- [x] Add visual theme settings (auto/light/dark mode toggle) — three-button toggle with SVG icons
 
 #### 2.3. New Page Implementation (1) — 403 Forbidden
 - [x] Create 403 Forbidden page component ([Forbidden.tsx](./client/src/pages/Forbidden.tsx))
@@ -74,8 +74,9 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 
 ### 3. Code Quality Improvements
 
-#### 3.1. Replace Alert Boxes with Custom Elements
+#### 3.1. Replace Alert/Confirm Boxes with Custom Elements
 - [ ] Identify all instances of `alert()` in the client codebase (7 instances found in [Chat.tsx](./client/src/pages/Chat.tsx): lines 1070, 1392, 1642, 1685, 1732, 1794, 1835)
+- [ ] Identify all instances of `confirm()` in the client codebase (8 instances: [Chat.tsx](./client/src/pages/Chat.tsx) lines 1626, 1783; [Admin.tsx](./client/src/pages/Admin.tsx) lines 487, 503, 534, 682, 1180; [Settings.tsx](./client/src/pages/Settings.tsx) line 107)
 - [ ] Create custom toast/notification components to replace alerts (ToastContext and Toast component already exist)
 - [ ] Implement custom modal dialogs for confirmations (replacing `confirm()`)
 - [ ] Update all client components to use custom elements instead of native dialogs
@@ -99,7 +100,7 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [x] Remove duplicate `height: 100dvh` declarations in [index.css](./client/src/index.css)
 - [x] Consolidate duplicated responsive rules for `.layout-nav-bottom` and `.layout-header-top` (merged `@media (max-width: 678px)` and `@media (min-width: 678px) and (max-width: 876px)` into single `@media (max-width: 876px)`)
 - [x] Remove dead server-info hiding rules (targeted non-existent classes; Layout.tsx handles this via JS)
-- [ ] Consider splitting monolithic [index.css](./client/src/index.css) into modular CSS files (4007 lines)
+- [ ] Consider splitting monolithic [index.css](./client/src/index.css) into modular CSS files (4020 lines)
 
 #### 3.5. Duplicate version.ts in Server Source
 - [x] Remove unused [version.ts](./server/src/version.ts) (duplicate of [version.js](./server/src/version.js))
@@ -193,10 +194,9 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 5. Room access levels (at least basic implementation)
 
 ### Medium Priority (Would be nice for v0.4.0-alpha)
-1. UI Redesign (could be phased in gradually)
-2. Extended Permission Management
-3. Mention Notifications
-4. Message Reactions
+1. Extended Permission Management
+2. Mention Notifications
+3. Message Reactions
 
 ### Low Priority (Consider for future releases)
 1. Voice Room Features (complex implementation)
@@ -219,11 +219,12 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - ~~Overly broad `!important` in server-info hiding rules~~ → removed dead CSS (targeted non-existent classes)
 
 ### Remaining
-- **Monolithic CSS file** — 4007 lines in a single file, consider modularization as project grows
+- **Monolithic CSS file** — 4020 lines in a single file, consider modularization as project grows
 
 ### Other Observations
 - **Inline styles**: Only 1 instance in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx) for SyntaxHighlighter (acceptable — library-specific)
 - **alert() calls**: 7 instances all in [Chat.tsx](./client/src/pages/Chat.tsx) — should use existing Toast system
+- **confirm() calls**: 8 instances across [Chat.tsx](./client/src/pages/Chat.tsx) (2), [Admin.tsx](./client/src/pages/Admin.tsx) (5), and [Settings.tsx](./client/src/pages/Settings.tsx) (1) — should use custom modal dialogs
 - **No CSS linting**: No Stylelint or autoprefixer configured
 - **Emoji usage**: No Unicode emojis found in client code (all icons use SVG components from [Icons.tsx](./client/src/components/icons/Icons.tsx)) — ✅ Done
 

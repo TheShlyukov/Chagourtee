@@ -99,6 +99,7 @@ The project uses npm workspaces with separate client and server packages. Here's
 | `npm run db:backup` | Backup SQLite database to `data/backups/` |
 | `npm run generate-encryption-key` | Generate AES-256 media encryption key |
 | `npm run lint` | Run ESLint on client code (now configured) |
+| `npm run clear-logs` | Clear the server log file (`data/chagourtee.log`) |
 
 ### Server bundling details
 
@@ -157,6 +158,8 @@ Recommended environment variables (or `.env` file in `server/`):
 - `CHAGOURTEE_BOOTSTRAP_SECRET` – secret for creating the first owner (see above)
 - `CHAGOURTEE_MAX_FILE_SIZE` – maximum file size for upload in bytes (default 52428800 = 50MB)
 - `CHAGOURTEE_MEDIA_ENCRYPTION_KEY` – encryption key for media files (32 bytes for AES-256)
+- `CHAGOURTEE_LOG_TO_FILE` – enable logging to `data/chagourtee.log` (true/false, default: false)
+- `CHAGOURTEE_LOG_LEVEL` – log level: error, warn, info, http, verbose, debug, silly (default: info)
 
 ### Internet access
 
@@ -201,6 +204,30 @@ The update script will:
    - Installing dependencies for all workspaces
 
 > **Note**: Make sure you have committed any local changes before running the update, as the script will switch to a specific tag which may overwrite uncommitted changes.
+
+## Logging
+
+Server logs can be written to a file for debugging and monitoring:
+
+### Enable file logging
+
+Add to your `server/.env`:
+```bash
+CHAGOURTEE_LOG_TO_FILE=true
+CHAGOURTEE_LOG_LEVEL=info
+```
+
+Logs will be written to `data/chagourtee.log` with timestamps:
+```
+2026-04-08 12:00:00 [info]: Server listening on port 3000
+2026-04-08 12:05:30 [info]: User logged in: admin
+```
+
+### Clear logs
+
+```bash
+npm run clear-logs
+```
 
 ## API (briefly)
 

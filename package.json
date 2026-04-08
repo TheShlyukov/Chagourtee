@@ -15,7 +15,8 @@
     "db:backup": "cd server && npm run db:backup",
     "db:update-schema": "cd server && npm run db:update-schema",
     "db:add-media-table": "cd server && npm run db:add-media-table",
-    "generate-encryption-key": "cd server && npm run generate-encryption-key"
+    "generate-encryption-key": "cd server && npm run generate-encryption-key",
+    "clear-logs": "cd server && npm run clear-logs"
   },
   "workspaces": [
     "client",

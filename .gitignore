@@ -4,6 +4,7 @@ dist
 data/
 .env
 *.log
+chagourtee.log
 .DS_Store
 .lingma
 QWEN.md

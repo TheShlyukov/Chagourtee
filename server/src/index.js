@@ -8,6 +8,7 @@ const { getDb } = require('./db');
 const { hashPassword, verifyPassword, SESSION_TTL_MS, createSessionId } = require('./auth');
 const authPlugin = require('./auth').plugin;
 const { authRoutes, addAuthUtils } = require('./auth');
+const { logger } = require('../logger');
 
 const SESSION_COOKIE = 'chagourtee_sid';
 
@@ -19,12 +20,47 @@ const mediaPlugin = require('./media');
 
 // Initialize Fastify server
 const server = fastify({
-  logger: true
+  logger: process.env.CHAGOURTEE_LOG_TO_FILE !== 'true' ? true : {
+    level: process.env.CHAGOURTEE_LOG_LEVEL || 'info',
+    serializers: {
+      req: (req) => ({
+        method: req.method,
+        url: req.url,
+        path: req.path,
+        parameters: req.parameters,
+      }),
+      res: (res) => ({
+        statusCode: res.statusCode,
+      }),
+    },
+  },
+  disableRequestLogging: process.env.CHAGOURTEE_LOG_TO_FILE === 'true',
 });
 
 async function run() {
   const db = getDb();
   server.decorate('db', db);
+
+  // Add custom logging methods if logging to file is enabled
+  if (process.env.CHAGOURTEE_LOG_TO_FILE === 'true') {
+    server.decorate('log', {
+      info: (msg, ...args) => {
+        logger.info(typeof msg === 'string' ? msg : JSON.stringify(msg), args.length ? args : undefined);
+      },
+      warn: (msg, ...args) => {
+        logger.warn(typeof msg === 'string' ? msg : JSON.stringify(msg), args.length ? args : undefined);
+      },
+      error: (msg, ...args) => {
+        logger.error(typeof msg === 'string' ? msg : JSON.stringify(msg), args.length ? args : undefined);
+      },
+      debug: (msg, ...args) => {
+        logger.debug(typeof msg === 'string' ? msg : JSON.stringify(msg), args.length ? args : undefined);
+      },
+      fatal: (msg, ...args) => {
+        logger.error(typeof msg === 'string' ? msg : JSON.stringify(msg), args.length ? args : undefined);
+      },
+    });
+  }
 
   // START: Corrected bootstrap validation
   try {

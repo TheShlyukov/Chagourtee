@@ -99,6 +99,7 @@ VITE_APP_PUBLIC_URL=http://<ВАШ_IP_АДРЕСС>:5173
 | `npm run db:backup` | Создать резервную копию SQLite базы в `data/backups/` |
 | `npm run generate-encryption-key` | Сгенерировать ключ шифрования AES-256 для медиа |
 | `npm run lint` | Запустить ESLint для клиентского кода (теперь настроен) |
+| `npm run clear-logs` | Очистить файл логов сервера (`data/chagourtee.log`) |
 
 ### Детали упаковки сервера
 
@@ -157,6 +158,8 @@ PORT=3000 node src/index.js
 - `CHAGOURTEE_BOOTSTRAP_SECRET` – секрет для создания первого владельца (см. выше)
 - `CHAGOURTEE_MAX_FILE_SIZE` – максимальный размер файла для загрузки в байтах (по умолчанию 52428800 = 50MB)
 - `CHAGOURTEE_MEDIA_ENCRYPTION_KEY` – ключ шифрования для медиафайлов (32 байта для AES-256)
+- `CHAGOURTEE_LOG_TO_FILE` – включить запись логов в файл `data/chagourtee.log` (true/false, по умолчанию: false)
+- `CHAGOURTEE_LOG_LEVEL` – уровень логирования: error, warn, info, http, verbose, debug, silly (по умолчанию: info)
 
 ### Доступ из интернета
 
@@ -201,6 +204,30 @@ cd server && npm run update-service
    - Установки зависимостей для всех рабочих пространств
 
 > **Примечание**: Обязательно сохраните все локальные изменения перед запуском обновления, поскольку скрипт переключится на определенный тег, который может перезаписать несохраненные изменения.
+
+## Логирование
+
+Логи сервера можно записывать в файл для отладки и мониторинга:
+
+### Включение записи логов в файл
+
+Добавьте в `server/.env`:
+```bash
+CHAGOURTEE_LOG_TO_FILE=true
+CHAGOURTEE_LOG_LEVEL=info
+```
+
+Логи будут записываться в `data/chagourtee.log` с временными метками:
+```
+2026-04-08 12:00:00 [info]: Server listening on port 3000
+2026-04-08 12:05:30 [info]: User logged in: admin
+```
+
+### Очистка логов
+
+```bash
+npm run clear-logs
+```
 
 ## API (кратко)
 

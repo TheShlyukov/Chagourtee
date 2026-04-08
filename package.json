@@ -11,7 +11,11 @@
     "start": "node scripts/start.js",
     "start:server": "cd server && npm run start:prod",
     "start:client": "cd client && npm run preview",
-    "update": "cd server && npm run update-service"
+    "update": "cd server && npm run update-service",
+    "db:backup": "cd server && npm run db:backup",
+    "db:update-schema": "cd server && npm run db:update-schema",
+    "db:add-media-table": "cd server && npm run db:add-media-table",
+    "generate-encryption-key": "cd server && npm run generate-encryption-key"
   },
   "workspaces": [
     "client",

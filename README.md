@@ -97,6 +97,8 @@ The project uses npm workspaces with separate client and server packages. Here's
 | `npm run start:client` | Start client preview server only |
 | `npm run update` | Update to latest version tag from remote |
 | `npm run db:backup` | Backup SQLite database to `data/backups/` |
+| `npm run generate-encryption-key` | Generate AES-256 media encryption key |
+| `npm run lint` | Run ESLint on client code (now configured) |
 
 ### Server bundling details
 

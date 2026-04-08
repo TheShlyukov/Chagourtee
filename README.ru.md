@@ -97,6 +97,8 @@ VITE_APP_PUBLIC_URL=http://<ВАШ_IP_АДРЕСС>:5173
 | `npm run start:client` | Запустить только preview-сервер клиента |
 | `npm run update` | Обновиться до последней версии из репозитория |
 | `npm run db:backup` | Создать резервную копию SQLite базы в `data/backups/` |
+| `npm run generate-encryption-key` | Сгенерировать ключ шифрования AES-256 для медиа |
+| `npm run lint` | Запустить ESLint для клиентского кода (теперь настроен) |
 
 ### Детали упаковки сервера
 

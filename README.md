@@ -80,17 +80,66 @@ If there are no users in the database yet, the first owner can be created as fol
 - Participant goes to the link, enters login, password and codeword if required.
 - If a codeword is specified, the account remains in "waiting for verification" status until the owner in Admin checks the word and clicks "Approve".
 
+## Build System
+
+The project uses npm workspaces with separate client and server packages. Here's a summary of available commands:
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Run both client and server in development mode |
+| `npm run dev:server` | Run server only (with hot reload via nodemon) |
+| `npm run dev:client` | Run client only (Vite dev server on :5173) |
+| `npm run build` | Build both client and server for production |
+| `npm run build:client` | Build client only (to `client/dist/`) |
+| `npm run build:server` | Bundle server with esbuild (to `server/dist/`) |
+| `npm start` | Start both client (preview) and server from production builds |
+| `npm run start:server` | Start bundled server only |
+| `npm run start:client` | Start client preview server only |
+| `npm run update` | Update to latest version tag from remote |
+| `npm run db:backup` | Backup SQLite database to `data/backups/` |
+
+### Server bundling details
+
+The server is bundled with [esbuild](https://esbuild.github.io/) for faster startup and easier deployment:
+
+- **Target**: Compiled for your current Node.js version (v25.9.0) and platform (darwin/arm64)
+- **Native modules**: `better-sqlite3`, `bcrypt`, and FFmpeg installers contain `.node` binary files that are platform-specific. These are kept as external dependencies and copied to `server/dist/node_modules/` during build
+- **Data directory**: The `data/` folder is shared between development and production modes
+- **Environment**: Variables are loaded from `server/.env` as usual
+
+**Important:** If you deploy to a different platform (e.g., Linux server), you need to rebuild the server bundle on that platform to get the correct native module binaries.
+
 ## Deployment at owner's premises
 
 ### Production build
 
 ```bash
+# Build both client and server
 npm run build
+
+# Or build individually:
+npm run build:client   # builds client to client/dist/
+npm run build:server   # bundles server to server/dist/ (with esbuild)
 ```
 
-The built client will be in `client/dist`. Serve it through any HTTP server (Nginx, Caddy, etc.), setting `client/dist` as the root directory and proxying `/api` and `/ws` to the server process.
+The built client will be in `client/dist/`. The bundled server will be in `server/dist/`.
 
-### Running the server
+**Note:** The server is bundled with [esbuild](https://esbuild.github.io/). Native modules (`better-sqlite3`, `bcrypt`, FFmpeg installers) contain platform-specific binaries and are kept as external dependencies. They are automatically copied to `server/dist/node_modules/` during build.
+
+### Running production builds
+
+```bash
+# Start both client (preview) and server
+npm start
+
+# Or start individually:
+npm run start:server   # starts the bundled server from server/dist/
+npm run start:client   # starts the client preview server
+
+# Note: If no production build exists, npm start will prompt you to build first
+```
+
+### Running the server (without bundling)
 
 ```bash
 cd server

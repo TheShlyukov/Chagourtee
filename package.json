@@ -15,7 +15,14 @@
     "db:backup": "cd server && npm run db:backup",
     "db:update-schema": "cd server && npm run db:update-schema",
     "db:add-media-table": "cd server && npm run db:add-media-table",
-    "generate-encryption-key": "cd server && npm run generate-encryption-key"
+    "generate-encryption-key": "cd server && npm run generate-encryption-key",
+    "clear-logs": "cd server && npm run clear-logs",
+    "clear-logs:server": "cd server && npm run clear-logs:server",
+    "clear-logs:client": "cd server && npm run clear-logs:client",
+    "daemon:start": "node scripts/daemon.js start",
+    "daemon:stop": "node scripts/daemon.js stop",
+    "daemon:restart": "node scripts/daemon.js restart",
+    "daemon:status": "node scripts/daemon.js status"
   },
   "workspaces": [
     "client",

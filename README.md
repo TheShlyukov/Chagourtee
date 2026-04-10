@@ -99,6 +99,11 @@ The project uses npm workspaces with separate client and server packages. Here's
 | `npm run db:backup` | Backup SQLite database to `data/backups/` |
 | `npm run generate-encryption-key` | Generate AES-256 media encryption key |
 | `npm run lint` | Run ESLint on client code (now configured) |
+| `npm run clear-logs` | Clear the log file |
+| `npm run daemon:start` | Start server in background |
+| `npm run daemon:stop` | Stop running server |
+| `npm run daemon:restart` | Restart the server |
+| `npm run daemon:status` | Check server status |
 
 ### Server bundling details
 
@@ -157,6 +162,49 @@ Recommended environment variables (or `.env` file in `server/`):
 - `CHAGOURTEE_BOOTSTRAP_SECRET` – secret for creating the first owner (see above)
 - `CHAGOURTEE_MAX_FILE_SIZE` – maximum file size for upload in bytes (default 52428800 = 50MB)
 - `CHAGOURTEE_MEDIA_ENCRYPTION_KEY` – encryption key for media files (32 bytes for AES-256)
+
+### Logging
+
+Chagourtee supports advanced logging configuration:
+
+- `CHAGOURTEE_LOG_TO_FILE` – Enable logging to file (`true` or `false`, default `false`)
+- `CHAGOURTEE_LOG_LEVEL` – Log level: `error`, `warn`, `info`, `debug`, `trace` (default `info`)
+- `CHAGOURTEE_LOG_DIR` – Custom log directory (optional, defaults to `logs/` in project root)
+
+When `CHAGOURTEE_LOG_TO_FILE=true`, all logs are written to `logs/chagourtee.log` in addition to console output.
+
+To clear logs:
+```bash
+npm run clear-logs
+```
+
+### Running in Background
+
+Use the daemon manager to run production builds in background:
+
+```bash
+# First, build
+npm run build
+
+# Start server + client in background
+npm run daemon:start
+
+# Check status
+npm run daemon:status
+
+# Stop both processes
+npm run daemon:stop
+
+# Restart both
+npm run daemon:restart
+
+# View live logs
+tail -f logs/chagourtee.log
+```
+
+The daemon manager stores PIDs in `server/data/chagourtee-server.pid` and `server/data/chagourtee-client.pid`.
+
+> **Note:** The daemon works only with production builds. For development, use `npm run dev` in a terminal.
 
 ### Internet access
 

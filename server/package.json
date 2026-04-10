@@ -11,7 +11,10 @@
     "db:update-schema": "node scripts/update-schema.js",
     "db:add-media-table": "node scripts/update-schema.js",
     "generate-encryption-key": "node scripts/generate-encryption-key.js",
-    "update-service": "node scripts/update-service.js"
+    "update-service": "node scripts/update-service.js",
+    "clear-logs": "node scripts/clear-logs.js",
+    "clear-logs:server": "node scripts/clear-logs.js server",
+    "clear-logs:client": "node scripts/clear-logs.js client"
   },
   "dependencies": {
     "@fastify/cookie": "^9.3.1",

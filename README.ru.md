@@ -99,6 +99,11 @@ VITE_APP_PUBLIC_URL=http://<ВАШ_IP_АДРЕСС>:5173
 | `npm run db:backup` | Создать резервную копию SQLite базы в `data/backups/` |
 | `npm run generate-encryption-key` | Сгенерировать ключ шифрования AES-256 для медиа |
 | `npm run lint` | Запустить ESLint для клиентского кода (теперь настроен) |
+| `npm run clear-logs` | Очистить файл логов |
+| `npm run daemon:start` | Запустить сервер в фоне |
+| `npm run daemon:stop` | Остановить запущенный сервер |
+| `npm run daemon:restart` | Перезапустить сервер |
+| `npm run daemon:status` | Проверить статус сервера |
 
 ### Детали упаковки сервера
 
@@ -157,6 +162,49 @@ PORT=3000 node src/index.js
 - `CHAGOURTEE_BOOTSTRAP_SECRET` – секрет для создания первого владельца (см. выше)
 - `CHAGOURTEE_MAX_FILE_SIZE` – максимальный размер файла для загрузки в байтах (по умолчанию 52428800 = 50MB)
 - `CHAGOURTEE_MEDIA_ENCRYPTION_KEY` – ключ шифрования для медиафайлов (32 байта для AES-256)
+
+### Логирование
+
+Chagourtee поддерживает расширенную конфигурацию логирования:
+
+- `CHAGOURTEE_LOG_TO_FILE` – Включить запись логов в файл (`true` или `false`, по умолчанию `false`)
+- `CHAGOURTEE_LOG_LEVEL` – Уровень логирования: `error`, `warn`, `info`, `debug`, `trace` (по умолчанию `info`)
+- `CHAGOURTEE_LOG_DIR` – Пользовательская директория для логов (опционально, по умолчанию `logs/` в корне проекта)
+
+При `CHAGOURTEE_LOG_TO_FILE=true`, все логи записываются в `logs/chagourtee.log` в дополнение к выводу в консоль.
+
+Для очистки логов:
+```bash
+npm run clear-logs
+```
+
+### Запуск в фоне
+
+Используйте менеджер демонов для запуска собранных продакшен-билдов в фоне:
+
+```bash
+# Сначала соберите
+npm run build
+
+# Запустить сервер + клиент в фоне
+npm run daemon:start
+
+# Проверить статус
+npm run daemon:status
+
+# Остановить оба процесса
+npm run daemon:stop
+
+# Перезапустить оба
+npm run daemon:restart
+
+# Просмотр логов в реальном времени
+tail -f logs/chagourtee.log
+```
+
+Менеджер демонов хранит PID-ы в `server/data/chagourtee-server.pid` и `server/data/chagourtee-client.pid`.
+
+> **Примечание:** Демон работает только с продакшен-билдами. Для разработки используйте `npm run dev` в терминале.
 
 ### Доступ из интернета
 

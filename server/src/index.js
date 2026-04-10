@@ -8,6 +8,7 @@ const { getDb } = require('./db');
 const { hashPassword, verifyPassword, SESSION_TTL_MS, createSessionId } = require('./auth');
 const authPlugin = require('./auth').plugin;
 const { authRoutes, addAuthUtils } = require('./auth');
+const { logger } = require('../logger');
 
 const SESSION_COOKIE = 'chagourtee_sid';
 
@@ -17,9 +18,24 @@ const { getVersionInfo } = require('./version');
 // Import media plugin
 const mediaPlugin = require('./media');
 
-// Initialize Fastify server
+// Initialize Fastify server with request logging via custom hook
 const server = fastify({
-  logger: true
+  logger: false
+});
+
+// Track request start time for duration logging
+server.addHook('onRequest', async (request, reply) => {
+  request._startTime = Date.now();
+});
+
+// Log requests and responses through our custom logger
+server.addHook('onResponse', async (request, reply) => {
+  const duration = Date.now() - (request._startTime || Date.now());
+  const method = request.method;
+  const url = request.url;
+  const status = reply.statusCode;
+  const logLevel = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'debug';
+  logger[logLevel](`${method} ${url} — ${status} (${duration}ms)`);
 });
 
 async function run() {
@@ -237,12 +253,14 @@ async function run() {
 
   // Run the server
   try {
-    await server.listen({ port: 3000, host: '0.0.0.0' });
-    if (process.env.DEBUG_MODE === 'true') {
-      server.log.info(`Server listening on port ${server.server.address().port}`);
+    await server.listen({ port: process.env.PORT || 3000, host: process.env.HOST || '0.0.0.0' });
+    logger.info(`Server listening on port ${server.server.address().port}`);
+    logger.info(`Log level: ${logger.getLogLevel()}`);
+    if (process.env.CHAGOURTEE_LOG_TO_FILE === 'true') {
+      logger.info(`Logging to file: ${logger.getLogFile()}`);
     }
   } catch (err) {
-    server.log.error(err);
+    logger.error('Failed to start server:', err);
     process.exit(1);
   }
 
@@ -250,19 +268,21 @@ async function run() {
   async function gracefulShutdown(signal) {
     if (isShuttingDown) return;
     isShuttingDown = true;
-    server.log.info({ signal }, 'graceful shutdown');
+    logger.info(`Received ${signal}, starting graceful shutdown...`);
     try {
       if (typeof server.notifyServerShutdown === 'function') {
         server.notifyServerShutdown('Сервер останавливается');
       }
     } catch (e) {
-      server.log.error(e);
+      logger.error('Error during shutdown notification:', e);
     }
     try {
       await server.close();
+      logger.info('Server closed successfully');
     } catch (e) {
-      server.log.error(e);
+      logger.error('Error closing server:', e);
     }
+    logger.close();
     process.exit(0);
   }
 

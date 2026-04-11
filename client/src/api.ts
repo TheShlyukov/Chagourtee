@@ -1,5 +1,72 @@
 const BASE = '';
 
+export type ConnectionErrorReason = 'network_unreachable' | 'server_unavailable' | 'timeout' | 'api_error' | 'websocket_error';
+
+const CONNECTION_ERROR_KEY = 'chagourtee_connection_error';
+const REDIRECT_IN_PROGRESS_KEY = 'chagourtee_redirecting';
+
+/**
+ * Check if a redirect to connection error is already in progress
+ */
+export function isRedirecting(): boolean {
+  try {
+    return sessionStorage.getItem(REDIRECT_IN_PROGRESS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Redirect to connection error page with reason and optional details
+ */
+export function redirectToConnectionError(reason: ConnectionErrorReason, details?: string): void {
+  // Prevent infinite redirect loops
+  try {
+    if (sessionStorage.getItem(REDIRECT_IN_PROGRESS_KEY)) {
+      // Already redirecting, don't stack more redirects
+      return;
+    }
+    sessionStorage.setItem(REDIRECT_IN_PROGRESS_KEY, '1');
+    sessionStorage.setItem(
+      CONNECTION_ERROR_KEY,
+      JSON.stringify({ reason, details })
+    );
+  } catch {
+    /* ignore storage errors */
+  }
+  window.location.href = '/connection-error';
+}
+
+/**
+ * Clear redirect flag (call after successful API response)
+ */
+export function clearRedirectFlag(): void {
+  try {
+    sessionStorage.removeItem(REDIRECT_IN_PROGRESS_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Check if an error is a network-level error (not HTTP error)
+ */
+export function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    // Network errors in fetch manifest as TypeError with specific messages
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('fetch') ||
+      message.includes('network') ||
+      message.includes('failed to fetch') ||
+      message.includes('networkerror') ||
+      message.includes('connection') ||
+      message.includes('abort')
+    );
+  }
+  return false;
+}
+
 export type VersionInfo = {
   version: string;
   name: string;
@@ -85,27 +152,47 @@ export async function api<T>(
   path: string,
   opts: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...opts,
-    credentials: 'include',
-    headers: {
-      ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
-      ...opts.headers,
-    },
-  });
-  
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...opts,
+      credentials: 'include',
+      headers: {
+        ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
+        ...opts.headers,
+      },
+    });
+  } catch (error) {
+    // Network error (e.g., server unreachable)
+    if (isNetworkError(error)) {
+      redirectToConnectionError('network_unreachable', (error as Error).message);
+      return new Promise<T>(() => {});
+    }
+    throw error;
+  }
+
   // Check if response status is 500 and redirect to error page
   if (res.status === 500) {
+    // Peek at response to detect if it's from proxy (HTML) or server (JSON)
+    const contentType = res.headers.get('content-type') || '';
+    const isProxyError = contentType.includes('text/html');
+    
+    if (isProxyError) {
+      // Proxy error (e.g., Vite dev server can't reach backend)
+      redirectToConnectionError('server_unavailable', `Proxy error for ${path}`);
+      return new Promise<T>(() => {});
+    }
+
     // Store the error details in sessionStorage for the error page to display
     sessionStorage.setItem('lastErrorStatus', res.status.toString());
     sessionStorage.setItem('lastErrorUrl', path);
-    
+
     // Redirect to the 500 error page
     window.location.href = '/500';
     // This promise will never resolve since we're redirecting
     return new Promise<T>(() => {});
   }
-  
+
   const text = await res.text();
   let data: unknown;
   try {
@@ -120,12 +207,16 @@ export async function api<T>(
     }
     throw new Error(res.ok ? text : `HTTP ${res.status}`);
   }
-  
+
   if (!res.ok) {
     // Handle other non-OK responses that aren't 500
     const err = data as { error?: string };
     throw new Error(err?.error || `HTTP ${res.status}`);
   }
+  
+  // Success - clear any redirect flag
+  clearRedirectFlag();
+  
   return data as T;
 }
 

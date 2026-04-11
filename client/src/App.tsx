@@ -16,7 +16,7 @@ import AccountDeleted from './pages/AccountDeleted';
 import AccountRejected from './pages/AccountRejected';
 import InternalServerError from './pages/InternalServerError';
 import Forbidden from './pages/Forbidden';
-import Offline from './pages/Offline';
+import ConnectionError from './pages/ConnectionError';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -91,7 +91,7 @@ function AppRoutes() {
       <Route path="/account-rejected" element={<AccountRejected />} />
       <Route path="/500" element={<InternalServerError />} />
       <Route path="/403" element={<Forbidden />} />
-      <Route path="/offline" element={<Offline />} />
+      <Route path="/connection-error" element={<ConnectionError />} />
       <Route
         path="/"
         element={

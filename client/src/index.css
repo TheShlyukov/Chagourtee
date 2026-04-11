@@ -2935,7 +2935,7 @@ a:hover {
   }
 }
 
-/* Full-page errors (403, 500, offline) */
+/* Full-page errors (403, 500) */
 .full-page-error {
   min-height: 100dvh;
   display: flex;

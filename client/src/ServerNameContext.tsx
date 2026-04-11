@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ServerSettings } from './api';
-import { serverSettings as serverSettingsApi, serverVersion, VersionInfo } from './api';
+import { serverSettings as serverSettingsApi, serverVersion, VersionInfo, isRedirecting } from './api';
 import { initializeWebSocket, addMessageHandler, removeMessageHandler } from './websocket';
 import { formatVersionDisplay } from './version'; // Import the new version utility
 
@@ -23,11 +23,14 @@ export function ServerNameProvider({ children }: { children: React.ReactNode }) 
   const [versionInfo, setVersionInfo] = useState<string>(''); // Store version info
 
   const load = async () => {
+    // Skip API calls if already redirecting to connection-error
+    if (isRedirecting()) return;
+
     try {
       const settings: ServerSettings = await serverSettingsApi.get();
       // Ensure the raw name doesn't exceed the maximum length
-      const limitedName = settings.server_name && settings.server_name.length > MAX_SERVER_NAME_LENGTH 
-        ? settings.server_name.substring(0, MAX_SERVER_NAME_LENGTH) 
+      const limitedName = settings.server_name && settings.server_name.length > MAX_SERVER_NAME_LENGTH
+        ? settings.server_name.substring(0, MAX_SERVER_NAME_LENGTH)
         : settings.server_name;
       setRawName(limitedName ?? null);
 

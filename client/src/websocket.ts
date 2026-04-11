@@ -1,4 +1,5 @@
 import { logger } from './utils/logger';
+import { redirectToConnectionError } from './api';
 
 // Use the cross-environment compatible timeout types
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -6,8 +7,6 @@ let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 const reconnectDelay = 3000; // 3 seconds
-/** После server_shutdown не переподключаться автоматически. */
-let suppressReconnect = false;
 
 // Handlers for messages and connection events
 const messageHandlers: Set<(data: any) => void> = new Set();
@@ -60,17 +59,6 @@ export function initializeWebSocket() {
         return;
       }
 
-      if (data.type === 'server_shutdown') {
-        suppressReconnect = true;
-        try {
-          sessionStorage.setItem('chagourtee_offline_reason', 'shutdown');
-        } catch {
-          /* ignore */
-        }
-        window.location.href = '/offline';
-        return;
-      }
-
       // Handle user disconnected message
       if (data.type === 'user_disconnected') {
         // Call all registered message handlers
@@ -98,12 +86,6 @@ export function initializeWebSocket() {
         heartbeatInterval = null;
       }
 
-      if (suppressReconnect) {
-        logger.info('WebSocket closed after server shutdown; reconnect suppressed');
-        sharedWebSocket = null;
-        return;
-      }
-
       // Don't try to reconnect if closed intentionally
       if (event.code === 1000) {
         logger.debug('WebSocket closed normally');
@@ -119,6 +101,8 @@ export function initializeWebSocket() {
         }, reconnectDelay);
       } else {
         logger.error('Max reconnection attempts reached');
+        // Redirect to connection error page after max attempts
+        redirectToConnectionError('websocket_error', 'Превышено максимальное количество попыток переподключения');
       }
     };
     
@@ -127,7 +111,7 @@ export function initializeWebSocket() {
     };
   } catch (error) {
     logger.error('Error initializing WebSocket:', error);
-    
+
     // Reconnect logic for initialization errors
     if (reconnectAttempts < maxReconnectAttempts) {
       logger.info(`Attempting to reconnect... (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
@@ -137,6 +121,7 @@ export function initializeWebSocket() {
       }, reconnectDelay);
     } else {
       logger.error('Max reconnection attempts reached');
+      redirectToConnectionError('websocket_error', (error as Error).message);
     }
   }
 

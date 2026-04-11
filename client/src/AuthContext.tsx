@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, User } from './api';
+import { api, User, isNetworkError, redirectToConnectionError, clearRedirectFlag, isRedirecting } from './api';
 import { 
   initializeWebSocket, 
   closeWebSocket, 
@@ -139,13 +139,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
+      // If we're already in a redirect to connection-error, don't make API calls
+      if (isRedirecting()) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       try {
         const userData = await api<User>('/api/auth/me');
         setUser(userData);
       } catch (error) {
-        // Not authenticated
-        setUser(null);
+        if (isNetworkError(error)) {
+          redirectToConnectionError('network_unreachable', (error as Error).message);
+        } else {
+          // Not authenticated
+          setUser(null);
+        }
       } finally {
+        // Clear redirect flag on successful load or auth failure
+        clearRedirectFlag();
         setLoading(false);
       }
     };

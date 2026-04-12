@@ -319,7 +319,7 @@ export const media = {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(JSON.parse(xhr.responseText));
         } else {
-          let payload: { error?: string; code?: string; maxFileSize?: number | null } | null = null;
+          let payload: { error?: string; code?: string; maxFileSize?: number | null; maxStorageSize?: number; currentStorageSize?: number; cleanupStrategy?: string } | null = null;
           try {
             payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
           } catch {
@@ -329,10 +329,16 @@ export const media = {
             status?: number;
             code?: string;
             maxFileSize?: number | null;
+            maxStorageSize?: number;
+            currentStorageSize?: number;
+            cleanupStrategy?: string;
           };
           err.status = xhr.status;
           err.code = payload?.code;
           err.maxFileSize = payload?.maxFileSize ?? null;
+          err.maxStorageSize = payload?.maxStorageSize;
+          err.currentStorageSize = payload?.currentStorageSize;
+          err.cleanupStrategy = payload?.cleanupStrategy;
           reject(err);
         }
       };

@@ -75,12 +75,12 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 ### 3. Code Quality Improvements
 
 #### 3.1. Replace Alert/Confirm Boxes with Custom Elements
-- [ ] Identify all instances of `alert()` in the client codebase (7 instances found in [Chat.tsx](./client/src/pages/Chat.tsx): lines 1070, 1392, 1642, 1685, 1732, 1794, 1835)
-- [ ] Identify all instances of `confirm()` in the client codebase (8 instances: [Chat.tsx](./client/src/pages/Chat.tsx) lines 1626, 1783; [Admin.tsx](./client/src/pages/Admin.tsx) lines 487, 503, 534, 682, 1180; [Settings.tsx](./client/src/pages/Settings.tsx) line 107)
-- [ ] Create custom toast/notification components to replace alerts (ToastContext and Toast component already exist)
-- [ ] Implement custom modal dialogs for confirmations (replacing `confirm()`)
-- [ ] Update all client components to use custom elements instead of native dialogs
-- [ ] Add proper error handling UI in place of alerts
+- [x] Identify all instances of `alert()` in the client codebase (7 instances found in [Chat.tsx](./client/src/pages/Chat.tsx): lines 1070, 1392, 1642, 1685, 1732, 1794, 1835)
+- [x] Identify all instances of `confirm()` in the client codebase (8 instances: [Chat.tsx](./client/src/pages/Chat.tsx) lines 1626, 1783; [Admin.tsx](./client/src/pages/Admin.tsx) lines 487, 503, 534, 682, 1180; [Settings.tsx](./client/src/pages/Settings.tsx) line 107)
+- [x] Create custom toast/notification components to replace alerts (ToastContext and Toast component already exist)
+- [x] Implement custom modal dialogs for confirmations (replacing `confirm()`)
+- [x] Update all client components to use custom elements instead of native dialogs
+- [x] Add proper error handling UI in place of alerts
 
 #### 3.2. Centralize All Styling
 - [x] Audit all inline styles throughout the application

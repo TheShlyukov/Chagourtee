@@ -3,6 +3,7 @@ import { useAuth } from '../AuthContext';
 import { profile } from '../api';
 import Marquee from '../components/Marquee';
 import { TabletBottomNav } from '../components/TabletBottomNav';
+import ConfirmModal from '../components/ConfirmModal';
 import {
   IconAutoTheme,
   IconHourglass,
@@ -32,6 +33,7 @@ export default function Settings() {
   const [isTabletInRange, setIsTabletInRange] = useState(
     () => window.matchMedia('(min-width: 678px) and (max-width: 876px)').matches
   );
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
 
   const [themePref, setThemePref] = useState<ThemePreference>(() => getStoredThemePreference());
 
@@ -104,13 +106,11 @@ export default function Settings() {
   }
 
   const handleLogout = async () => {
-    if (window.confirm('Вы уверены, что хотите выйти?')) {
-      try {
-        await logout();
-        window.location.href = '/login';
-      } catch (error) {
-        console.error('Logout error:', error);
-      }
+    try {
+      await logout();
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
@@ -142,6 +142,7 @@ export default function Settings() {
   const showAdminTab = user?.role === 'owner' || user?.role === 'moderator';
 
   return (
+    <>
     <div className={pageClass}>
       <aside className="settings-sidebar">
         <div className="settings-sidebar-header">Настройки</div>
@@ -187,7 +188,7 @@ export default function Settings() {
                       <span className="user-role-label">{getRoleDisplayName(user?.role || '')}</span>
                     </strong>
                   </p>
-                  <button type="button" onClick={handleLogout} className="danger btn-align-start">
+                  <button type="button" onClick={() => setConfirmLogoutOpen(true)} className="danger btn-align-start">
                     Выйти
                   </button>
                 </div>
@@ -363,5 +364,17 @@ export default function Settings() {
         </div>
       </div>
     </div>
+
+    <ConfirmModal
+      isOpen={confirmLogoutOpen}
+      title="Выйти из аккаунта?"
+      message="Вы уверены, что хотите выйти?"
+      confirmText="Выйти"
+      cancelText="Отмена"
+      variant="warning"
+      onConfirm={handleLogout}
+      onCancel={() => setConfirmLogoutOpen(false)}
+    />
+    </>
   );
 }

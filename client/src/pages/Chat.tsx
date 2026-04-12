@@ -2,9 +2,9 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import { useParams, Link } from 'react-router-dom';
 import type { Room, Message, User, MessageListResponse, MediaFile, MediaUploadSettings } from '../api';
 import { rooms as roomsApi, messages as messagesApi, auth as authApi, users, media } from '../api';
-import { 
-  getWebSocket, 
-  addMessageHandler, 
+import {
+  getWebSocket,
+  addMessageHandler,
   removeMessageHandler,
   initializeWebSocket,
   addOpenHandler,
@@ -18,6 +18,9 @@ import Marquee from '../components/Marquee'; // Import Marquee component
 import { playIncoming, playMention, playSent } from '../sounds';
 import { ensureNotificationPermission, showMessageNotification } from '../notifications';
 import { useUserListPanel } from '../UserListPanelContext';
+import { useToast } from '../ToastContext';
+import ConfirmModal from '../components/ConfirmModal';
+import InfoModal from '../components/InfoModal';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { TabletBottomNav } from '../components/TabletBottomNav';
@@ -84,8 +87,11 @@ function formatTypingUsers(users: TypingUser[]): string | null {
 }
 
 function formatBytes(size: number): string {
-  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(size / 1024).toFixed(1)} KB`;
+  if (size === 0) return '0 Б';
+  if (size >= 1024 * 1024 * 1024) return `${(size / (1024 * 1024 * 1024)).toFixed(2)} ГиБ`;
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} МиБ`;
+  if (size >= 1024) return `${(size / 1024).toFixed(2)} КиБ`;
+  return `${size} Б`;
 }
 
 function getUploadErrorMessage(
@@ -93,9 +99,20 @@ function getUploadErrorMessage(
   fallbackMaxFileSize: number | null | undefined
 ): string {
   if (!(error instanceof Error)) return 'Не удалось загрузить файл.';
-  const uploadError = error as Error & { code?: string; maxFileSize?: number | null };
+  const uploadError = error as Error & { code?: string; maxFileSize?: number | null; maxStorageSize?: number; currentStorageSize?: number; cleanupStrategy?: string };
   if (uploadError.code === 'MEDIA_UPLOAD_DISABLED') {
     return 'Загрузка файлов отключена настройками сервера.';
+  }
+  if (uploadError.code === 'MEDIA_STORAGE_QUOTA_EXCEEDED') {
+    const maxSize = uploadError.maxStorageSize;
+    const currentSize = uploadError.currentStorageSize;
+    const strategy = uploadError.cleanupStrategy;
+    if (strategy === 'delete_oldest') {
+      return 'Хранилище заполнено. Не удалось освободить место. Удалите старые сообщения или попросите владельца увеличить лимит.';
+    }
+    return maxSize && currentSize
+      ? `Хранилище заполнено: ${formatBytes(currentSize)} из ${formatBytes(maxSize)}. Удалите старые файлы или попросите владельца увеличить лимит.`
+      : 'Хранилище заполнено. Удалите старые файлы или попросите владельца увеличить лимит.';
   }
   if (uploadError.code === 'MEDIA_FILE_TOO_LARGE') {
     const maxSize = uploadError.maxFileSize ?? fallbackMaxFileSize;
@@ -108,6 +125,18 @@ function getUploadErrorMessage(
 
 export default function Chat() {
   const { roomId: routeRoomId } = useParams();
+  const { showToast } = useToast();
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'info';
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [uploadInfoModalOpen, setUploadInfoModalOpen] = useState(false);
+  
   const roomId = routeRoomId ? Number(routeRoomId) : null;
   const [roomList, setRoomList] = useState<Room[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -143,7 +172,28 @@ export default function Chat() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
   const [mediaSettings, setMediaSettings] = useState<MediaUploadSettings | null>(null);
+  const [storageUsage, setStorageUsage] = useState<{ totalBytes: number; maxStorageSize: number | null }>({
+    totalBytes: 0,
+    maxStorageSize: null
+  });
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
+
+  const isStorageFull = storageUsage.maxStorageSize !== null && storageUsage.maxStorageSize > 0
+    ? storageUsage.totalBytes >= storageUsage.maxStorageSize
+    : false;
+
+  const getStorageLimitLabel = useCallback(() => {
+    if (!mediaSettings) return '';
+    const storageLabel = storageUsage.maxStorageSize === null || storageUsage.maxStorageSize === 0
+      ? 'Хранилище: без ограничений'
+      : `Хранилище: ${formatBytes(storageUsage.totalBytes)} из ${formatBytes(storageUsage.maxStorageSize)}`;
+    const fileLabel = !mediaSettings.uploadsEnabled
+      ? 'Загрузка медиа отключена'
+      : mediaSettings.unlimited
+      ? `Лимит файла: без ограничений`
+      : `Лимит файла: ${formatBytes(mediaSettings.maxFileSize || 0)}`;
+    return `${fileLabel}. ${storageLabel}`;
+  }, [mediaSettings, storageUsage]);
 
   // State for per-message media position (above or below text)
   const [mediaPositionDraft, setMediaPositionDraft] = useState<'above' | 'below'>('below');
@@ -1055,26 +1105,29 @@ export default function Chat() {
       .settings()
       .then((settings) => setMediaSettings(settings))
       .catch((error) => console.error('Failed to load media settings:', error));
+
+    media
+      .getStorageSettings()
+      .then((data) => {
+        setStorageUsage({
+          totalBytes: data.totalBytes,
+          maxStorageSize: data.maxStorageSize
+        });
+      })
+      .catch((error) => console.error('Failed to load storage usage:', error));
   }, []);
 
-  const getUploadLimitLabel = useCallback(() => {
-    if (!mediaSettings) return 'Лимит загрузки: ...';
-    if (!mediaSettings.uploadsEnabled) return 'Загрузка медиа отключена сервером';
-    if (mediaSettings.unlimited) return 'Лимит загрузки: без ограничений';
-    return `Лимит файла: ${formatBytes(mediaSettings.maxFileSize || 0)}`;
-  }, [mediaSettings]);
-
   const isUploadEnabled = mediaSettings ? mediaSettings.uploadsEnabled : true;
-  const handleMediaUploadInfoClick = useCallback(() => {
-    if (window.innerWidth <= 876) {
-      alert(getUploadLimitLabel());
-    }
-  }, [getUploadLimitLabel]);
+  const handleMediaUploadInfoClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setUploadInfoModalOpen(true);
+  }, []);
 
   const applyMediaSettingsFilter = useCallback(
     (files: File[]) => {
       if (!mediaSettings) return { accepted: files, rejected: [] as File[] };
       if (!mediaSettings.uploadsEnabled) return { accepted: [] as File[], rejected: files };
+      if (isStorageFull) return { accepted: [] as File[], rejected: files };
       if (mediaSettings.unlimited || !mediaSettings.maxFileSize) {
         return { accepted: files, rejected: [] as File[] };
       }
@@ -1082,7 +1135,7 @@ export default function Chat() {
       const rejected = files.filter((file) => file.size > mediaSettings.maxFileSize!);
       return { accepted, rejected };
     },
-    [mediaSettings]
+    [mediaSettings, isStorageFull]
   );
 
   // Scroll to typing indicator when someone is typing, but only if user was at the bottom
@@ -1101,7 +1154,9 @@ export default function Chat() {
         setSelectedFiles((prev) => [...prev, ...accepted]);
       }
       if (rejected.length > 0) {
-        if (mediaSettings && !mediaSettings.uploadsEnabled) {
+        if (isStorageFull) {
+          setUploadWarning('Хранилище заполнено. Удалите старые файлы или попросите владельца увеличить лимит.');
+        } else if (mediaSettings && !mediaSettings.uploadsEnabled) {
           setUploadWarning('Загрузка файлов отключена настройками сервера.');
         } else {
           setUploadWarning(
@@ -1235,7 +1290,9 @@ export default function Chat() {
           setSelectedFiles((prev) => [...prev, ...accepted]);
         }
         if (rejected.length > 0) {
-          if (mediaSettings && !mediaSettings.uploadsEnabled) {
+          if (isStorageFull) {
+            setUploadWarning('Хранилище заполнено. Удалите старые файлы или попросите владельца увеличить лимит.');
+          } else if (mediaSettings && !mediaSettings.uploadsEnabled) {
             setUploadWarning('Загрузка файлов отключена настройками сервера.');
           } else {
             setUploadWarning(
@@ -1389,7 +1446,7 @@ export default function Chat() {
       if (uploadErr?.code === 'MEDIA_FILE_TOO_LARGE' || uploadErr?.code === 'MEDIA_UPLOAD_DISABLED') {
         return;
       }
-      alert(err instanceof Error ? err.message : 'Не удалось отправить');
+      showToast(err instanceof Error ? err.message : 'Не удалось отправить', 'error');
     }
   }
 
@@ -1622,26 +1679,30 @@ export default function Chat() {
   // Delete selected messages - now delete one by one instead of batch
   const deleteSelectedMessages = async () => {
     if (selectedMessages.length === 0) return;
-    
-    if (confirm(`Вы уверены, что хотите удалить ${selectedMessages.length} сообщений?`)) {
-      try {
-        // Delete messages one by one - all selected messages should already be ones the user has permission to delete
-        const deletePromises = selectedMessages.map(msgId =>
-          messagesApi.delete(msgId, roomId!)
-        );
-        
-        await Promise.all(deletePromises);
-        // Optimistically remove deleted messages locally
-        setMessages((prev) => prev.filter((msg) => !selectedMessages.includes(msg.id)));
-        clearSelections(); // Clear selections after successful deletion
-        
-        // After deleting messages, update the scroll button visibility
-        setTimeout(updateScrollButtonVisibility, 0);
-      } catch (error) {
-        console.error('Error deleting messages:', error);
-        alert('Ошибка при удалении сообщений');
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Удалить сообщения?',
+      message: `Вы уверены, что хотите удалить ${selectedMessages.length} сообщений?`,
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const deletePromises = selectedMessages.map(msgId =>
+            messagesApi.delete(msgId, roomId!)
+          );
+
+          await Promise.all(deletePromises);
+          setMessages((prev) => prev.filter((msg) => !selectedMessages.includes(msg.id)));
+          clearSelections();
+          setTimeout(updateScrollButtonVisibility, 0);
+        } catch (error) {
+          console.error('Error deleting messages:', error);
+          showToast('Ошибка при удалении сообщений', 'error');
+        }
       }
-    }
+    });
   };
 
   // Create a function that only clears selected messages but doesn't exit selection mode
@@ -1682,7 +1743,7 @@ export default function Chat() {
     
     // If there's no content at all, warn the user
     if (!hasText && !hasOriginalMedia && !hasNewFiles) {
-      alert('Сообщение должно содержать текст или медиафайлы');
+      showToast('Сообщение должно содержать текст или медиафайлы', 'error');
       return;
     }
     
@@ -1729,7 +1790,7 @@ export default function Chat() {
       setSelectedFiles([]);
     } catch (error) {
       console.error('Error editing message:', error);
-      alert('Ошибка при редактировании сообщения');
+      showToast('Ошибка при редактировании сообщения', 'error');
     }
   };
 
@@ -1780,20 +1841,25 @@ export default function Chat() {
 
   // Handle deleting a single message
   const deleteSingleMessage = async (messageId: number) => {
-    if (confirm('Вы уверены, что хотите удалить это сообщение?')) {
-      try {
-        await messagesApi.delete(messageId, roomId!);
-        // Optimistically remove the message locally
-        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-        setContextMenu({ visible: false, x: 0, y: 0, message: null });
-        
-        // After deleting a message, update the scroll button visibility
-        setTimeout(updateScrollButtonVisibility, 0);
-      } catch (error) {
-        console.error('Error deleting message:', error);
-        alert('Ошибка при удалении сообщения');
+    setConfirmModal({
+      isOpen: true,
+      title: 'Удалить сообщение?',
+      message: 'Вы уверены, что хотите удалить это сообщение?',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await messagesApi.delete(messageId, roomId!);
+          setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+          setContextMenu({ visible: false, x: 0, y: 0, message: null });
+          setTimeout(updateScrollButtonVisibility, 0);
+        } catch (error) {
+          console.error('Error deleting message:', error);
+          showToast('Ошибка при удалении сообщения', 'error');
+        }
       }
-    }
+    });
   };
   
   // Function to download all media files from a message as a ZIP archive
@@ -1823,16 +1889,16 @@ export default function Chat() {
       
       // Wait for all files to be downloaded and added to the ZIP
       await Promise.all(promises);
-      
+
       // Generate the ZIP file and trigger the download
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const fileName = `media_${message.id}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.zip`;
       saveAs(zipBlob, fileName);
-      
+
       hideContextMenu();
     } catch (error) {
       console.error('Ошибка при создании ZIP-архива:', error);
-      alert('Ошибка при создании ZIP-архива');
+      showToast('Ошибка при создании ZIP-архива', 'error');
     }
   };
 
@@ -2536,12 +2602,12 @@ export default function Chat() {
               }} className={`chat-form${isSelecting ? ' chat-form-hidden' : ' chat-form-flex'}`}>
                 {/* Attachment button */}
                 <div className="attachment-button-wrapper">
-                  {isUploadEnabled && (
+                  {isUploadEnabled && !isStorageFull && (
                     <>
                       <label
                         htmlFor="file-upload"
                         className="attach-button"
-                        title={getUploadLimitLabel()}
+                        title={getStorageLimitLabel()}
                       >
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19" />
@@ -2557,10 +2623,17 @@ export default function Chat() {
                       />
                     </>
                   )}
+                  {isUploadEnabled && isStorageFull && (
+                    <span className="attach-button attach-button-disabled" title="Хранилище заполнено">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19" />
+                      </svg>
+                    </span>
+                  )}
                 </div>
                 <span
-                  className={`media-upload-info ${!isUploadEnabled ? 'media-upload-info-disabled' : ''}`}
-                  title={getUploadLimitLabel()}
+                  className={`media-upload-info ${!isUploadEnabled || isStorageFull ? 'media-upload-info-disabled' : ''}`}
+                  title={getStorageLimitLabel()}
                   onClick={handleMediaUploadInfoClick}
                   role="button"
                   aria-label="Показать информацию о лимитах медиа"
@@ -2569,12 +2642,12 @@ export default function Chat() {
                 </span>
                 
                 {/* File input for editing message */}
-                <input 
-                  id="edit-file-upload" 
-                  type="file" 
+                <input
+                  id="edit-file-upload"
+                  type="file"
                   multiple
                   {...{ webkitdirectory: true }}
-                  disabled={!isUploadEnabled}
+                  disabled={!isUploadEnabled || isStorageFull}
                   onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {
                       const files = Array.from(e.target.files);
@@ -2604,7 +2677,9 @@ export default function Chat() {
                         });
                       });
                       if (rejected.length > 0) {
-                        if (mediaSettings && !mediaSettings.uploadsEnabled) {
+                        if (isStorageFull) {
+                          setUploadWarning('Хранилище заполнено. Удалите старые файлы или попросите владельца увеличить лимит.');
+                        } else if (mediaSettings && !mediaSettings.uploadsEnabled) {
                           setUploadWarning('Загрузка файлов отключена настройками сервера.');
                         } else {
                           setUploadWarning(
@@ -2763,6 +2838,61 @@ export default function Chat() {
           </aside>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      <InfoModal
+        isOpen={uploadInfoModalOpen}
+        title="Лимиты загрузки медиа"
+        message={
+          <div className="upload-info-list">
+            <div className="upload-info-item">
+              <span className="upload-info-label">Статус:</span>
+              <span className={`upload-info-value ${isUploadEnabled ? 'upload-enabled' : 'upload-disabled'}`}>
+                {isUploadEnabled ? 'Загрузка включена' : 'Загрузка отключена'}
+              </span>
+            </div>
+            <div className="upload-info-item">
+              <span className="upload-info-label">Максимальный размер файла:</span>
+              <span className="upload-info-value">
+                {!mediaSettings
+                  ? 'Загрузка...'
+                  : !mediaSettings.uploadsEnabled
+                  ? 'Недоступно'
+                  : mediaSettings.unlimited
+                  ? 'Без ограничений'
+                  : formatBytes(mediaSettings.maxFileSize || 0)}
+              </span>
+            </div>
+            <div className="upload-info-item">
+              <span className="upload-info-label">Хранилище:</span>
+              <span className={`upload-info-value ${storageUsage.maxStorageSize === null || storageUsage.maxStorageSize === 0 ? 'upload-unlimited' : ''}`}>
+                {storageUsage.maxStorageSize === null || storageUsage.maxStorageSize === 0
+                  ? 'Без ограничений'
+                  : `${formatBytes(storageUsage.totalBytes)} из ${formatBytes(storageUsage.maxStorageSize)}`}
+              </span>
+              {storageUsage.maxStorageSize !== null && storageUsage.maxStorageSize > 0 && (
+                <div className="upload-storage-bar">
+                  <div
+                    className="upload-storage-bar-fill"
+                    style={{ width: `${Math.min(100, (storageUsage.totalBytes / storageUsage.maxStorageSize) * 100)}%` }}
+                  ></div>
+                </div>
+              )}
+            </div>
+          </div>
+        }
+        onClose={() => setUploadInfoModalOpen(false)}
+      />
     </div>
   );
 }

@@ -181,9 +181,10 @@ async function mediaPlugin(fastify, options) {
     const envUploadLimitRaw = parseInt(process.env.CHAGOURTEE_MAX_FILE_SIZE || '52428800', 10);
     const envUploadLimit =
         Number.isFinite(envUploadLimitRaw) && envUploadLimitRaw >= -1 ? envUploadLimitRaw : 52428800;
-    const envStorageLimitRaw = parseInt(process.env.CHAGOURTEE_MAX_STORAGE_SIZE || '-1', 10);
+    // 0 = unlimited, >0 = bytes limit
+    const envStorageLimitRaw = parseInt(process.env.CHAGOURTEE_MAX_STORAGE_SIZE || '0', 10);
     const envStorageLimit =
-        Number.isFinite(envStorageLimitRaw) && envStorageLimitRaw >= -1 ? envStorageLimitRaw : -1;
+        Number.isFinite(envStorageLimitRaw) && envStorageLimitRaw >= 0 ? envStorageLimitRaw : 0;
     const envCleanupStrategy =
         process.env.CHAGOURTEE_STORAGE_CLEANUP_STRATEGY === 'delete_oldest'
             ? 'delete_oldest'
@@ -740,7 +741,7 @@ async function mediaPlugin(fastify, options) {
 
             if (
                 requestedMaxStorageSize !== null &&
-                (!Number.isFinite(requestedMaxStorageSize) || requestedMaxStorageSize < -1)
+                (!Number.isFinite(requestedMaxStorageSize) || requestedMaxStorageSize < 0)
             ) {
                 return reply.code(400).send({ error: 'Invalid maxStorageSize' });
             }
@@ -864,7 +865,7 @@ async function mediaPlugin(fastify, options) {
             // Enforce total media storage quota
             const storageSettings = getStorageSettings();
             const storageLimit = storageSettings.maxStorageSize;
-            if (storageLimit !== -1) {
+            if (storageLimit > 0) {
                 const usage = getCurrentStorageUsage();
                 const projectedTotal = usage.totalBytes + buffer.length;
                 if (projectedTotal > storageLimit) {

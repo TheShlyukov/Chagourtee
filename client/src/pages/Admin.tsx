@@ -5,6 +5,7 @@ import { rooms as roomsApi, invites as invitesApi, verification as verificationA
 import { useServerName } from '../ServerNameContext';
 import { initializeWebSocket, addMessageHandler, removeMessageHandler } from '../websocket';
 import { useToast } from '../ToastContext';
+import ConfirmModal from '../components/ConfirmModal';
 import { errorTranslations } from '../localization/errors';
 import { useAdminChrome } from '../AdminChromeContext';
 import { TabletBottomNav } from '../components/TabletBottomNav';
@@ -29,10 +30,11 @@ function translateErrorMessage(errorMsg: string): string {
 }
 
 function formatBytes(value: number): string {
-  if (value >= 1024 * 1024 * 1024) return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(2)} MB`;
-  if (value >= 1024) return `${(value / 1024).toFixed(2)} KB`;
-  return `${value} B`;
+  if (value === 0) return '0 Б';
+  if (value >= 1024 * 1024 * 1024) return `${(value / (1024 * 1024 * 1024)).toFixed(2)} ГиБ`;
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(2)} МиБ`;
+  if (value >= 1024) return `${(value / 1024).toFixed(2)} КиБ`;
+  return `${value} Б`;
 }
 
 type PendingUser = { id: number; login: string; created_at: string; };
@@ -54,6 +56,16 @@ const ADMIN_MODERATOR_SECTIONS: { id: AdminSectionId; label: string }[] = [{ id:
 export default function Admin() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'info';
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  
   const [rooms, setRooms] = useState<Room[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [pending, setPending] = useState<PendingUser[]>([]);
@@ -69,7 +81,7 @@ export default function Admin() {
   const [serverNameSaving, setServerNameSaving] = useState(false);
   const [mediaStorageSettings, setMediaStorageSettings] = useState<MediaStorageSettings | null>(null);
   const [uploadLimitInput, setUploadLimitInput] = useState<string>('52428800');
-  const [storageLimitInput, setStorageLimitInput] = useState<string>('-1');
+  const [storageLimitInput, setStorageLimitInput] = useState<string>('0');
   const [storageCleanupStrategy, setStorageCleanupStrategy] = useState<'block' | 'delete_oldest'>('block');
   const [orphanCleanupEnabled, setOrphanCleanupEnabled] = useState(true);
   const [orphanCleanupIntervalMinutes, setOrphanCleanupIntervalMinutes] = useState<string>('60');
@@ -121,11 +133,11 @@ export default function Admin() {
       media.getStorageSettings()
         .then((data) => {
           setMediaStorageSettings(data);
-          setUploadLimitInput(data.maxFileSize === null ? '-1' : String(data.maxFileSize));
+          setUploadLimitInput(data.maxFileSize === null || data.maxFileSize === -1 ? '-1' : String(data.maxFileSize));
           setStorageCleanupStrategy(data.cleanupStrategy);
           setStorageLimitInput(
-            data.maxStorageSize === null || data.maxStorageSize === undefined
-              ? '-1'
+            data.maxStorageSize === null || data.maxStorageSize === 0 || data.maxStorageSize === -1
+              ? '0'
               : String(data.maxStorageSize)
           );
           setOrphanCleanupEnabled(data.orphanCleanupEnabled);
@@ -436,11 +448,20 @@ export default function Admin() {
     const parsedCleanupGrace = Number(orphanCleanupGraceMinutes);
 
     if (!Number.isFinite(parsedUploadLimit) || parsedUploadLimit < -1) {
-      showToast('Лимит файла должен быть -1, 0 или числом > 0', 'error');
+      showToast('Лимит файла должен быть -1, 0 или числом > 0 (в байтах)', 'error');
       return;
     }
-    if (!Number.isFinite(parsedLimit) || parsedLimit < -1) {
-      showToast('Лимит хранилища должен быть -1 или числом >= 0', 'error');
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 0) {
+      showToast('Лимит хранилища должен быть 0 или числом > 0 (в байтах)', 'error');
+      return;
+    }
+
+    // Validate that storage limit is not less than current usage (unless unlimited = 0)
+    if (parsedLimit > 0 && mediaStorageSettings && parsedLimit < mediaStorageSettings.totalBytes) {
+      showToast(
+        `Лимит хранилища (${formatBytes(parsedLimit)}) меньше текущего объёма (${formatBytes(mediaStorageSettings.totalBytes)}). Освободите место или увеличьте лимит.`,
+        'error'
+      );
       return;
     }
     if (!Number.isFinite(parsedCleanupInterval) || parsedCleanupInterval < 1) {
@@ -454,8 +475,8 @@ export default function Admin() {
 
     setStorageSettingsSaving(true);
     try {
-      const normalizedLimit = parsedLimit === -1 ? null : parsedLimit;
-      const normalizedUploadLimit = parsedUploadLimit === -1 ? null : parsedUploadLimit;
+      const normalizedLimit = parsedLimit === 0 ? 0 : parsedLimit;
+      const normalizedUploadLimit = parsedUploadLimit;
       const saved = await media.updateStorageSettings({
         maxFileSize: normalizedUploadLimit,
         maxStorageSize: normalizedLimit,
@@ -465,8 +486,8 @@ export default function Admin() {
         orphanCleanupGraceMinutes: parsedCleanupGrace,
       });
       setMediaStorageSettings(saved);
-      setUploadLimitInput(saved.maxFileSize === null ? '-1' : String(saved.maxFileSize));
-      setStorageLimitInput(saved.maxStorageSize === null ? '-1' : String(saved.maxStorageSize));
+      setUploadLimitInput(saved.maxFileSize === null || saved.maxFileSize === -1 ? '-1' : String(saved.maxFileSize));
+      setStorageLimitInput(saved.maxStorageSize === null || saved.maxStorageSize === 0 ? '0' : String(saved.maxStorageSize));
       setOrphanCleanupEnabled(saved.orphanCleanupEnabled);
       setOrphanCleanupIntervalMinutes(String(saved.orphanCleanupIntervalMinutes));
       setOrphanCleanupGraceMinutes(String(saved.orphanCleanupGraceMinutes));
@@ -483,15 +504,23 @@ export default function Admin() {
       showToast('Только владелец может удалять комнаты', 'error');
       return;
     }
-    
-    if (!confirm('Удалить комнату и все сообщения?')) return;
-    try {
-      await roomsApi.delete(id);
-      showToast('Комната удалена', 'success');
-      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
-    } catch (err) {
-      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
-    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Удалить комнату?',
+      message: 'Удалить комнату и все сообщения?',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await roomsApi.delete(id);
+          showToast('Комната удалена', 'success');
+        } catch (err) {
+          showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
+        }
+      }
+    });
   }
 
   async function clearRoomMessages(id: number) {
@@ -499,14 +528,23 @@ export default function Admin() {
       showToast('Только владелец может очищать сообщения в комнатах', 'error');
       return;
     }
-    
-    if (!confirm('Очистить все сообщения в комнате?')) return;
-    try {
-      await roomsApi.clearMessages(id);
-      showToast('Сообщения в комнате очищены', 'success');
-    } catch (err) {
-      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
-    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Очистить сообщения?',
+      message: 'Очистить все сообщения в комнате?',
+      confirmText: 'Очистить',
+      cancelText: 'Отмена',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await roomsApi.clearMessages(id);
+          showToast('Сообщения в комнате очищены', 'success');
+        } catch (err) {
+          showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
+        }
+      }
+    });
   }
 
   async function approve(userId: number) {
@@ -530,16 +568,23 @@ export default function Admin() {
       showToast('Только владелец может отклонять пользователей', 'error');
       return;
     }
-    
-    if (!confirm('Отклонить и удалить пользователя?')) return;
-    try {
-      // Rejecting by deleting the user with a rejection reason
-      await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
-      showToast('Пользователь отклонён', 'success');
-      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
-    } catch (err) {
-      showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
-    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Отклонить пользователя?',
+      message: 'Отклонить и удалить пользователя?',
+      confirmText: 'Отклонить',
+      cancelText: 'Отмена',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
+          showToast('Пользователь отклонён', 'success');
+        } catch (err) {
+          showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
+        }
+      }
+    });
   }
 
   async function changeUserRole(userId: number, role: 'owner' | 'moderator' | 'member') {
@@ -557,19 +602,54 @@ export default function Admin() {
     }
   }
 
-  const toggleVerification = async () => {
+  const handleVerificationToggle = () => {
     if (user?.role !== 'owner') {
       showToast('Только владелец может изменять настройки верификации', 'error');
       return;
     }
-    
+
+    if (verificationEnabled) {
+      // Disabling verification
+      if (pending.length > 0) {
+        setConfirmModal({
+          isOpen: true,
+          title: 'Отключить верификацию?',
+          message: `Есть ${pending.length} пользователей ожидающих подтверждения. Сначала обработайте их в разделе "Верификация".`,
+          confirmText: 'Всё равно отключить',
+          cancelText: 'Отмена',
+          variant: 'warning',
+          onConfirm: async () => {
+            await disableVerification();
+          }
+        });
+      } else {
+        disableVerification();
+      }
+    } else {
+      // Enabling verification
+      enableVerification();
+    }
+  };
+
+  const disableVerification = async () => {
     try {
-      const response = await verificationApi.updateSettings(!verificationEnabled);
+      const response = await verificationApi.updateSettings(false);
       setVerificationEnabled(response.enabled);
-      showToast(`Система верификации ${response.enabled ? 'включена' : 'отключена'}`, 'success');
+      showToast('Система верификации отключена', 'success');
     } catch (error) {
-      DEBUG_MODE && console.error('Failed to toggle verification:', error);
-      showToast('Ошибка при изменении настроек верификации', 'error');
+      DEBUG_MODE && console.error('Failed to disable verification:', error);
+      showToast('Ошибка при отключении верификации', 'error');
+    }
+  };
+
+  const enableVerification = async () => {
+    try {
+      const response = await verificationApi.updateSettings(true);
+      setVerificationEnabled(response.enabled);
+      showToast('Система верификации включена', 'success');
+    } catch (error) {
+      DEBUG_MODE && console.error('Failed to enable verification:', error);
+      showToast('Ошибка при включении верификации', 'error');
     }
   };
 
@@ -677,23 +757,28 @@ export default function Admin() {
       setDeletingUserId(null);
       return;
     }
-    
+
     if (deletingUserId !== null) {
-      if (!window.confirm(`Вы уверены, что хотите удалить пользователя? Причина: ${deletionReason}`)) {
-        setDeletingUserId(null);
-        return;
-      }
-      
-      try {
-        await usersApi.delete(deletingUserId, deletionReason);
-        await refreshUsers();
-        showToast('Пользователь удален', 'success');
-      } catch (err) {
-        showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка при удалении пользователя', 'error');
-      } finally {
-        setDeletingUserId(null);
-        setDeletionReason('');
-      }
+      setConfirmModal({
+        isOpen: true,
+        title: 'Удалить пользователя?',
+        message: `Вы уверены, что хотите удалить пользователя? Причина: ${deletionReason}`,
+        confirmText: 'Удалить',
+        cancelText: 'Отмена',
+        variant: 'danger',
+        onConfirm: async () => {
+          try {
+            await usersApi.delete(deletingUserId, deletionReason);
+            await refreshUsers();
+            showToast('Пользователь удален', 'success');
+          } catch (err) {
+            showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка при удалении пользователя', 'error');
+          } finally {
+            setDeletingUserId(null);
+            setDeletionReason('');
+          }
+        }
+      });
     }
   };
 
@@ -868,7 +953,7 @@ export default function Admin() {
             <form onSubmit={saveMediaStorageSettings} className="admin-form-stack">
               <label className="admin-label-col">
                 <span className="admin-label-text">
-                  Лимит одного файла (`0` = выключить загрузку, `-1` = без ограничений)
+                  Лимит одного файла (в байтах; `0` = выключить загрузку, `-1` = без ограничений)
                 </span>
                 <input
                   type="number"
@@ -882,15 +967,15 @@ export default function Admin() {
 
               <label className="admin-label-col">
                 <span className="admin-label-text">
-                  Лимит хранилища в байтах (`-1` = без ограничений)
+                  Лимит хранилища (в байтах; `0` = без ограничений)
                 </span>
                 <input
                   type="number"
-                  min={-1}
+                  min={0}
                   step={1}
                   value={storageLimitInput}
                   onChange={(e) => setStorageLimitInput(e.target.value)}
-                  placeholder="-1"
+                  placeholder="0"
                 />
               </label>
 
@@ -906,14 +991,17 @@ export default function Admin() {
                 </select>
               </label>
 
-              <label className="admin-label-row">
-                <input
-                  type="checkbox"
-                  checked={orphanCleanupEnabled}
-                  onChange={(e) => setOrphanCleanupEnabled(e.target.checked)}
-                />
+              <div className="admin-label-row admin-toggle-row">
+                <label className="admin-toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={orphanCleanupEnabled}
+                    onChange={(e) => setOrphanCleanupEnabled(e.target.checked)}
+                  />
+                  <span className="admin-toggle-slider"></span>
+                </label>
                 <span className="admin-label-text">Включить автоочистку orphaned-файлов</span>
-              </label>
+              </div>
 
               <label className="admin-label-col">
                 <span className="admin-label-text">
@@ -947,9 +1035,29 @@ export default function Admin() {
             </form>
 
             {mediaStorageSettings && (
-              <p className="admin-storage-footnote">
-                Использовано: {formatBytes(mediaStorageSettings.totalBytes)} ({mediaStorageSettings.filesCount} файлов)
-              </p>
+              <div className="admin-storage-footnote">
+                <div>
+                  Использовано: {formatBytes(mediaStorageSettings.totalBytes)} ({mediaStorageSettings.filesCount} файлов)
+                  {(() => {
+                    const parsedLimit = Number(storageLimitInput);
+                    if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
+                      return <> из {formatBytes(parsedLimit)}</>;
+                    }
+                    return null;
+                  })()}
+                </div>
+                {(() => {
+                  const parsedLimit = Number(storageLimitInput);
+                  if (Number.isFinite(parsedLimit) && parsedLimit > 0 && mediaStorageSettings.totalBytes > 0) {
+                    return (
+                      <div className="admin-storage-percent">
+                        Хранилище заполнено примерно на {((mediaStorageSettings.totalBytes / parsedLimit) * 100).toFixed(2)}%
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             )}
           </div>
           )}
@@ -1073,11 +1181,41 @@ export default function Admin() {
               <span className="icon-inline" aria-hidden>
                 <IconShield />
               </span>
-              Верификация (ожидают)
+              Настройка верификации
             </h3>
-            {pending.length === 0 ? (
-              <p className="admin-empty-hint">Нет пользователей на верификации</p>
-            ) : (
+            <div className="admin-toggle-row">
+              <label className="admin-toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={verificationEnabled}
+                  onChange={handleVerificationToggle}
+                />
+                <span className="admin-toggle-slider"></span>
+              </label>
+              <span className="admin-label-text">
+                {verificationEnabled ? 'Система верификации включена' : 'Система верификации отключена'}
+              </span>
+            </div>
+
+            {verificationEnabled && (
+              <div className="admin-info-box">
+                <p>При включенной системе все новые пользователи будут ожидать верификации.</p>
+                <p>
+                  Вы можете использовать одноразовые коды для автоматической верификации или проверять кодовые слова
+                  вручную для пользователей.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {verificationEnabled && pending.length > 0 && (
+            <div className="card">
+              <h3 className="admin-card-title">
+                <span className="icon-inline" aria-hidden>
+                  <IconShield />
+                </span>
+                Верификация (ожидают: {pending.length})
+              </h3>
               <div className="admin-list-col--lg">
                 {pending.map((u) => (
                   <div key={u.id} className="admin-pending-card">
@@ -1100,39 +1238,8 @@ export default function Admin() {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-
-          <div className="card">
-            <h3 className="admin-card-title">
-              <span className="icon-inline" aria-hidden>
-                <IconShield />
-              </span>
-              Настройка верификации
-            </h3>
-            <div className="admin-verify-toolbar">
-              <span>
-                {verificationEnabled ? 'Система верификации включена' : 'Система верификации отключена'}
-              </span>
-              <button
-                type="button"
-                onClick={toggleVerification}
-                className={verificationEnabled ? 'danger admin-toggle-btn' : 'admin-toggle-btn'}
-              >
-                {verificationEnabled ? 'Отключить' : 'Включить'}
-              </button>
             </div>
-
-            {verificationEnabled && (
-              <div className="admin-info-box">
-                <p>При включенной системе все новые пользователи будут ожидать верификации.</p>
-                <p>
-                  Вы можете использовать одноразовые коды для автоматической верификации или проверять кодовые слова
-                  вручную для пользователей.
-                </p>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Card for verification codes if verification is enabled */}
           {verificationEnabled && (
@@ -1177,9 +1284,15 @@ export default function Admin() {
                         type="button"
                         className="admin-code-delete"
                         onClick={() => {
-                          if (window.confirm('Удалить этот код?')) {
-                            deleteVerificationCode(code.id);
-                          }
+                          setConfirmModal({
+                            isOpen: true,
+                            title: 'Удалить код?',
+                            message: 'Удалить этот код?',
+                            confirmText: 'Удалить',
+                            cancelText: 'Отмена',
+                            variant: 'danger',
+                            onConfirm: () => deleteVerificationCode(code.id)
+                          });
                         }}
                       >
                         Удалить
@@ -1293,6 +1406,17 @@ export default function Admin() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

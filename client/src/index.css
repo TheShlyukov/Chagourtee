@@ -13,6 +13,7 @@ html {
   --accent-light: rgba(255, 123, 0, 0.12);
   --text-on-accent: #ffffff;
   --danger: #ff4757;
+  --danger-hover: #ff6b7a;
   --success: #2ed573;
   --gradient-primary: linear-gradient(135deg, #ff7b00 0%, #ffaa33 100%);
   --gradient-bg: linear-gradient(165deg, #141416 0%, #0c0c0e 55%, #101012 100%);
@@ -41,6 +42,7 @@ html[data-theme="light"] {
   --accent-light: rgba(230, 115, 0, 0.12);
   --text-on-accent: #ffffff;
   --danger: #e02d3c;
+  --danger-hover: #c42430;
   --success: #1fa855;
   --gradient-primary: linear-gradient(135deg, #e67300 0%, #f5a623 100%);
   --gradient-bg: linear-gradient(165deg, #f0f0f5 0%, #e4e4ec 100%);

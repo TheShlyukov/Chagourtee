@@ -1688,6 +1688,7 @@ export default function Chat() {
       cancelText: 'Отмена',
       variant: 'danger',
       onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         try {
           const deletePromises = selectedMessages.map(msgId =>
             messagesApi.delete(msgId, roomId!)
@@ -1849,6 +1850,7 @@ export default function Chat() {
       cancelText: 'Отмена',
       variant: 'danger',
       onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         try {
           await messagesApi.delete(messageId, roomId!);
           setMessages((prev) => prev.filter((msg) => msg.id !== messageId));

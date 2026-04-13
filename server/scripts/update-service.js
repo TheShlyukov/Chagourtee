@@ -272,31 +272,25 @@ function performUpdate(targetVersion) {
       // Return a promise to handle the async nature of readline
       return new Promise((resolve) => {
         rl.question(
-          colorize('green', `\nWould you like to install dependencies now? (y/N): `),
+          colorize('green', `\nWould you like to install dependencies and build now? (y/N): `),
           (answer) => {
             if (answer.toLowerCase().startsWith('y')) {
               console.log(colorize('green', 'Installing root dependencies...'));
               runCommand('npm install');
 
-              // If workspaces exist, install dependencies in workspaces too
-              const rootPackagePath = path.join(__dirname, '../../package.json');
-              if (fs.existsSync(rootPackagePath)) {
-                const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
-                if (rootPackage.workspaces) {
-                  console.log(colorize('green', 'Installing workspace dependencies...'));
-                  rootPackage.workspaces.forEach(workspace => {
-                    const workspacePath = path.join(__dirname, '../../', workspace);
-                    if (fs.existsSync(workspacePath)) {
-                      console.log(colorize('green', `Installing dependencies for ${workspace}...`));
-                      runCommand('npm install', workspacePath);
-                    }
-                  });
-                }
-              }
-
               console.log(colorize('green', 'Dependencies installed successfully.'));
+
+              // Build the project
+              console.log(colorize('green', '\nBuilding project (client + server)...'));
+              try {
+                runCommand('npm run build');
+                console.log(colorize('green', 'Build completed successfully.'));
+              } catch (buildError) {
+                console.error(colorize('red', 'Build failed. You can try running `npm run build` manually.'));
+                console.error(colorize('red', buildError.message));
+              }
             } else {
-              console.log(colorize('yellow', 'Dependency installation skipped. You can run `npm install` manually later.'));
+              console.log(colorize('yellow', 'Dependency installation and build skipped. You can run `npm install` and `npm run build` manually later.'));
             }
 
             rl.close();

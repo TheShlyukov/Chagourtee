@@ -3303,26 +3303,94 @@ a:hover {
   word-break: break-word;
 }
 
-.admin-btn-room {
-  font-size: 0.875rem;
-  flex: 0 0 auto;
-  color: var(--text-on-accent);
+.admin-room-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+/* Create room button */
+.admin-btn-create-room {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
   border: none;
-  border-radius: var(--radius-default);
-  padding: 0.25rem 0.5rem;
+  background: var(--gradient-primary);
+  color: var(--text-on-accent);
   cursor: pointer;
-  margin-right: 0.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  font-weight: 500;
+  font-size: 0.875rem;
+  position: relative;
+  overflow: hidden;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.admin-btn-create-room::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.admin-btn-create-room:hover::before {
+  opacity: 1;
+}
+
+.admin-btn-create-room:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.admin-btn-create-room:active {
+  filter: brightness(0.95);
+  transform: translateY(0);
+}
+
+/* Round icon buttons for room actions */
+.admin-btn-room {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
   font-weight: 500;
   box-shadow: none;
+  position: relative;
+  overflow: visible;
+  transition: filter 0.2s ease, transform 0.2s ease;
 }
 
 .admin-btn-room::before {
-  display: none;
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.admin-btn-room:hover::before {
+  opacity: 1;
 }
 
 .admin-btn-room:hover {
   transform: none;
-  filter: brightness(1.08);
+  filter: brightness(1.12);
+}
+
+.admin-btn-room:active {
+  filter: brightness(0.95);
 }
 
 .admin-btn-room:last-child {
@@ -3345,7 +3413,7 @@ a:hover {
 
 .admin-btn-room--warn {
   background-color: var(--warning);
-  color: var(--text);
+  color: var(--text-on-accent);
 }
 
 .admin-pending-card {

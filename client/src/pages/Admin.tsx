@@ -70,9 +70,8 @@ export default function Admin() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [pending, setPending] = useState<PendingUser[]>([]);
   const [users, setUsers] = useState<UserWithDate[]>([]);
-  const [newRoomName, setNewRoomName] = useState('');
-  const [inviteOpts, setInviteOpts] = useState({ maxUses: '', expiresInHours: '' });
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [inviteOpts, setInviteOpts] = useState({ maxUses: '', expiresInHours: '' });
   const [verificationEnabled, setVerificationEnabled] = useState(false);
   const [codes, setCodes] = useState<{id: number, created_by_login: string, used: number, created_at: string, expires_at: string}[]>([]);
   const [customCode, setCustomCode] = useState<string>('');
@@ -80,8 +79,10 @@ export default function Admin() {
   const [serverNameInput, setServerNameInput] = useState<string>(rawName ?? '');
   const [serverNameSaving, setServerNameSaving] = useState(false);
   const [mediaStorageSettings, setMediaStorageSettings] = useState<MediaStorageSettings | null>(null);
-  const [uploadLimitInput, setUploadLimitInput] = useState<string>('52428800');
-  const [storageLimitInput, setStorageLimitInput] = useState<string>('0');
+  const [uploadLimitMode, setUploadLimitMode] = useState<'unlimited' | 'disabled' | 'custom'>('unlimited');
+  const [uploadLimitInput, setUploadLimitInput] = useState<string>('');
+  const [storageLimitUnlimited, setStorageLimitUnlimited] = useState(true);
+  const [storageLimitInput, setStorageLimitInput] = useState<string>('');
   const [storageCleanupStrategy, setStorageCleanupStrategy] = useState<'block' | 'delete_oldest'>('block');
   const [orphanCleanupEnabled, setOrphanCleanupEnabled] = useState(true);
   const [orphanCleanupIntervalMinutes, setOrphanCleanupIntervalMinutes] = useState<string>('60');
@@ -93,7 +94,11 @@ export default function Admin() {
 
   // State for renaming
   const [renamingRoomId, setRenamingRoomId] = useState<number | null>(null);
-  const [renamingInputValue, setRenamingInputValue] = useState(''); // Separate state for renaming
+  const [renamingInputValue, setRenamingInputValue] = useState('');
+
+  // State for room creation modal
+  const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [newRoomNameInput, setNewRoomNameInput] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -133,13 +138,28 @@ export default function Admin() {
       media.getStorageSettings()
         .then((data) => {
           setMediaStorageSettings(data);
-          setUploadLimitInput(data.maxFileSize === null || data.maxFileSize === -1 ? '-1' : String(data.maxFileSize));
+          // -1 or null means unlimited
+          if (data.maxFileSize === null || data.maxFileSize === -1) {
+            setUploadLimitMode('unlimited');
+            setUploadLimitInput('');
+          } else if (data.maxFileSize === 0) {
+            // 0 means uploads disabled
+            setUploadLimitMode('disabled');
+            setUploadLimitInput('');
+          } else {
+            // Specific limit set
+            setUploadLimitMode('custom');
+            setUploadLimitInput(String(data.maxFileSize));
+          }
+          // 0, -1, or null means unlimited for storage
+          if (data.maxStorageSize === null || data.maxStorageSize === 0 || data.maxStorageSize === -1) {
+            setStorageLimitUnlimited(true);
+            setStorageLimitInput('');
+          } else {
+            setStorageLimitUnlimited(false);
+            setStorageLimitInput(String(data.maxStorageSize));
+          }
           setStorageCleanupStrategy(data.cleanupStrategy);
-          setStorageLimitInput(
-            data.maxStorageSize === null || data.maxStorageSize === 0 || data.maxStorageSize === -1
-              ? '0'
-              : String(data.maxStorageSize)
-          );
           setOrphanCleanupEnabled(data.orphanCleanupEnabled);
           setOrphanCleanupIntervalMinutes(String(data.orphanCleanupIntervalMinutes));
           setOrphanCleanupGraceMinutes(String(data.orphanCleanupGraceMinutes));
@@ -379,30 +399,30 @@ export default function Admin() {
   }
 
   // Functions for other sections (only for owners)
-  async function createRoom(e: React.FormEvent) {
+  async function createRoom(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     if (user?.role !== 'owner') {
       showToast('Только владелец может создавать комнаты', 'error');
       return;
     }
-    
-    e.preventDefault();
-    const trimmedName = newRoomName.trim();
-    
+
+    const trimmedName = newRoomNameInput.trim();
+
     if (!trimmedName) {
       showToast('Введите название комнаты', 'error');
       return;
     }
-    
+
     if (trimmedName.length > 32) {
       showToast('Название комнаты не может превышать 32 символа', 'error');
       return;
     }
-    
+
     try {
       await roomsApi.create(trimmedName);
-      setNewRoomName('');
+      setNewRoomNameInput('');
+      setShowCreateRoomModal(false);
       showToast('Комната создана', 'success');
-      // Обновление будет происходить через WebSocket, так что не нужно вызывать load() здесь
     } catch (err) {
       showToast(err instanceof Error ? translateErrorMessage(err.message) : 'Ошибка', 'error');
     }
@@ -442,22 +462,30 @@ export default function Admin() {
       return;
     }
 
-    const parsedLimit = Number(storageLimitInput);
-    const parsedUploadLimit = Number(uploadLimitInput);
+    // Calculate actual values based on mode
+    const parsedUploadLimit =
+      uploadLimitMode === 'unlimited' ? -1 :
+      uploadLimitMode === 'disabled' ? 0 :
+      (uploadLimitInput === '' ? 52428800 : Number(uploadLimitInput));
+    const parsedLimit = storageLimitUnlimited ? 0 : Number(storageLimitInput);
     const parsedCleanupInterval = Number(orphanCleanupIntervalMinutes);
     const parsedCleanupGrace = Number(orphanCleanupGraceMinutes);
 
-    if (!Number.isFinite(parsedUploadLimit) || parsedUploadLimit < -1) {
-      showToast('Лимит файла должен быть -1, 0 или числом > 0 (в байтах)', 'error');
+    // Validate custom file limit
+    if (uploadLimitMode === 'custom' && (!Number.isFinite(parsedUploadLimit) || parsedUploadLimit <= 0)) {
+      showToast('Лимит файла должен быть числом > 0 (в байтах)', 'error');
       return;
     }
-    if (!Number.isFinite(parsedLimit) || parsedLimit < 0) {
-      showToast('Лимит хранилища должен быть 0 или числом > 0 (в байтах)', 'error');
-      return;
+    // Validate custom storage limit
+    if (!storageLimitUnlimited) {
+      if (!Number.isFinite(parsedLimit) || parsedLimit <= 0) {
+        showToast('Лимит хранилища должен быть числом > 0 (в байтах)', 'error');
+        return;
+      }
     }
 
-    // Validate that storage limit is not less than current usage (unless unlimited = 0)
-    if (parsedLimit > 0 && mediaStorageSettings && parsedLimit < mediaStorageSettings.totalBytes) {
+    // Validate that storage limit is not less than current usage (unless unlimited)
+    if (!storageLimitUnlimited && parsedLimit > 0 && mediaStorageSettings && parsedLimit < mediaStorageSettings.totalBytes) {
       showToast(
         `Лимит хранилища (${formatBytes(parsedLimit)}) меньше текущего объёма (${formatBytes(mediaStorageSettings.totalBytes)}). Освободите место или увеличьте лимит.`,
         'error'
@@ -475,19 +503,33 @@ export default function Admin() {
 
     setStorageSettingsSaving(true);
     try {
-      const normalizedLimit = parsedLimit === 0 ? 0 : parsedLimit;
-      const normalizedUploadLimit = parsedUploadLimit;
       const saved = await media.updateStorageSettings({
-        maxFileSize: normalizedUploadLimit,
-        maxStorageSize: normalizedLimit,
+        maxFileSize: parsedUploadLimit,
+        maxStorageSize: parsedLimit,
         cleanupStrategy: storageCleanupStrategy,
         orphanCleanupEnabled,
         orphanCleanupIntervalMinutes: parsedCleanupInterval,
         orphanCleanupGraceMinutes: parsedCleanupGrace,
       });
       setMediaStorageSettings(saved);
-      setUploadLimitInput(saved.maxFileSize === null || saved.maxFileSize === -1 ? '-1' : String(saved.maxFileSize));
-      setStorageLimitInput(saved.maxStorageSize === null || saved.maxStorageSize === 0 ? '0' : String(saved.maxStorageSize));
+      // Update UI state based on saved values
+      if (saved.maxFileSize === null || saved.maxFileSize === -1) {
+        setUploadLimitMode('unlimited');
+        setUploadLimitInput('');
+      } else if (saved.maxFileSize === 0) {
+        setUploadLimitMode('disabled');
+        setUploadLimitInput('');
+      } else {
+        setUploadLimitMode('custom');
+        setUploadLimitInput(String(saved.maxFileSize));
+      }
+      if (saved.maxStorageSize === null || saved.maxStorageSize === 0 || saved.maxStorageSize === -1) {
+        setStorageLimitUnlimited(true);
+        setStorageLimitInput('');
+      } else {
+        setStorageLimitUnlimited(false);
+        setStorageLimitInput(String(saved.maxStorageSize));
+      }
       setOrphanCleanupEnabled(saved.orphanCleanupEnabled);
       setOrphanCleanupIntervalMinutes(String(saved.orphanCleanupIntervalMinutes));
       setOrphanCleanupGraceMinutes(String(saved.orphanCleanupGraceMinutes));
@@ -513,6 +555,7 @@ export default function Admin() {
       cancelText: 'Отмена',
       variant: 'danger',
       onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         try {
           await roomsApi.delete(id);
           showToast('Комната удалена', 'success');
@@ -537,6 +580,7 @@ export default function Admin() {
       cancelText: 'Отмена',
       variant: 'danger',
       onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         try {
           await roomsApi.clearMessages(id);
           showToast('Сообщения в комнате очищены', 'success');
@@ -577,6 +621,7 @@ export default function Admin() {
       cancelText: 'Отмена',
       variant: 'danger',
       onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         try {
           await usersApi.delete(userId, 'Ваша заявка на верификацию была отклонена');
           showToast('Пользователь отклонён', 'success');
@@ -619,6 +664,7 @@ export default function Admin() {
           cancelText: 'Отмена',
           variant: 'warning',
           onConfirm: async () => {
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
             await disableVerification();
           }
         });
@@ -767,6 +813,7 @@ export default function Admin() {
         cancelText: 'Отмена',
         variant: 'danger',
         onConfirm: async () => {
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
           try {
             await usersApi.delete(deletingUserId, deletionReason);
             await refreshUsers();
@@ -953,29 +1000,53 @@ export default function Admin() {
             <form onSubmit={saveMediaStorageSettings} className="admin-form-stack">
               <label className="admin-label-col">
                 <span className="admin-label-text">
-                  Лимит одного файла (в байтах; `0` = выключить загрузку, `-1` = без ограничений)
+                  Лимит одного файла
                 </span>
-                <input
-                  type="number"
-                  min={-1}
-                  step={1}
-                  value={uploadLimitInput}
-                  onChange={(e) => setUploadLimitInput(e.target.value)}
-                  placeholder="52428800"
-                />
+                <select
+                  className="admin-settings-select"
+                  value={uploadLimitMode}
+                  onChange={(e) => setUploadLimitMode(e.target.value as 'unlimited' | 'disabled' | 'custom')}
+                >
+                  <option value="unlimited">Без ограничений</option>
+                  <option value="disabled">Отправка отключена</option>
+                  <option value="custom">Установить лимит</option>
+                </select>
+                {uploadLimitMode === 'custom' && (
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={uploadLimitInput}
+                    onChange={(e) => setUploadLimitInput(e.target.value)}
+                    placeholder="52428800"
+                    style={{ marginTop: '0.5rem' }}
+                  />
+                )}
               </label>
 
               <label className="admin-label-col">
                 <span className="admin-label-text">
-                  Лимит хранилища (в байтах; `0` = без ограничений)
+                  Лимит хранилища (в байтах)
                 </span>
+                <div className="admin-label-row admin-toggle-row">
+                  <label className="admin-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={storageLimitUnlimited}
+                      onChange={(e) => setStorageLimitUnlimited(e.target.checked)}
+                    />
+                    <span className="admin-toggle-slider"></span>
+                  </label>
+                  <span className="admin-label-text">Без ограничений</span>
+                </div>
                 <input
                   type="number"
-                  min={0}
+                  min={1}
                   step={1}
                   value={storageLimitInput}
                   onChange={(e) => setStorageLimitInput(e.target.value)}
-                  placeholder="0"
+                  placeholder="Установите Лимит..."
+                  disabled={storageLimitUnlimited}
                 />
               </label>
 
@@ -1038,25 +1109,15 @@ export default function Admin() {
               <div className="admin-storage-footnote">
                 <div>
                   Использовано: {formatBytes(mediaStorageSettings.totalBytes)} ({mediaStorageSettings.filesCount} файлов)
-                  {(() => {
-                    const parsedLimit = Number(storageLimitInput);
-                    if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
-                      return <> из {formatBytes(parsedLimit)}</>;
-                    }
-                    return null;
-                  })()}
+                  {!storageLimitUnlimited && storageLimitInput && Number(storageLimitInput) > 0 && (
+                    <> из {formatBytes(Number(storageLimitInput))}</>
+                  )}
                 </div>
-                {(() => {
-                  const parsedLimit = Number(storageLimitInput);
-                  if (Number.isFinite(parsedLimit) && parsedLimit > 0 && mediaStorageSettings.totalBytes > 0) {
-                    return (
-                      <div className="admin-storage-percent">
-                        Хранилище заполнено примерно на {((mediaStorageSettings.totalBytes / parsedLimit) * 100).toFixed(2)}%
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
+                {!storageLimitUnlimited && storageLimitInput && Number(storageLimitInput) > 0 && mediaStorageSettings.totalBytes > 0 && (
+                  <div className="admin-storage-percent">
+                    Хранилище заполнено примерно на {((mediaStorageSettings.totalBytes / Number(storageLimitInput)) * 100).toFixed(2)}%
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1070,103 +1131,61 @@ export default function Admin() {
               </span>
               Комнаты
             </h3>
-            <form onSubmit={createRoom} className="admin-room-form">
-              <input
-                value={newRoomName}
-                onChange={(e) => setNewRoomName(e.target.value.slice(0, 32))}
-                placeholder="Название комнаты (макс. 32 символа)"
-                className="admin-room-name-input"
-                maxLength={32}
-              />
-              <button type="submit" className="admin-btn-sm">
-                <span className="icon-inline" aria-hidden>
-                  <IconPlus />
-                </span>{' '}
-                Создать
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => { setNewRoomNameInput(''); setShowCreateRoomModal(true); }}
+              className="admin-btn-create-room"
+              title="Создать комнату"
+            >
+              <span className="icon-inline" aria-hidden>
+                <IconPlus />
+              </span>{' '}
+              Создать комнату
+            </button>
             {rooms.length === 0 ? (
               <p className="admin-empty-hint">Нет комнат</p>
             ) : (
               <div className="admin-list-col">
                 {rooms.map((r) => (
                   <div key={r.id} className="admin-row-card">
-                    {renamingRoomId === r.id ? (
-                      <>
-                        <input
-                          type="text"
-                          value={renamingInputValue}
-                          onChange={(e) => setRenamingInputValue(e.target.value.slice(0, 32))}
-                          placeholder="Новое название комнаты"
-                          maxLength={32}
-                          autoFocus
-                          className="admin-room-rename-input"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              renameRoom(r.id, renamingInputValue);
-                            } else if (e.key === 'Escape') {
-                              setRenamingRoomId(null);
-                              setRenamingInputValue('');
-                            }
-                          }}
-                        />
+                    <span className="admin-room-title">{r.name}</span>
+                    <div className="admin-room-actions">
+                      {r.name === 'main' ? (
                         <button
                           type="button"
-                          onClick={() => renameRoom(r.id, renamingInputValue)}
-                          className="admin-btn-room admin-btn-room--accent"
+                          onClick={() => clearRoomMessages(r.id)}
+                          className="admin-btn-room admin-btn-room--warn"
+                          title="Очистить сообщения"
                         >
-                          Сохранить
+                          <span className="icon-inline" aria-hidden>
+                            <IconSparkles />
+                          </span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRenamingRoomId(null);
-                            setRenamingInputValue('');
-                          }}
-                          className="admin-btn-room admin-btn-room--danger"
-                        >
-                          Отмена
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="admin-room-title">{r.name}</span>
-                        {r.name === 'main' ? (
+                      ) : (
+                        <>
                           <button
                             type="button"
-                            onClick={() => clearRoomMessages(r.id)}
-                            className="admin-btn-room admin-btn-room--warn"
+                            onClick={() => { setRenamingRoomId(r.id); setRenamingInputValue(r.name); }}
+                            className="admin-btn-room admin-btn-room--accent"
+                            title="Переименовать"
                           >
                             <span className="icon-inline" aria-hidden>
-                              <IconSparkles />
-                            </span>{' '}
-                            Очистить
+                              <IconPencil />
+                            </span>
                           </button>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRenamingRoomId(r.id);
-                                setRenamingInputValue(r.name);
-                              }}
-                              className="admin-btn-room admin-btn-room--accent"
-                            >
-                              <span className="icon-inline" aria-hidden>
-                                <IconPencil />
-                              </span>{' '}
-                              Переименовать
-                            </button>
-                            <button type="button" className="danger admin-btn-sm" onClick={() => deleteRoom(r.id)}>
-                              <span className="icon-inline" aria-hidden>
-                                <IconTrash />
-                              </span>{' '}
-                              Удалить
-                            </button>
-                          </>
-                        )}
-                      </>
-                    )}
+                          <button
+                            type="button"
+                            className="admin-btn-room admin-btn-room--danger danger"
+                            onClick={() => deleteRoom(r.id)}
+                            title="Удалить"
+                          >
+                            <span className="icon-inline" aria-hidden>
+                              <IconTrash />
+                            </span>
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1291,7 +1310,10 @@ export default function Admin() {
                             confirmText: 'Удалить',
                             cancelText: 'Отмена',
                             variant: 'danger',
-                            onConfirm: () => deleteVerificationCode(code.id)
+                            onConfirm: () => {
+                              setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+                              deleteVerificationCode(code.id);
+                            }
                           });
                         }}
                       >
@@ -1417,6 +1439,77 @@ export default function Admin() {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
       />
+
+      {/* Create Room Modal */}
+      {showCreateRoomModal && (
+        <div className="admin-modal-overlay" onClick={() => setShowCreateRoomModal(false)}>
+          <div className="admin-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="admin-modal-title">Создать комнату</h3>
+            <div className="admin-modal-field">
+              <label className="form-label">Название комнаты:</label>
+              <input
+                type="text"
+                value={newRoomNameInput}
+                onChange={(e) => setNewRoomNameInput(e.target.value.slice(0, 32))}
+                placeholder="Например: General"
+                maxLength={32}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    createRoom();
+                  } else if (e.key === 'Escape') {
+                    setShowCreateRoomModal(false);
+                  }
+                }}
+              />
+            </div>
+            <div className="admin-modal-actions">
+              <button type="button" className="secondary" onClick={() => setShowCreateRoomModal(false)}>
+                Отмена
+              </button>
+              <button type="button" onClick={() => createRoom()}>
+                Создать комнату
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Room Modal */}
+      {renamingRoomId !== null && (
+        <div className="admin-modal-overlay" onClick={() => { setRenamingRoomId(null); setRenamingInputValue(''); }}>
+          <div className="admin-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="admin-modal-title">Переименовать комнату</h3>
+            <div className="admin-modal-field">
+              <label className="form-label">Новое название:</label>
+              <input
+                type="text"
+                value={renamingInputValue}
+                onChange={(e) => setRenamingInputValue(e.target.value.slice(0, 32))}
+                placeholder="Новое название комнаты"
+                maxLength={32}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    renameRoom(renamingRoomId, renamingInputValue);
+                  } else if (e.key === 'Escape') {
+                    setRenamingRoomId(null);
+                    setRenamingInputValue('');
+                  }
+                }}
+              />
+            </div>
+            <div className="admin-modal-actions">
+              <button type="button" className="secondary" onClick={() => { setRenamingRoomId(null); setRenamingInputValue(''); }}>
+                Отмена
+              </button>
+              <button type="button" onClick={() => renameRoom(renamingRoomId, renamingInputValue)}>
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

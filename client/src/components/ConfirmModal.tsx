@@ -30,18 +30,20 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }, [isOpen]);
 
   const handleClose = () => {
+    if (isClosing) return;
     setIsClosing(true);
+    onCancel();
     setTimeout(() => {
       setIsClosing(false);
-      onCancel();
     }, 200);
   };
 
   const handleConfirm = () => {
+    if (isClosing) return;
     setIsClosing(true);
+    onConfirm();
     setTimeout(() => {
       setIsClosing(false);
-      onConfirm();
     }, 200);
   };
 

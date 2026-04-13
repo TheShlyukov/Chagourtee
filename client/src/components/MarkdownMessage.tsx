@@ -5,7 +5,6 @@ import remarkMath from 'remark-math';
 import rehypeSanitize from 'rehype-sanitize';
 import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { MediaFile } from '../api';
 import AudioPlayer from './AudioPlayer';
 import VideoPlayer from './VideoPlayer';
@@ -126,7 +125,7 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
                   <span className="code-language">{lang}</span>
                 </div>
                 <div className="syntax-highlighter-inner">
-                  <SyntaxHighlighter style={oneDark as any} language={lang} PreTag="div" {...props}>
+                  <SyntaxHighlighter style={{}} language={lang} PreTag="div" {...props}>
                     {codeString}
                   </SyntaxHighlighter>
                 </div>

@@ -2619,7 +2619,7 @@ export default function Chat() {
                         id="file-upload"
                         type="file"
                         multiple
-                        {...{ webkitdirectory: true }}
+                        {...{ webkitdirectory: "true" }}
                         onChange={handleFileSelect}
                         className="visually-hidden-input"
                       />
@@ -2648,7 +2648,7 @@ export default function Chat() {
                   id="edit-file-upload"
                   type="file"
                   multiple
-                  {...{ webkitdirectory: true }}
+                  {...{ webkitdirectory: "true" }}
                   disabled={!isUploadEnabled || isStorageFull}
                   onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {

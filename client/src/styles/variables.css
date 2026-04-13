@@ -1,0 +1,53 @@
+/* Dark theme (default). Resolved theme set by inline script in index.html + Settings. */
+html {
+  color-scheme: dark;
+  --accent-rgb: 255, 123, 0;
+  --bg: #141416;
+  --bg-elevated: #1e1e22;
+  --bg-hover: #2a2a30;
+  --border: #3d3d44;
+  --text: #f2f2f7;
+  --text-muted: #9898a6;
+  --accent: #ff7b00;
+  --accent-hover: #ff9326;
+  --accent-light: rgba(255, 123, 0, 0.12);
+  --text-on-accent: #ffffff;
+  --danger: #ff4757;
+  --danger-hover: #ff6b7a;
+  --success: #2ed573;
+  --gradient-primary: linear-gradient(135deg, #ff7b00 0%, #ffaa33 100%);
+  --gradient-bg: linear-gradient(165deg, #141416 0%, #0c0c0e 55%, #101012 100%);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --radius-default: 8px;
+  --radius-medium: 10px;
+  --radius-large: 14px;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --layout-transition: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  --warning: #feca57;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --accent-rgb: 217, 119, 6;
+  --bg: #f0f0f5;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8e8ef;
+  --border: #d8d8e0;
+  --text: #1a1a20;
+  --text-muted: #5c5c6b;
+  --accent: #e67300;
+  --accent-hover: #cc6600;
+  --accent-light: rgba(230, 115, 0, 0.12);
+  --text-on-accent: #ffffff;
+  --danger: #e02d3c;
+  --danger-hover: #c42430;
+  --success: #1fa855;
+  --gradient-primary: linear-gradient(135deg, #e67300 0%, #f5a623 100%);
+  --gradient-bg: linear-gradient(165deg, #f0f0f5 0%, #e4e4ec 100%);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.12);
+  --warning: #e6b325;
+}

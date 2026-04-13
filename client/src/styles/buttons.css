@@ -1,0 +1,62 @@
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-default);
+  padding: 0.625rem 1.25rem;
+  background: var(--gradient-primary);
+  color: var(--text-on-accent);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+@media (hover: none) {
+  button:hover {
+    transform: none;
+  }
+}
+button:hover::before {
+  opacity: 1;
+}
+button:active {
+  transform: translateY(0);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+button.secondary {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+button.secondary::before {
+  display: none;
+}
+button.secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+button.danger {
+  background: var(--danger);
+}
+button.danger::before {
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+}

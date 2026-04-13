@@ -1,0 +1,136 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes scroll-left-right {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(var(--shift));
+  }
+}
+
+@keyframes mention-flash {
+  0%, 100% {
+    background-color: var(--bg-elevated);
+    border-left-color: var(--accent);
+  }
+  25% {
+    background-color: rgba(255, 123, 0, 0.3);
+    border-left-color: var(--accent);
+  }
+  50% {
+    background-color: rgba(255, 123, 0, 0.5);
+    border-left-color: var(--accent);
+  }
+  75% {
+    background-color: rgba(255, 123, 0, 0.3);
+    border-left-color: var(--accent);
+  }
+}
+
+@keyframes room-mention-flash {
+  0%, 100% {
+    background-color: var(--bg-elevated);
+  }
+  25% {
+    background-color: rgba(255, 123, 0, 0.3);
+  }
+  50% {
+    background-color: rgba(255, 123, 0, 0.5);
+  }
+  75% {
+    background-color: rgba(255, 123, 0, 0.3);
+  }
+}
+
+@keyframes mention-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 4px rgba(255, 123, 0, 0.5);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(255, 123, 0, 0.8);
+  }
+}
+
+@keyframes toastSlideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastSlideDown {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: scale(0.95) translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideOut {
+  from {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.95) translateY(-20px);
+    opacity: 0;
+  }
+}

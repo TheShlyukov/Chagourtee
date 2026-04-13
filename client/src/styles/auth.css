@@ -1,0 +1,225 @@
+/* Auth page styles */
+.auth-page-outer {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--gradient-bg);
+}
+
+.auth-page-inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.auth-page-inner--narrow {
+  max-width: 400px;
+}
+
+.auth-card {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-large);
+  padding: 2.5rem 2rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+.auth-logo-wrap {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.auth-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-large);
+  box-shadow: var(--shadow-md);
+}
+
+.auth-logo--large {
+  width: 120px;
+  height: 120px;
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+}
+
+.auth-title {
+  text-align: center;
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.auth-title--display {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.auth-register-title {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.auth-tagline {
+  text-align: center;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.label-required-mark {
+  color: var(--danger);
+  font-weight: 400;
+}
+
+.register-codeword-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+.auth-subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.auth-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.auth-footer a {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.error-margin-0 {
+  margin: 0;
+}
+
+.btn-block-mt {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+}
+
+/* Verification waiting */
+.verify-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.card-verify-danger {
+  border: 2px solid var(--danger);
+  border-radius: var(--radius-medium);
+}
+
+.verify-title-danger {
+  margin-bottom: 0.75rem;
+  font-size: 1.2rem;
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.verify-code-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.verify-code-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.verify-code-btn {
+  white-space: nowrap;
+}
+
+.verify-section {
+  margin-top: 1.5rem;
+}
+
+.verify-section h4 {
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.error-margin-top {
+  margin: 0.5rem 0 0;
+}
+
+.success-margin-top {
+  color: var(--success);
+  margin: 0.5rem 0 0;
+}
+
+/* Account rejected / deleted */
+.account-status-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--gradient-bg);
+  font-family: var(--font-sans);
+}
+
+.account-status-card {
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+  padding: 2rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-large);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+}
+
+.account-status-icon-wrap {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+}
+
+.account-status-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.account-status-text {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.account-status-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}

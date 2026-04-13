@@ -1,0 +1,317 @@
+/* Settings / Admin: split как у чата */
+.settings-page,
+.admin-page {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.settings-sidebar,
+.admin-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  transition: width var(--layout-transition), transform var(--layout-transition),
+    opacity var(--layout-transition), background-color var(--layout-transition),
+    border-color var(--layout-transition);
+}
+
+.settings-sidebar-header,
+.admin-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.settings-nav-list,
+.admin-nav-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+.settings-nav-item,
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.settings-nav-item:hover,
+.admin-nav-item:hover {
+  background: var(--bg-hover);
+}
+
+.settings-nav-item.active,
+.admin-nav-item.active {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 600;
+  border-left-color: var(--accent);
+}
+
+.settings-main,
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg);
+}
+
+/* Заголовок секции только на десктопе (≥877px); на мобилке/планшете — layout-header-top */
+.settings-main-heading-desktop,
+.admin-main-heading-desktop {
+  display: none;
+}
+
+.settings-panel-inner {
+  padding: 1.5rem;
+  max-width: 640px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+.settings-panel-inner .card {
+  margin-bottom: 1.5rem;
+}
+
+.settings-panel-inner .card:last-child {
+  margin-bottom: 0;
+}
+
+.settings-lead {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.settings-appearance-intro {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.settings-media-placeholder-fields {
+  margin-top: 1rem;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.theme-toggle-btn .icon-inline {
+  vertical-align: middle;
+}
+
+@media (min-width: 877px) {
+  .settings-main-heading-desktop,
+  .admin-main-heading-desktop {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+}
+
+.theme-toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.theme-toggle-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-radius: var(--radius-default);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.theme-toggle-btn::before {
+  display: none;
+}
+
+.theme-toggle-btn:hover {
+  transform: none;
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.theme-toggle-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.av-placeholder {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Как .chat-page: ряд «список | контент», не column (иначе aside 260px даёт «полоску» и пустоту справа). */
+.page-content--settings,
+.page-content--admin {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 0;
+}
+
+@media (max-width: 678px) {
+  /* Как .chat-page .chat-rooms: список категорий на всю ширину */
+  .settings-page .settings-sidebar,
+  .admin-page .admin-sidebar {
+    width: 100%;
+  }
+
+  .settings-page.has-panel .settings-sidebar,
+  .admin-page.has-panel .admin-sidebar {
+    display: none;
+  }
+
+  .settings-page:not(.has-panel) .settings-main,
+  .admin-page:not(.has-panel) .admin-main {
+    display: none;
+  }
+
+  .settings-sidebar-header,
+  .admin-sidebar-header {
+    display: none;
+  }
+}
+
+@media (min-width: 679px) {
+  .settings-page .settings-sidebar,
+  .admin-page .admin-sidebar {
+    display: flex;
+  }
+
+  .settings-page .settings-main,
+  .admin-page .admin-main {
+    display: flex;
+  }
+}
+
+/* Settings section title */
+.settings-section-title {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Upload Info List */
+.upload-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.upload-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-medium);
+}
+
+.upload-info-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.upload-info-value {
+  font-size: 1rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.upload-info-value.upload-enabled {
+  color: var(--success);
+}
+
+.upload-info-value.upload-disabled {
+  color: var(--danger);
+}
+
+.upload-info-value.upload-unlimited {
+  color: var(--success);
+  font-weight: 700;
+}
+
+/* Storage usage bar */
+.upload-storage-bar {
+  margin-top: 0.5rem;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.upload-storage-bar-fill {
+  height: 100%;
+  background: var(--success);
+  border-radius: 3px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.upload-storage-bar-fill[style*="width: 8"] {
+  background: var(--warning);
+}
+
+.upload-storage-bar-fill[style*="width: 9"],
+.upload-storage-bar-fill[style*="width: 100"] {
+  background: var(--danger);
+}

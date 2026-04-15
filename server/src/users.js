@@ -1,6 +1,16 @@
 module.exports = function (fastify) {
   const db = fastify.db;
 
+  fastify.get('/api/users/online', {
+    preHandler: [fastify.requireAuth],
+  }, async () => {
+    const onlineUserIds = [];
+    for (const [uid, clients] of fastify.ws.clientsByUser.entries()) {
+      if (clients.size > 0) onlineUserIds.push(uid);
+    }
+    return { onlineUserIds };
+  });
+
   fastify.get('/api/users', {
     preHandler: [fastify.requireAuth], // Изменено: теперь любой аутентифицированный пользователь может получить список пользователей
   }, async () => {

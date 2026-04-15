@@ -371,7 +371,7 @@ export default function Settings() {
       message="Вы уверены, что хотите выйти?"
       confirmText="Выйти"
       cancelText="Отмена"
-      variant="warning"
+      variant="danger"
       onConfirm={handleLogout}
       onCancel={() => setConfirmLogoutOpen(false)}
     />

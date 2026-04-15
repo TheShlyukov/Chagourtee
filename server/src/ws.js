@@ -77,9 +77,19 @@ module.exports = function (fastify) {
     const user = fastify.getUser(userId);
     // Defer the presence broadcast to ensure connection is fully established
     setTimeout(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        broadcast({ type: 'presence', userId, login: user?.login, online: true });
+      if (ws.readyState !== WebSocket.OPEN) return;
+      broadcast({ type: 'presence', userId, login: user?.login, online: true });
+      // Send current online users snapshot to the newly connected client
+      const onlineUsers = [];
+      for (const [uid, clients] of clientsByUser.entries()) {
+        if (clients.size > 0) {
+          const u = fastify.getUser(uid);
+          onlineUsers.push({ userId: uid, login: u?.login });
+        }
       }
+      try {
+        ws.send(JSON.stringify({ type: 'presence_snapshot', users: onlineUsers }));
+      } catch (e) { /* ignore */ }
     }, 100); // Small delay to ensure connection is ready
 
     ws.on('message', (raw) => {

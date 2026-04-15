@@ -323,8 +323,12 @@ export default function Chat() {
   useEffect(() => {
     const loadAllUsers = async () => {
       try {
-        const response = await users.list();
-        setAllUsers(response.users);
+        const [usersResponse, onlineResponse] = await Promise.all([
+          users.list(),
+          users.online(),
+        ]);
+        setAllUsers(usersResponse.users);
+        setOnlineUserIds(new Set(onlineResponse.onlineUserIds));
       } catch (error) {
         console.error('Failed to load users:', error);
       }
@@ -625,6 +629,12 @@ export default function Chat() {
             });
           }
           break;
+
+        case 'presence_snapshot':
+          if (Array.isArray(data.users)) {
+            setOnlineUserIds(new Set(data.users.map((u: { userId: number }) => u.userId)));
+          }
+          break;
           
         case 'user_role_changed':
         case 'user_updated':
@@ -787,6 +797,7 @@ export default function Chat() {
           setMessages(prev => 
             prev.filter(msg => msg.id !== data.messageId)
           );
+          setEditingMessage(prev => prev?.id === data.messageId ? null : prev);
           
           // After deleting a message, update the scroll button visibility
           setTimeout(updateScrollButtonVisibility, 0);
@@ -799,6 +810,7 @@ export default function Chat() {
             setMessages(prev => 
               prev.filter(msg => !data.messageIds.includes(msg.id))
             );
+            setEditingMessage(prev => prev && data.messageIds.includes(prev.id) ? null : prev);
             
             // After deleting messages, update the scroll button visibility
             setTimeout(updateScrollButtonVisibility, 0);

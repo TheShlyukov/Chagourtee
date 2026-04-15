@@ -428,6 +428,8 @@ export const verification = {
 export const users = {
   list: () =>
     api<{ users: (User & { created_at: string })[] }>('/api/users'),
+  online: () =>
+    api<{ onlineUserIds: number[] }>('/api/users/online'),
   changeRole: (userId: number, role: 'owner' | 'moderator' | 'member') =>
     api<{ ok: boolean }>(`/api/users/${userId}/role`, {
       method: 'PATCH',

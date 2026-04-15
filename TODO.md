@@ -65,12 +65,11 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [x] Design error message with helpful guidance
 - [x] Link to relevant help resources from the 403 page
 
-#### 2.4. New Page Implementation (2) — Offline Page
-- [x] Create Offline Page component ([Offline.tsx](./client/src/pages/Offline.tsx))
-- [x] While server is turning off, send websocket message to the client (implemented in [websocket.ts](./client/src/websocket.ts))
-- [x] Add routing for server offline scenarios in [App.tsx](./client/src/App.tsx)
-- [x] Design offline message with guidance on reconnection
-- [x] Link to relevant help resources from the offline page
+#### 2.4. New Page Implementation (2) — Offline / Connection Error Page
+- [x] Offline/connection error page implemented as [ConnectionError.tsx](./client/src/pages/ConnectionError.tsx)
+- [x] Add routing for server offline scenarios in [App.tsx](./client/src/App.tsx) (`/connection-error`)
+- [x] Design offline message with guidance on reconnection — реализовано в `ConnectionError.tsx` (причины: `network_unreachable`, `server_unavailable`, `timeout`, `websocket_error`; кнопки «Попробовать снова» и «На страницу входа»; список рекомендаций)
+- [x] Link to relevant help resources from the offline page — ссылки на документацию и баг-трекер через `helpLinks`
 
 ### 3. Code Quality Improvements
 
@@ -90,9 +89,9 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [x] Organize CSS in a modular, maintainable way
 
 #### 3.3. Identified Styling Issues
-- [ ] Fix inline style usage in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx) where `style={oneDark as any}` is used for syntax highlighting
-- [ ] Replace inline styles with CSS classes for the SyntaxHighlighter component
-- [ ] Create consistent styling for code blocks throughout the application
+- [x] Fix inline style usage in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx) where `style={oneDark as any}` is used for syntax highlighting — `oneDark` удалён, SyntaxHighlighter использует `style={{}}`
+- [x] Replace inline styles with CSS classes for the SyntaxHighlighter component
+- [ ] Create consistent styling for code blocks throughout the application — SyntaxHighlighter рендерится без темы, стили кодовых блоков требуют доработки
 
 #### 3.4. CSS Code Quality Issues
 - [x] Fix duplicate `@keyframes pulse` definition in [index.css](./client/src/index.css)
@@ -100,7 +99,7 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - [x] Remove duplicate `height: 100dvh` declarations in [index.css](./client/src/index.css)
 - [x] Consolidate duplicated responsive rules for `.layout-nav-bottom` and `.layout-header-top` (merged `@media (max-width: 678px)` and `@media (min-width: 678px) and (max-width: 876px)` into single `@media (max-width: 876px)`)
 - [x] Remove dead server-info hiding rules (targeted non-existent classes; Layout.tsx handles this via JS)
-- [ ] Consider splitting monolithic [index.css](./client/src/index.css) into modular CSS files (4020 lines)
+- [x] Consider splitting monolithic [index.css](./client/src/index.css) into modular CSS files — CSS разбит на модули в [client/src/styles/](./client/src/styles/) (chat.css, admin.css, auth.css и др.), index.css импортирует их
 
 #### 3.5. Duplicate version.ts in Server Source
 - [x] Remove unused [version.ts](./server/src/version.ts) (duplicate of [version.js](./server/src/version.js))
@@ -188,7 +187,7 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 
 ### High Priority (Required for v0.4.0-alpha)
 1. Enhanced File Handling (especially media size validation and error handling) — ✅ **Done**
-2. Code Quality Improvements (replace alerts and centralize styles) — **In Progress** (alerts remain, CSS issues found)
+2. Code Quality Improvements (replace alerts and centralize styles) — ✅ **Done** (alerts и confirm заменены на Toast/ConfirmModal, CSS разбит на модули)
 3. Basic HTTPS/WSS implementation
 4. Message Replies functionality
 5. Room access levels (at least basic implementation)
@@ -219,12 +218,13 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - ~~Overly broad `!important` in server-info hiding rules~~ → removed dead CSS (targeted non-existent classes)
 
 ### Remaining
-- **Monolithic CSS file** — 4020 lines in a single file, consider modularization as project grows
+- **SyntaxHighlighter theme** — `oneDark` удалён, но тема не заменена CSS-классами; код рендерится без подсветки цветов
+- ~~**Offline page**~~ — реализовано как `ConnectionError.tsx` — ✅ Done
 
 ### Other Observations
-- **Inline styles**: Only 1 instance in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx) for SyntaxHighlighter (acceptable — library-specific)
-- **alert() calls**: 7 instances all in [Chat.tsx](./client/src/pages/Chat.tsx) — should use existing Toast system
-- **confirm() calls**: 8 instances across [Chat.tsx](./client/src/pages/Chat.tsx) (2), [Admin.tsx](./client/src/pages/Admin.tsx) (5), and [Settings.tsx](./client/src/pages/Settings.tsx) (1) — should use custom modal dialogs
+- **Inline styles**: В [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx) `oneDark` удалён — `style={{}}` передаётся в SyntaxHighlighter
+- **alert() calls**: Все заменены на Toast — ✅ Done
+- **confirm() calls**: Все заменены на ConfirmModal — ✅ Done
 - **No CSS linting**: No Stylelint or autoprefixer configured
 - **Emoji usage**: No Unicode emojis found in client code (all icons use SVG components from [Icons.tsx](./client/src/components/icons/Icons.tsx)) — ✅ Done
 

@@ -6,6 +6,8 @@ interface MessageInputProps {
   handleSend: (e: React.FormEvent) => void;
   saveEditedMessage?: () => void;
   isEditing?: boolean;
+  editingText?: string;
+  setEditingText?: (text: string) => void;
 }
 
 export const useMessageInputBehavior = ({ 
@@ -13,7 +15,9 @@ export const useMessageInputBehavior = ({
   setSendText, 
   handleSend,
   saveEditedMessage,
-  isEditing
+  isEditing,
+  editingText,
+  setEditingText,
 }: MessageInputProps) => {
   // Function to detect if the user is on a mobile device
   const isMobileDevice = useCallback((): boolean => {
@@ -27,14 +31,14 @@ export const useMessageInputBehavior = ({
     const isMobile = isMobileDevice();
     
     if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.altKey || isMobile)) {
-      // Insert line break when Shift/Ctrl/Alt + Enter is pressed
-      // Also insert line break on Enter alone in mobile browsers
       e.preventDefault();
       const target = e.target as HTMLTextAreaElement;
       const start = target.selectionStart;
       const end = target.selectionEnd;
-      const newValue = sendText.substring(0, start) + '\n' + sendText.substring(end);
-      setSendText(newValue);
+      const currentText = isEditing && editingText !== undefined ? editingText : sendText;
+      const setter = isEditing && setEditingText ? setEditingText : setSendText;
+      const newValue = currentText.substring(0, start) + '\n' + currentText.substring(end);
+      setter(newValue);
       
       // Restore cursor position after newline insertion
       setTimeout(() => {

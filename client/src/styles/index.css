@@ -4,6 +4,7 @@
 @import './forms.css';
 @import './animations.css';
 @import './layout.css';
+@import './utils.css';
 @import './chat.css';
 @import './chat-users.css';
 @import './markdown.css';
@@ -12,4 +13,3 @@
 @import './settings.css';
 @import './auth.css';
 @import './components.css';
-@import './utils.css';

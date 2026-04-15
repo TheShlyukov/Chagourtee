@@ -91,7 +91,7 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 #### 3.3. Identified Styling Issues
 - [x] Fix inline style usage in [MarkdownMessage.tsx](./client/src/components/MarkdownMessage.tsx) where `style={oneDark as any}` is used for syntax highlighting — `oneDark` удалён, SyntaxHighlighter использует `style={{}}`
 - [x] Replace inline styles with CSS classes for the SyntaxHighlighter component
-- [ ] Create consistent styling for code blocks throughout the application — SyntaxHighlighter рендерится без темы, стили кодовых блоков требуют доработки
+- [x] Create consistent styling for code blocks throughout the application — oneDark-палитра реализована через CSS-классы `.token.*` в [markdown.css](./client/src/styles/markdown.css), SyntaxHighlighter использует `style={{}}` без встроенной темы
 
 #### 3.4. CSS Code Quality Issues
 - [x] Fix duplicate `@keyframes pulse` definition in [index.css](./client/src/index.css)
@@ -218,7 +218,7 @@ The v0.4.0-alpha release will focus on enhancing file handling capabilities, red
 - ~~Overly broad `!important` in server-info hiding rules~~ → removed dead CSS (targeted non-existent classes)
 
 ### Remaining
-- **SyntaxHighlighter theme** — `oneDark` удалён, но тема не заменена CSS-классами; код рендерится без подсветки цветов
+- ~~**SyntaxHighlighter theme**~~ — oneDark-палитра реализована через CSS-классы `.token.*` в [markdown.css](./client/src/styles/markdown.css) — ✅ Done
 - ~~**Offline page**~~ — реализовано как `ConnectionError.tsx` — ✅ Done
 
 ### Other Observations

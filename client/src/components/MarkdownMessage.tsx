@@ -9,6 +9,7 @@ import type { MediaFile } from '../api';
 import AudioPlayer from './AudioPlayer';
 import VideoPlayer from './VideoPlayer';
 import MediaViewer from './MediaViewer';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
   addMessageHandler,
   removeMessageHandler,
@@ -120,12 +121,12 @@ const MarkdownMessage: React.FC<MarkdownMessageProps> = React.memo(
             const codeString = String(children).replace(/\n$/, '');
             
             return (
-              <div className="code-block-wrapper code-block-wrapper-scroll">
+              <div className="code-block-wrapper">
                 <div className="code-header">
                   <span className="code-language">{lang}</span>
                 </div>
                 <div className="syntax-highlighter-inner">
-                  <SyntaxHighlighter style={{}} language={lang} PreTag="div" {...props}>
+                <SyntaxHighlighter style={oneDark as any} language={lang} PreTag="div" {...props}>
                     {codeString}
                   </SyntaxHighlighter>
                 </div>

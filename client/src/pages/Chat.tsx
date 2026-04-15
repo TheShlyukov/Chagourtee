@@ -1801,7 +1801,9 @@ export default function Chat() {
     setSendText,
     handleSend,
     saveEditedMessage,
-    isEditing: !!editingMessage
+    isEditing: !!editingMessage,
+    editingText: editingMessage?.body,
+    setEditingText: editingMessage ? (text) => setEditingMessage({ ...editingMessage, body: text }) : undefined,
   });
 
   // Update the height of the editing textarea when the editing message changes

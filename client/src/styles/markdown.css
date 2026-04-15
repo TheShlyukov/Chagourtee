@@ -128,8 +128,8 @@
 
 .code-header {
   background: var(--bg);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
   color: var(--accent);
   font-weight: 600;
   letter-spacing: 0.5px;

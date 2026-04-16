@@ -144,24 +144,22 @@ export default function Settings() {
   return (
     <>
     <div className={pageClass}>
-      <aside className="settings-sidebar">
-        <div className="settings-sidebar-header">Настройки</div>
-        <div className="settings-nav-list" role="tablist">
+      <div className="nav-sidebar">
+        <div className="nav-sidebar-header">Настройки</div>
+        <div className="nav-sidebar-list">
           {SECTIONS.map((s) => (
             <button
               key={s.id}
               type="button"
-              role="tab"
-              aria-selected={activeSection === s.id}
-              className={`settings-nav-item${activeSection === s.id ? ' active' : ''}`}
+              className={`nav-sidebar-item${activeSection === s.id ? ' active' : ''}`}
               onClick={() => selectSection(s.id)}
             >
-              {s.label}
+              <span className="nav-sidebar-item-name">{s.label}</span>
             </button>
           ))}
         </div>
         {isTabletInRange && <TabletBottomNav showAdmin={!!showAdminTab} />}
-      </aside>
+      </div>
 
       <div className="settings-main">
         <div className="settings-main-heading-desktop">{sectionTitle}</div>

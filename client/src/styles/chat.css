@@ -78,18 +78,25 @@
 }
 
 .chat-room-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.875rem 1.25rem;
   color: var(--text);
   text-decoration: none;
   transition: all 0.2s ease;
   border-left: 3px solid transparent;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
   border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+button.chat-room-link::before {
+  display: none;
+}
+
+button.chat-room-link:hover {
+  transform: none;
 }
 
 .chat-room-link-name {

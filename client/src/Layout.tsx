@@ -98,28 +98,28 @@ function LayoutInner() {
     <div className="layout-root">
       <nav className="layout-header-top">
         {showSettingsBack && (
-          <button
-            type="button"
+          <a
+            href="#"
             className="chat-back touch-target chat-back-link"
-            onClick={() => settingsChrome?.onBack()}
+            onClick={(e) => { e.preventDefault(); settingsChrome?.onBack(); }}
             aria-label="Назад к разделам настроек"
           >
             <span className="icon-inline" aria-hidden>
               <IconArrowLeft />
             </span>
-          </button>
+          </a>
         )}
         {showAdminBack && (
-          <button
-            type="button"
+          <a
+            href="#"
             className="chat-back touch-target chat-back-link"
-            onClick={() => adminChrome?.onBack()}
+            onClick={(e) => { e.preventDefault(); adminChrome?.onBack(); }}
             aria-label="Назад к разделам админки"
           >
             <span className="icon-inline" aria-hidden>
               <IconArrowLeft />
             </span>
-          </button>
+          </a>
         )}
         {showBackButton && !showSettingsBack && !showAdminBack && (
           <Link to="/chat" className="chat-back touch-target chat-back-link" aria-label="Назад к списку комнат">

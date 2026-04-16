@@ -873,24 +873,22 @@ export default function Admin() {
 
   return (
     <div className={`admin-page page-content page-content--admin admin-page-tablet${mobilePanelOpen ? ' has-panel' : ''}`}>
-      <aside className="admin-sidebar">
-        <div className="admin-sidebar-header">Админка</div>
-        <div className="admin-nav-list" role="tablist">
+      <div className="nav-sidebar">
+        <div className="nav-sidebar-header">Админка</div>
+        <div className="nav-sidebar-list">
           {adminSections.map((s) => (
             <button
               key={s.id}
               type="button"
-              role="tab"
-              aria-selected={activeSection === s.id}
-              className={`admin-nav-item${activeSection === s.id ? ' active' : ''}`}
+              className={`nav-sidebar-item${activeSection === s.id ? ' active' : ''}`}
               onClick={() => selectAdminSection(s.id)}
             >
-              {s.label}
+              <span className="nav-sidebar-item-name">{s.label}</span>
             </button>
           ))}
         </div>
         {isTabletInRange && <TabletBottomNav showAdmin />}
-      </aside>
+      </div>
 
       <div className="admin-main">
         <div className="admin-main-heading-desktop">{adminSectionTitle}</div>

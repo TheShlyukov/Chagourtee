@@ -9,8 +9,7 @@
   width: 100%;
 }
 
-.settings-sidebar,
-.admin-sidebar {
+.nav-sidebar {
   width: 260px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
@@ -26,8 +25,7 @@
     border-color var(--layout-transition);
 }
 
-.settings-sidebar-header,
-.admin-sidebar-header {
+.nav-sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -36,49 +34,62 @@
   background: var(--bg);
   font-weight: 700;
   font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
-.settings-nav-list,
-.admin-nav-list {
+@media (max-width: 678px) {
+  .nav-sidebar-header {
+    display: none;
+  }
+}
+
+.nav-sidebar-list {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0;
 }
 
-.settings-nav-item,
-.admin-nav-item {
+.nav-sidebar-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
   padding: 0.875rem 1.25rem;
   width: 100%;
-  border: none;
   background: transparent;
-  color: var(--text);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  border: none;
   border-left: 3px solid transparent;
   border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
   position: relative;
+  box-shadow: none;
+  transition: background 0.2s ease, border-left-color 0.2s ease;
 }
 
-.settings-nav-item:hover,
-.admin-nav-item:hover {
+.nav-sidebar-item::before {
+  display: none;
+}
+
+.nav-sidebar-item:hover {
   background: var(--bg-hover);
+  border-left-color: var(--accent);
+  transform: none;
 }
 
-.settings-nav-item.active,
-.admin-nav-item.active {
+.nav-sidebar-item.active {
   background: var(--accent-light);
   color: var(--accent);
   font-weight: 600;
   border-left-color: var(--accent);
+}
+
+.nav-sidebar-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-main,
@@ -207,14 +218,13 @@
 }
 
 @media (max-width: 678px) {
-  /* Как .chat-page .chat-rooms: список категорий на всю ширину */
-  .settings-page .settings-sidebar,
-  .admin-page .admin-sidebar {
+  .settings-page .nav-sidebar,
+  .admin-page .nav-sidebar {
     width: 100%;
   }
 
-  .settings-page.has-panel .settings-sidebar,
-  .admin-page.has-panel .admin-sidebar {
+  .settings-page.has-panel .nav-sidebar,
+  .admin-page.has-panel .nav-sidebar {
     display: none;
   }
 
@@ -223,15 +233,19 @@
     display: none;
   }
 
-  .settings-sidebar-header,
-  .admin-sidebar-header {
-    display: none;
+  /* Не показывать active-выделение когда панель не открыта */
+  .settings-page:not(.has-panel) .nav-sidebar-item.active,
+  .admin-page:not(.has-panel) .nav-sidebar-item.active {
+    background: transparent;
+    color: var(--text);
+    font-weight: normal;
+    border-left-color: transparent;
   }
 }
 
 @media (min-width: 679px) {
-  .settings-page .settings-sidebar,
-  .admin-page .admin-sidebar {
+  .settings-page .nav-sidebar,
+  .admin-page .nav-sidebar {
     display: flex;
   }
 
